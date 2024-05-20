@@ -1,0 +1,61 @@
+DIGITAL SCAVANGING - AGAIN!
+-----------------------------
+
+in a nutshell this is like .git/objects except
+it looks like a total disaster
+
+ALSO SAVIOR OF THE DAY:
+https://www.richinfante.com/2017/3/16/reverse-engineering-the-ios-backup
+
+here are the files we care about:
+
+Manifest.db
+-------------
+
+is a sql database
+
+    sqlite> .open Manifest.db
+    sqlite> PRAGMA table_info(Files);
+    cid|name        |type   |notnull|dflt_value|pk
+      0|fileID      |TEXT   |      0|          |1
+      1|domain      |TEXT   |      0|          |0
+      2|relativePath|TEXT   |      0|          |0
+      3|flags       |INTEGER|      0|          |0
+      4|file        |BLOB   |      0|          |0
+    sqlite> PRAGMA table_info(Properties);
+    cid|name        |type   |notnull|dflt_value|pk
+      0|key         |TEXT   |      0|          |1
+      1|value       |BLOB   |      0|          |0
+
+turns out the files are SHA1's obtained by joining
+the domain and the relativePath with a hyphen "-"
+
+flags are weird, but for us there are only 1 2 4
+(file directory and ???)
+
+Manifest.plist
+----------------
+
+is weird and has a bunch of Applications metadata
+(key-value of reverse domain stuff -> path and version???)
+
+at least i know my phone had EnableWifiConnections false lmfao,
+thanks! that was very important for me to know. :)
+
+also it's that annoying apple plist shit again, obliterate it
+with python's plistlib
+
+    import plistlib
+    plistlib.load(open('Manifest.plist', 'rb'))
+
+Status.plist
+--------------
+
+not important, just tells me that the backup is finished
+
+---
+
+and that's iiiiiiitttt - oh and also there is backup_config.ini
+or something, it's almost the same information, boring as hell
+
+we can get started >:)
