@@ -13,6 +13,13 @@ import os
 import subprocess
 import sqlite3
 
+# test for directory (filemode matches 040xxx)
+from stat import S_ISDIR
+# test for regular files (filemode matches 100xxx)
+from stat import S_ISREG
+# test for symlinks (filemode matches 120xxx)
+from stat import S_ISLNK
+
 # stumbled upon this by pure chance :o
 # (digital forensics... so cool...)
 # https://github.com/ydkhatri/nska_deserialize
@@ -34,7 +41,7 @@ def main():
     db = sqlite3.connect(os.path.join(args.src, 'Manifest.db'))
     db.row_factory = sqlite3.Row
     try:
-        omap = extract_paths(db, args.src, args.dst)
+        extract_paths(db, args.src, args.dst)
         create_objects(db, args.src, args.dst)
     finally:
         db.close()
@@ -57,15 +64,21 @@ def extract_paths(db, src, dst):
     # Martijn thank you QvQ
     # https://stackoverflow.com/a/29582757
     for (fid, domain, path, flags, info) in cur:
-        import time
-        time.sleep(1)
         dinfo = nd.deserialize_plist_from_string(info)
         dirmain = os.path.join(dst, domain)
+        assert S_ISREG(dinfo['Mode']) == (flags == 1)
+        assert S_ISDIR(dinfo['Mode']) == (flags == 2)
+        assert S_ISLNK(dinfo['Mode']) == (flags == 4)
         # if path is empty we'd get a trailing slash
         # so... get rid of it if it's the case
         fullpath = os.path.join(dirmain, path).rstrip(os.sep)
         os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         # ... so that i can do this >:)
+        #if fullpath == 'HomeDomain/Library/Preferences/com.apple.Messages.plist':
+        print(domain, ':', path, '=', dinfo)
+        if os.path.exists(fullpath):
+            print('???')
+            continue
         with (
           open (
             fullpath + '.log', 'w',
@@ -75,13 +88,23 @@ def extract_paths(db, src, dst):
         ) as fp:
             w = rdks.plist.writer(fp)
             for k, v in sorted(dinfo.items(), key=_info_priority):
-                if isinstance(v, (str, int)):
+                # write filemode in octal (e.g. 100644, 040755)
+                if k == 'Mode':
+                    w.write(k, format(v, '06o'))
+                elif isinstance(v, (str, int)):
                     w.write(k, str(v))
+                # md5 digest?
+                elif k == 'Digest':
+                    w.write(k, v.hex())
                 else:
                     w.write(k, repr(v))
+        if flags == 1:
+            origpath = os.path.join(src, fid[:2], fid)
+            os.link(origpath, fullpath)
 
 _INFO_PRI_LIST = [
     'RelativePath',             # we should know this, still eh
+    'Target',                   # symlinks have this
     'Size', 'InodeNumber',      # this is in gnu stat order btw
     'Mode', 'Flags',            # os mode like 755/600?
     'UserID', 'GroupID',        # UID and GID
