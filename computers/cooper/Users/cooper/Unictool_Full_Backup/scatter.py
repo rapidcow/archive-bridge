@@ -57,28 +57,41 @@ FROM Files
 """
 
 def extract_paths(db, src, dst):
-    import pprint
     cur = db.cursor()
     cur.execute(BASE_QUERY)
+    omap = {}
     # (cursors are iterators!)
     # Martijn thank you QvQ
     # https://stackoverflow.com/a/29582757
     for (fid, domain, path, flags, info) in cur:
         dinfo = nd.deserialize_plist_from_string(info)
         dirmain = os.path.join(dst, domain)
+        # basic sanity check
+        assert dinfo['RelativePath'] == path
+        # we can do a switch-case / if-else to avoid multiple
+        # comparison but these seem to be stronger mathematical
+        # assertion of their equivalence really...
+        #
+        # plus, 3 isn't a lot, unless you are talking about years ;)
         assert S_ISREG(dinfo['Mode']) == (flags == 1)
         assert S_ISDIR(dinfo['Mode']) == (flags == 2)
         assert S_ISLNK(dinfo['Mode']) == (flags == 4)
         # if path is empty we'd get a trailing slash
         # so... get rid of it if it's the case
         fullpath = os.path.join(dirmain, path).rstrip(os.sep)
-        os.makedirs(os.path.dirname(fullpath), exist_ok=True)
-        # ... so that i can do this >:)
+        if flags == 2:
+            # create the directory anyways even though git will not
+            # track it, this is so that we can get warned about
+            # duplicate names
+            os.makedirs(fullpath, exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(fullpath), exist_ok=True)
         #if fullpath == 'HomeDomain/Library/Preferences/com.apple.Messages.plist':
         print(domain, ':', path, '=', dinfo)
         if os.path.exists(fullpath):
             print('???')
             continue
+        # ... so that i can do this >:)
         with (
           open (
             fullpath + '.log', 'w',
@@ -101,6 +114,7 @@ def extract_paths(db, src, dst):
         if flags == 1:
             origpath = os.path.join(src, fid[:2], fid)
             os.link(origpath, fullpath)
+            omap[fid] = os.path.join(domain, path)
 
 _INFO_PRI_LIST = [
     'RelativePath',             # we should know this, still eh
@@ -126,10 +140,33 @@ def _info_priority(pair):
 # once we have created our Object MAP, it is trivial to
 # add them to git-annex
 def create_objects(db, src, dst):
-    query = BASE_QUERY + ' WHERE fileId = :file_id'
+    annex_cmd = ['git-annex', 'add', '--batch', '--force-large']
+    leftover = [] # do we do this???
     cur = db.cursor()
-    def get(file_id):
-        return cur.execute(query, {'file_id': file_id})
+    cur.execute(BASE_QUERY)
+    with subprocess.Popen(annex_cmd, cwd=dst) as proc:
+        for (fid, domain, path, flags, info) in cur:
+            file = os.path.join(domain, path)
+            size = os.path.getsize(os.path.join(dst, file))
+            if size < 32: # ... for zero reason
+                leftover.append(fid, file)
+                continue
+            proc.stdin.write(file)
+            proc.stdin.write('\n')
+            # if successful...
+            bucket = os.path.join('objects', frag)
+            ladder = os.path.relpath(file, bucket)
+            os.symlink(ladder, os.path.join(dst, bucket, ment))
+    index_cmd = ['git', 'update-index', '--stdin']
+    with subprocess.Popen(index_cmd, cwd=src) as proc:
+        for fid, file in leftover:
+            frag, ment = fid[:2], fid[2:]
+            proc.stdin.write(file)
+            proc.stdin.write('\n')
+            # if successful...
+            bucket = os.path.join('objects', frag)
+            ladder = os.path.relpath(file, bucket)
+            os.symlink(ladder, os.path.join(dst, bucket, ment))
 
 if __name__ == '__main__':
     main()
