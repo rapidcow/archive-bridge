@@ -42,7 +42,7 @@ def main():
     db.row_factory = sqlite3.Row
     try:
         extract_paths(db, args.src, args.dst)
-        create_objects(db, args.src, args.dst)
+        # create_objects(db, args.src, args.dst)
     finally:
         db.close()
 
@@ -59,7 +59,6 @@ FROM Files
 def extract_paths(db, src, dst):
     cur = db.cursor()
     cur.execute(BASE_QUERY)
-    omap = {}
     # (cursors are iterators!)
     # Martijn thank you QvQ
     # https://stackoverflow.com/a/29582757
@@ -86,12 +85,25 @@ def extract_paths(db, src, dst):
             os.makedirs(fullpath, exist_ok=True)
         else:
             os.makedirs(os.path.dirname(fullpath), exist_ok=True)
-        #if fullpath == 'HomeDomain/Library/Preferences/com.apple.Messages.plist':
-        print(domain, ':', path, '=', dinfo)
-        if os.path.exists(fullpath):
-            print('???')
-            continue
         # ... so that i can do this >:)
+        if flags == 1:
+            origpath = os.path.join(src, fid[:2], fid)
+            try:
+                os.link(origpath, fullpath)
+            except FileExistsError:
+                import sys
+                print('ERROR', (domain, path))
+                print('previously:')
+                with open(fullpath + '.log') as fp:
+                    print(''.join('  ' + ln for ln in fp.read()
+                                  .splitlines(keepends=True)), end='')
+                print('now:')
+                print('  FileId', fid)
+                for k, v in dinfo.items():
+                    sys.stdout.write('  ')
+                    rdks.plist.writer(sys.stdout).write(k, oct(v) if k ==
+                    'Mode' else v.hex() if isinstance(v, bytes) else
+                    str(v) if isinstance(v, (str, int)) else repr(v))
         with (
           open (
             fullpath + '.log', 'w',
@@ -100,6 +112,7 @@ def extract_paths(db, src, dst):
           )
         ) as fp:
             w = rdks.plist.writer(fp)
+            w.write('FileId', fid)
             for k, v in sorted(dinfo.items(), key=_info_priority):
                 # write filemode in octal (e.g. 100644, 040755)
                 if k == 'Mode':
@@ -111,10 +124,6 @@ def extract_paths(db, src, dst):
                     w.write(k, v.hex())
                 else:
                     w.write(k, repr(v))
-        if flags == 1:
-            origpath = os.path.join(src, fid[:2], fid)
-            os.link(origpath, fullpath)
-            omap[fid] = os.path.join(domain, path)
 
 _INFO_PRI_LIST = [
     'RelativePath',             # we should know this, still eh
