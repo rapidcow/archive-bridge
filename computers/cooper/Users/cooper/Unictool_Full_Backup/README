@@ -31,7 +31,7 @@ turns out the files are SHA1's obtained by joining
 the domain and the relativePath with a hyphen "-"
 
 flags are weird, but for us there are only 1 2 4
-(file directory and ???)
+(file directory and symlink)
 
 Manifest.plist
 ----------------
