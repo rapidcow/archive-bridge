@@ -77,7 +77,8 @@ def extract_paths(db, src, dst):
         assert S_ISLNK(dinfo['Mode']) == (flags == 4)
         # if path is empty we'd get a trailing slash
         # so... get rid of it if it's the case
-        fullpath = os.path.join(dirmain, path).rstrip(os.sep)
+        name = get_filename(domain, path)
+        fullpath = os.path.join(dirmain, name).rstrip(os.sep)
         if flags == 2:
             # create the directory anyways even though git will not
             # track it, this is so that we can get warned about
@@ -88,31 +89,17 @@ def extract_paths(db, src, dst):
         # ... so that i can do this >:)
         if flags == 1:
             origpath = os.path.join(src, fid[:2], fid)
-            try:
-                os.link(origpath, fullpath)
-            except FileExistsError:
-                import sys
-                print('ERROR', (domain, path))
-                print('previously:')
-                with open(fullpath + '.log') as fp:
-                    print(''.join('  ' + ln for ln in fp.read()
-                                  .splitlines(keepends=True)), end='')
-                print('now:')
-                print('  FileId', fid)
-                for k, v in dinfo.items():
-                    sys.stdout.write('  ')
-                    rdks.plist.writer(sys.stdout).write(k, oct(v) if k ==
-                    'Mode' else v.hex() if isinstance(v, bytes) else
-                    str(v) if isinstance(v, (str, int)) else repr(v))
+            os.link(origpath, fullpath)
         with (
           open (
-            fullpath + '.log', 'w',
+            fullpath + '.log', 'x',
             encoding='utf-8',
             newline='',
           )
         ) as fp:
             w = rdks.plist.writer(fp)
             w.write('FileId', fid)
+            w.write('Domain', domain)
             for k, v in sorted(dinfo.items(), key=_info_priority):
                 # write filemode in octal (e.g. 100644, 040755)
                 if k == 'Mode':
@@ -124,6 +111,35 @@ def extract_paths(db, src, dst):
                     w.write(k, v.hex())
                 else:
                     w.write(k, repr(v))
+
+# we make a few exceptions for these bastards.... (see guilty)
+def get_filename(domain, path):
+    # never ask me how i name my variables
+    many_fish = [
+        ('HomeDomain',
+            'Library/Preferences/com.apple.', 'SpringBoard', '.plist'),
+        ('HomeDomain',
+            'Library/Preferences/com.apple.', 'Messages', '.plist'),
+        ('HomeDomain',
+            'Library/Preferences/com.apple.', 'Preferences', '.plist'),
+        ('HomeDomain',
+            'Library/Preferences/com.apple.', 'MobileSMS', '.plist'),
+        ('AppDomain-com.tencent.xin',
+            'Documents/f1f2ed2df335e8d7f8747d83cee50ac2/', 'Kara', ''),
+        ('AppDomain-com.tencent.xin', 'Documents/', 'Log', ''),
+        ('AppDomain-com.tencent.qqmail', 'Documents/', 'Log', ''),
+    ]
+    for duolingo, prefix, TunaFish, suffix in many_fish:
+        if domain != duolingo:
+            continue
+        if path == prefix + TunaFish + suffix:
+            return TunaFish + '_camel' + suffix
+        tuna_fish = TunaFish.lower()
+        # it technically is not snake case but
+        # using animal names is funny... X)
+        if path == prefix + tuna_fish + suffix:
+            return TunaFish + '_snake' + suffix
+    return path
 
 _INFO_PRI_LIST = [
     'RelativePath',             # we should know this, still eh
