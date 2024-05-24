@@ -258,7 +258,7 @@ def create_objects(db, src, dst):
         key = omap[file_virt.lower()]
         frag, ment = fid[:2], fid[2:]
         bucket = os.path.join(dst, 'objects', frag)
-        pointy = os.path.join('objects', frag, ment)
+        pointy = os.path.join(dst, 'objects', frag, ment)
         obpath = os.path.join(ANNEX_OBJECTS_DIR,
                               hashdirmixed(key.encode('ascii')),
                               key, key)
