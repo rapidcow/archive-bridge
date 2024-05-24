@@ -9,9 +9,11 @@ neah... you probably already knew that)
 """
 
 import argparse
+import json
 import os
-import subprocess
 import sqlite3
+import subprocess
+import sys
 
 # test for directory (filemode matches 040xxx)
 from stat import S_ISDIR
@@ -27,6 +29,9 @@ import nska_deserialize as nd
 # ... and after all i think i like my plist better >v>
 import rdks.plist
 
+# stolen code O_O
+from dirhash import hashdirmixed
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('src', help='backup root dir (i.e. '
@@ -39,10 +44,9 @@ def main():
     # close upon __exit__, so we have to resort to our
     # old try/finally idiom...
     db = sqlite3.connect(os.path.join(args.src, 'Manifest.db'))
-    db.row_factory = sqlite3.Row
     try:
-        extract_paths(db, args.src, args.dst)
-        # create_objects(db, args.src, args.dst)
+        #extract_paths(db, args.src, args.dst)
+        create_objects(db, args.src, args.dst)
     finally:
         db.close()
 
@@ -63,8 +67,9 @@ def extract_paths(db, src, dst):
     # Martijn thank you QvQ
     # https://stackoverflow.com/a/29582757
     for (fid, domain, path, flags, info) in cur:
+        print('extracting', (fid, domain, path))
         dinfo = nd.deserialize_plist_from_string(info)
-        dirmain = os.path.join(dst, domain)
+        dirmain = os.path.join(dst, 'domains', domain)
         # basic sanity check
         assert dinfo['RelativePath'] == path
         # we can do a switch-case / if-else to avoid multiple
@@ -98,6 +103,8 @@ def extract_paths(db, src, dst):
           )
         ) as fp:
             w = rdks.plist.writer(fp)
+            filename = os.path.basename(path) or domain
+            w.write('index for', filename + '?*/?@'[flags])
             w.write('FileId', fid)
             w.write('Domain', domain)
             for k, v in sorted(dinfo.items(), key=_info_priority):
@@ -161,37 +168,101 @@ def _info_priority(pair):
         # effectively infinity
         ranking = 0x3f3f3f3f
     return (ranking, k, v)
+DIRMIXED_CHARS = '0123456789zqjxkmvwgpfZQJXKMVWGPF'
 
 # once we have created our Object MAP, it is trivial to
 # add them to git-annex
 def create_objects(db, src, dst):
-    annex_cmd = ['git-annex', 'add', '--batch', '--force-large']
-    leftover = [] # do we do this???
-    cur = db.cursor()
-    cur.execute(BASE_QUERY)
-    with subprocess.Popen(annex_cmd, cwd=dst) as proc:
+    ANNEX_OBJECTS_DIR = os.path.abspath(os.path.join(
+      dst,
+      subprocess.run(
+        ['git', 'rev-parse', '--git-path', 'annex/objects'],
+        capture_output=True, text=True
+      ).stdout.rstrip()
+    ))
+
+    # common options
+    BATCH = ['--batch', '--json', '--json-error-messages']
+    annex_cmd = ['git-annex', 'add', '--force-large', *BATCH]
+    # examinekey isn't so talkative >:c i'll hash it myself...
+    #exam_cmd = ['git-annex', 'examinekey', '--force-large', *BATCH]
+
+    omap = {}
+
+    def talk_to(proc, line):
+        proc.stdin.write(line)
+        proc.stdin.write('\n')
+        proc.stdin.flush()
+        resp = proc.stdout.readline()
+        if not resp:
+            if proc.returncode:
+                # the traceback should be enough to tell
+                # which process it was, so we're just gonna...
+                raise ValueError(f'process terminated with '
+                                 f'code {proc.returncode}')
+            raise ValueError('stdout closed when i am '
+                             'expecting a line')
+        if resp == '\n':
+            return {}
+        return json.loads(resp)
+
+    with subprocess.Popen(
+        annex_cmd, cwd=dst, text=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    ) as annex_proc:
+        cur = db.cursor()
+        cur.execute(BASE_QUERY + ' WHERE flags = 1')
         for (fid, domain, path, flags, info) in cur:
-            file = os.path.join(domain, path)
-            size = os.path.getsize(os.path.join(dst, file))
-            if size < 32: # ... for zero reason
-                leftover.append(fid, file)
+            print('annexing', (fid, domain, path))
+            name = get_filename(domain, path)
+            dirmain = os.path.join('domains', domain)
+            # we shouldn't have to rstrip(os.sep) since
+            # we know these are all files
+            file_virt = os.path.join(domain, name)
+            file_real = os.path.join(dirmain, name)
+            response = talk_to(annex_proc, file_real)
+            if not response:
+                print('ERROR: git-annex rejected', file_real,
+                      file=sys.stderr)
                 continue
-            proc.stdin.write(file)
-            proc.stdin.write('\n')
-            # if successful...
-            bucket = os.path.join('objects', frag)
-            ladder = os.path.relpath(file, bucket)
-            os.symlink(ladder, os.path.join(dst, bucket, ment))
-    index_cmd = ['git', 'update-index', '--stdin']
-    with subprocess.Popen(index_cmd, cwd=src) as proc:
-        for fid, file in leftover:
-            frag, ment = fid[:2], fid[2:]
-            proc.stdin.write(file)
-            proc.stdin.write('\n')
-            # if successful...
-            bucket = os.path.join('objects', frag)
-            ladder = os.path.relpath(file, bucket)
-            os.symlink(ladder, os.path.join(dst, bucket, ment))
+            if not response['success']:
+                print('ERROR: git-annex failed for',
+                      file_real + ':',
+                      '\n'.join(response['error_messages']),
+                      file=sys.stderr)
+                continue
+             key = response['key']
+            file_norm = file_virt.lower()
+            assert file_norm not in omap
+            omap[file_norm] = key
+
+    cur = db.cursor()
+    cur.execute(BASE_QUERY + 'WHERE flags = 1')
+    for (fid, domain, path, flags, info) in cur:
+        # recreate the same file path
+        print('linking', (fid, domain, path))
+        name = get_filename(domain, path)
+        dirmain = os.path.join(dst, 'domains', domain)
+        file_virt = os.path.join(domain, name)
+        file_real = os.path.join(dirmain, name)
+        key = omap[file_virt.lower()]
+        frag, ment = fid[:2], fid[2:]
+        bucket = os.path.join(dst, 'objects', frag)
+        pointy = os.path.join('objects', frag, ment)
+        obpath = os.path.join(ANNEX_OBJECTS_DIR,
+                              hashdirmixed(key.encode('ascii')),
+                              key, key)
+        os.makedirs(bucket, exist_ok=True)
+        os.symlink(
+            os.path.relpath(obpath, bucket),
+            os.path.join(dst, pointy))
+        break
+        #os.unlink(file_real)
+        #os.symlink(
+        #    os.path.relpath(pointy,
+        #    os.path.dirname(file_real)),
+        #    file_real)
 
 if __name__ == '__main__':
     main()
