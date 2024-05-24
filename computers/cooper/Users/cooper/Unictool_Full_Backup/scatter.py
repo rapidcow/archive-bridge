@@ -177,7 +177,7 @@ def create_objects(db, src, dst):
       dst,
       subprocess.run(
         ['git', 'rev-parse', '--git-path', 'annex/objects'],
-        capture_output=True, text=True
+        cwd=dst, capture_output=True, text=True,
       ).stdout.rstrip()
     ))
 
