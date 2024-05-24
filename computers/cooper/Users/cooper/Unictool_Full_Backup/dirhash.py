@@ -16,6 +16,9 @@ do i not understand a single bit of Haskell (pun intended)
 import hashlib
 import struct
 
+# we are in Python 3, so xrange is just range
+xrange = range
+
 def hashdirlower(key):
     hasher = hashlib.md5()
     hasher.update(key)
@@ -27,6 +30,6 @@ def hashdirmixed(key):
     hasher.update(key)
     digest = hasher.digest()
     first_word = struct.unpack('<I', digest[:4])[0]
-    nums = [first_word >> (6 * x) & 31 for x in range(4)]
+    nums = [first_word >> (6 * x) & 31 for x in xrange(4)]
     letters = ["0123456789zqjxkmvwgpfZQJXKMVWGPF"[i] for i in nums]
     return "%s%s/%s%s/" % (letters[1], letters[0], letters[3], letters[2])

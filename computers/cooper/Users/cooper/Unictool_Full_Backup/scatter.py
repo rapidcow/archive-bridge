@@ -45,7 +45,7 @@ def main():
     # old try/finally idiom...
     db = sqlite3.connect(os.path.join(args.src, 'Manifest.db'))
     try:
-        #extract_paths(db, args.src, args.dst)
+        extract_paths(db, args.src, args.dst)
         create_objects(db, args.src, args.dst)
     finally:
         db.close()
@@ -184,6 +184,9 @@ def create_objects(db, src, dst):
     # common options
     BATCH = ['--batch', '--json', '--json-error-messages']
     annex_cmd = ['git-annex', 'add', '--force-large', *BATCH]
+    # XXX: GIT-ANNEX-ADD BATCH MODE DOESNT WORK W/O
+    # --NO-CHECK-GITIGNORE????
+    annex_cmd.append('--no-check-gitignore')
     # examinekey isn't so talkative >:c i'll hash it myself...
     #exam_cmd = ['git-annex', 'examinekey', '--force-large', *BATCH]
 
@@ -223,16 +226,22 @@ def create_objects(db, src, dst):
             file_real = os.path.join(dirmain, name)
             response = talk_to(annex_proc, file_real)
             if not response:
-                print('ERROR: git-annex rejected', file_real,
-                      file=sys.stderr)
+                #print('ERROR: git-annex rejected', file_real,
+                #      file=sys.stderr)
+                raise RuntimeError(f'git-annex rejected {file_real}')
                 continue
             if not response['success']:
-                print('ERROR: git-annex failed for',
-                      file_real + ':',
-                      '\n'.join(response['error_messages']),
-                      file=sys.stderr)
+                #print('ERROR: git-annex failed for',
+                #      file_real + ':',
+                #      '\n'.join(response['error_messages']),
+                #      file=sys.stderr)
+                raise RuntimeError(
+                    'ERROR: git-annex failed for {}: {}'.format(
+                        file_real, '\n'.join(response['error_messages'])
+                    ),
+                )
                 continue
-             key = response['key']
+            key = response['key']
             file_norm = file_virt.lower()
             assert file_norm not in omap
             omap[file_norm] = key
@@ -257,12 +266,11 @@ def create_objects(db, src, dst):
         os.symlink(
             os.path.relpath(obpath, bucket),
             os.path.join(dst, pointy))
-        break
-        #os.unlink(file_real)
-        #os.symlink(
-        #    os.path.relpath(pointy,
-        #    os.path.dirname(file_real)),
-        #    file_real)
+        os.unlink(file_real)
+        os.symlink(
+            os.path.relpath(pointy,
+            os.path.dirname(file_real)),
+            file_real)
 
 if __name__ == '__main__':
     main()
