@@ -265,7 +265,7 @@ def create_objects(db, src, dst):
         os.makedirs(bucket, exist_ok=True)
         os.symlink(
             os.path.relpath(obpath, bucket),
-            os.path.join(dst, pointy))
+            pointy)
         os.unlink(file_real)
         os.symlink(
             os.path.relpath(pointy,
