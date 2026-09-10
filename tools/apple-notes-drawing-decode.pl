@@ -26,21 +26,27 @@
 
 use strict;
 use warnings;
-use DBD::SQLite::Constants qw(:file_open);
-use DBI;
 use Getopt::Long;
 use File::Basename;  # qw(basename)
 use File::Spec;
 use FindBin;
-use URI::file;
 
+# https://metacpan.org/dist/DBD-SQLite
+use DBD::SQLite::Constants qw(:file_open);
+# https://metacpan.org/dist/DBI
+use DBI;
 # As of Sept 2026, there is a new "Protobuf" distribution
 # that comes straight from (an employee? of) Google:
 # https://metacpan.org/release/CJCOLLIER/Protobuf-0.12/view/lib/Protobuf.pm
 # https://github.com/GoogleCloudPlatform/google-auth-library-perl/tree/main/Protobuf
 #
 # I have never heard of it, so give it some time...
+#
+# This one is older and ++'d by a few CPAN authors.
+# https://metacpan.org/dist/Google-ProtocolBuffers
 use Google::ProtocolBuffers;
+# https://metacpan.org/dist/URI
+use URI::file;
 
 my %INK_CATEGORY_GUESS = (
 	2 => "pen",     # unconfirmed
