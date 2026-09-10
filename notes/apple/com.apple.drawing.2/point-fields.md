@@ -1,11 +1,11 @@
 # Per-point auxiliary channels & stroke construction
 
-Continuation of `envelope.md` in this directory, going two functions deeper
-to try to pin down the "extra" bytes after each point's X/Y float32 pair in
+Continuation of `envelope.md` in this directory, going deeper to try to pin
+down the "extra" bytes after each point's X/Y float32 pair in
 `Geometry.points` (see `tools/apple-notes-drawing.proto`, which currently
-just exposes them as an opaque hex tail per point). Covers two functions,
-examined in order, because the second was needed to settle an open question
-left by the first.
+just exposes them as an opaque hex tail per point). Covers three functions,
+examined in order, because each was needed to settle an open question left
+by the previous one.
 
 ## Function 1: `readPointFromLegacyArchive:deltaFrom:`
 
@@ -236,6 +236,177 @@ error/cleanup path on mismatch - the shape of a mutation/consistency guard,
 but its exact purpose (e.g. a thread-safety check vs. something
 archive-specific) is not confirmed and not pursued further here.
 
+## Function 3: `initWithArchive:loadNonInkingStrokes:error:`
+
+`-[PKDrawingConcrete(PKDrawingPersistenceAdditions)
+initWithArchive:loadNonInkingStrokes:error:]`, same binary, same toolchain.
+Exact symbol confirmed via `nm -U PencilKit | grep initWithArchive`, which
+also turned up several unrelated same-shaped selectors on other classes
+(`-[PKInk initWithArchive:]`, `-[PKStroke(Delta) initWithArchive:error:]`,
+`-[PKVectorTimestamp(...) initWithArchive:]`,
+`-[PKVectorMultiTimestamp(...) initWithArchive:andCapacity:]`,
+`-[_PKStrokeConcrete(...) initWithArchive:error:]`, two more
+`-[_PKStrokeConcrete(...) initWithArchive:sortedUUIDs:inks:...]` variants,
+`-[PKVersionedDocument initWithArchive:]`) - the target was picked by
+matching the full selector including `loadNonInkingStrokes:error:`, and its
+address is distinct from all of these.
+
+This function was the best candidate for the boundary between "protobuf's
+view of the data" and the flat C archive-struct tree Functions 1-2 above
+consume, per `envelope.md`'s account of
+`_initWithUnzippedData:loadNonInkingStrokes:error:` handing a parsed
+`drawing::Drawing` C++ object to a follow-on call. That link is **not**
+confirmed by this pass, and there is now positive structural evidence
+against it (see (b) below).
+
+### (a) Does it call `-[PKDrawingConcrete(PKDrawingPersistenceAdditions) initWithLegacyArchive:]`? No.
+
+Checked exhaustively, not just spot-checked: every `objc_msgSend`-dispatched
+call in this function's disassembly was enumerated (ipsw resolves each
+target by demangled selector name), and `initWithLegacyArchive:` does not
+appear anywhere - nor does the substring "legacy" appear anywhere at all in
+the disassembly. So the hypothesized link from this function into the
+legacy chain examined in `envelope.md`/Functions 1-2 above is **refuted**,
+at least as a direct call.
+
+Instead, this function drives a *different*, non-"Legacy" selector in the
+same category: `-[_PKStrokeConcrete(PKStrokePersistenceAdditions)
+initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:]` (confirmed
+exact symbol, also seen in the `nm` output above), called once per element
+of a pointer array read from this function's own `archive` argument at
+fixed offset `+0x48`/`+0x50` (begin/end pointer pair, element count
+computed as `(end-begin)/8`, i.e. 8-byte pointer-sized entries - the same
+begin/end-pointer-pair idiom as Function 2's `+0x40`/`+0x48` array, but at a
+different offset and calling a different selector). Each per-stroke archive
+element pointer is passed as the `archive:` argument, together with an
+`NSOrderedSet` of UUIDs built earlier in this same function (see below) as
+`sortedUUIDs:`, an `NSArray` of `PKInk` objects as `inks:`, and an optional
+dictionary as `transientArchiveDictionary:`.
+
+Net effect: `initWithArchive:loadNonInkingStrokes:error:` is the entry point
+of a structurally parallel, non-"Legacy" persistence tree (the
+`initWithArchive:...` family), not a caller of the `initWithLegacyArchive:`
+family at all. The two families share idioms (fixed begin/end pointer-pair
+arrays, `sortedUUIDs`-index-to-`NSUUID` resolution via `getUUIDBytes:`) but,
+at least one level deep, are textually disjoint call graphs.
+
+### (b) Protobuf `drawing::Drawing` access / points stride arithmetic? Not found; this function is at the same abstraction level as the legacy chain, not the protobuf boundary.
+
+This function's `archive` argument is itself already a plain, fixed-offset
+C struct - loads at constant offsets `+0x8`, `+0x10`, `+0x18`/`+0x20`,
+`+0x30`/`+0x38`, `+0x48`/`+0x50`, `+0x60`, `+0x68`/`+0x70`, `+0x80`, `+0x88`
+- with no vtable dispatch, no C++ method calls, and no `getBytes:range:` or
+other `NSData`-shaped byte access anywhere. That is the same "already
+unpacked into a C struct" shape Functions 1-2 above described for the
+legacy chain, not the raw-bytes/vtable-parse shape `envelope.md` described
+for the actual protobuf `drawing::Drawing` object. Every array this
+function walks (the UUID array at `+0x30`/`+0x38`, the "clock" array at
+`+0x68`/`+0x70`, the ink array at `+0x18`/`+0x20`, the stroke array at
+`+0x48`/`+0x50`) is iterated with a **fixed** per-element stride (either 8
+or 16 bytes) computed once from a begin/end pointer pair - never a
+variable, per-element-computed stride. So this function is neither the
+`Geometry.points` stride-unpacking site nor a direct reader of the parsed
+protobuf message; it's a sibling consumer of some other, already-built
+struct tree, one level of abstraction above the raw bytes, same as
+Functions 1-2.
+
+### (c) Array/struct construction seen (does not corroborate the legacy chain's struct layout)
+
+The per-stroke pointer array this function walks lives at `archive`
+offset `+0x48`/`+0x50` (count via `(end-begin)/8`). That is a **different**
+offset from the Drawing-level per-stroke array offset associated with the
+legacy chain per the task background (`+0x8`/`+0x10`). Combined with (a) and
+(b), this is evidence that the `archive` struct this function consumes is a
+structurally distinct type from the one `-[PKDrawingConcrete(
+PKDrawingPersistenceAdditions) initWithLegacyArchive:]` consumes, not a
+shared representation between the two families - i.e. this function's
+construction work does **not** corroborate or explain how the legacy
+chain's archive-struct tree gets built.
+
+Besides the stroke array, this function also builds, from other fixed
+offsets in its own `archive` struct:
+
+- An `NSOrderedSet` of `NSUUID`s ("sortedUUIDs" - passed on to
+  `initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:` as
+  described above) from a `+0x30`/`+0x38` pointer-pair array with a 16-byte
+  per-element stride; each element's first 8 bytes is read as a pointer to
+  a 16-byte UUID buffer handed to `initWithUUIDBytes:`.
+- A `PKVectorTimestamp` object (confirmed class reference,
+  `_OBJC_CLASS_$_PKVectorTimestamp`) built by repeatedly sending
+  `setClock:subclock:forUUID:`, once per element of a `+0x68`/`+0x70`
+  pointer array (8-byte stride); each element supplies two numeric fields
+  (clock/subclock) plus an index resolved against the `sortedUUIDs`
+  ordered set (via `objectAtIndex:`) for the UUID argument - the same
+  index-into-`sortedUUIDs` convention Function 2 described at the
+  per-stroke level, here reused at the whole-drawing level to build a
+  vector-clock-shaped "version" object. This `PKVectorTimestamp` instance
+  is later passed as the `version:` argument to this function's own final
+  constructor call (see below).
+- An `NSArray` of `PKInk` objects (confirmed class reference,
+  `_OBJC_CLASS_$_PKInk`) from an `+0x18`/`+0x20` pointer array (8-byte
+  stride), via `-[PKInk(PKInkPersistenceAdditions) initWithArchive:]` per
+  element - a different, simpler `PKInk` initializer than Function 2's
+  `initWithIdentifier:color:version:variant:`.
+- An optional dictionary ("transientArchiveDictionary") built only if
+  `archive+0x60` is non-null; otherwise passed as `nil`.
+- A drawing-level canvas-bounds value: if `archive+0x8` is null, a fixed
+  global default-bounds constant is used (matching the same
+  default-bounds-constant pattern Function 2 described for stroke-level
+  bounds); if non-null, four `float32`s read from an offset within the
+  object `archive+0x8` points to are widened to `double` and used as the
+  real bounds - i.e. this function *does* show where a real (non-default)
+  bounds value can come from at the drawing level, which was left open at
+  the stroke level in Function 2's notes (still not resolved there).
+- A "boundsVersion"-shaped value: if `archive+0x10` is null, left at its
+  zeroed default; if non-null, a 32-bit field is read directly, and a
+  64-bit field is checked against the sentinel `0x7fffffffffffffff`
+  (`INT64_MAX`) - if equal, an "absent" marker is constructed via a small
+  unnamed helper; otherwise the field is used as another `sortedUUIDs`
+  index, resolved to a real `NSUUID` via `objectAtIndexedSubscript:`-style
+  `objectAtIndex:` plus `getUUIDBytes:` (same idiom as above).
+- The drawing's own identity UUID: read directly via `initWithUUIDBytes:`
+  from `archive+0x60` if non-null, else generated via a bare `UUID`
+  message send to the same unnamed global class reference used for
+  `initWithUUIDBytes:` throughout this function - consistent with, but not
+  confirmed as, `+[NSUUID UUID]` (same unconfirmed-identity caveat as
+  Function 2).
+
+All of the above (drawing UUID, strokes array, `PKVectorTimestamp`
+"version", canvas bounds, boundsVersion, plus an "unknownFields"-shaped
+struct built from `archive+0x80`/`+0x88` - the latter's `+0x88` slot is
+atomically incremented if non-null, matching a C++ `shared_ptr`-style
+refcount bump, and is released via `std::__1::__shared_weak_count::
+__release_shared` on cleanup paths) are handed to this function's own
+receiver via `-[PKDrawingConcrete initWithUUID:strokes:version:
+canvasBounds:boundsVersion:unknownFields:]`, whose result is returned (or,
+if a mutation-guard snapshot taken at function entry no longer matches a
+live global counter at the point of return, an error path is taken instead
+via an unnamed helper - the same guard shape flagged unconfirmed in
+Function 2's provenance section).
+
+### (d) `loadNonInkingStrokes` and `error` gating
+
+`loadNonInkingStrokes` (a `BOOL`, tested via `tbnz`/bit 0) gates a
+per-stroke filter applied only when it is *false*: after constructing each
+stroke via `initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:`,
+if `loadNonInkingStrokes` is false the function fetches the stroke's `ink`
+and sends `+[PKTool(?) _inkIsInkingTool:]` (confirmed class reference,
+`_OBJC_CLASS_$_PKTool`) on it; strokes whose ink is not an "inking tool"
+are silently dropped from the built strokes array (never added, still
+released). If `loadNonInkingStrokes` is true, this filter is skipped
+entirely and every constructed stroke is kept. Separately (unrelated to
+`loadNonInkingStrokes`): if `archive+0x60` was null (no
+transientArchiveDictionary), each constructed stroke is additionally marked
+via `_setIsPastedStroke:YES` - a plausible but unconfirmed reading of
+`archive+0x60` as "context object identifying a normal load, whose absence
+implies loading from a paste/duplicate operation instead."
+
+The `error` out-parameter (`x4` in the ARM64 ObjC calling convention) is
+not read or written anywhere in the main body of this function; it is not
+observably used on either the success path or the mutation-guard failure
+path examined. It may only be populated inside the unnamed error-path
+helper called on guard mismatch, which was not itself disassembled.
+
 ## Not concluded
 
 - Which auxiliary channel (Function 1) is which (force vs. azimuth vs.
@@ -244,12 +415,31 @@ archive-specific) is not confirmed and not pursued further here.
 - The exact presence bits for Function 1's two 16-byte (vector) fields.
 - The raw-byte unpacking of `Geometry.points` into the pointer array
   Function 2 consumes at archive `+0x40`/`+0x48` - still not located. The
-  stride-per-point mystery (12-22 bytes) is therefore still open; Function 2
-  conclusively rules itself out as the place to look, but does not identify
-  the actual place. The next candidate would be whatever function
-  constructs the *archive* argument passed into
-  `initWithLegacyArchive:sortedUUIDs:` in the first place (i.e. its
-  caller), not yet examined.
+  stride-per-point mystery (12-22 bytes) is therefore still open; Functions
+  2 and 3 both conclusively rule themselves out as the place to look
+  (Function 3 turned out to belong to an entirely different, non-"Legacy"
+  persistence tree - see its section above), but neither identifies the
+  actual place. The next candidate would be whatever function constructs
+  the *archive* argument passed into `initWithLegacyArchive:sortedUUIDs:`
+  in the first place (i.e. its caller within the legacy tree specifically -
+  not `initWithArchive:loadNonInkingStrokes:error:`, now ruled out), not yet
+  examined.
+- Whether `-[PKDrawingConcrete(PKDrawingPersistenceAdditions)
+  initWithArchive:loadNonInkingStrokes:error:]` (Function 3) is actually
+  reachable from `_initWithUnzippedData:loadNonInkingStrokes:error:`'s
+  protobuf-parse success path at all, given it turned out to consume a
+  plain fixed-offset C struct (not a C++ protobuf object, no vtable calls)
+  structurally unrelated to the legacy chain's archive-struct offsets. It
+  may belong to a wholly separate on-disk/in-memory format (e.g. an
+  `NSSecureCoding`/`NSKeyedArchiver`-style "archive", unrelated to
+  `com.apple.drawing.2`) rather than being on the `com.apple.drawing.2`
+  read path at all. Not resolved this pass, and per this session's scoping
+  constraint, its own callers/callees were not chased further.
+- What `-[_PKStrokeConcrete(PKStrokePersistenceAdditions)
+  initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:]` (called by
+  Function 3) actually does - not disassembled. Given Function 3's own
+  disjointness from the legacy chain, this is a lower-priority target than
+  finding the legacy chain's actual points-unpacking site.
 - Exact identity of the class behind the two `UUID`-selector sends in
   Function 2 (guessed as `+[NSUUID UUID]`, not confirmed by symbol name).
 - Where the real (non-placeholder) stroke bounds value used for
@@ -270,10 +460,15 @@ from Xcode Command Line Tools). Method, class, and constant identifiers
 referenced above (e.g. `readPointFromLegacyArchive:deltaFrom:`,
 `initWithLegacyArchive:sortedUUIDs:`, `PKCompressStrokePoint`,
 `PKStrokePointDefault`, `_PKStrokeClipPlane`, `_PKInkIdentifierMarker`,
-`PKStrokePath`) are exact, verbatim symbol/constant names from that
-binary's symbol table. The `UITouchProperties` bit values are public Apple
-API, not derived from this disassembly. No disassembly, raw bytes, or
-extracted binary content is reproduced here or committed to this repo.
+`PKStrokePath`, `initWithArchive:loadNonInkingStrokes:error:`,
+`initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:`,
+`_OBJC_CLASS_$_PKVectorTimestamp`, `_OBJC_CLASS_$_PKInk`,
+`_OBJC_CLASS_$_PKTool`, `initWithUUID:strokes:version:canvasBounds:
+boundsVersion:unknownFields:`) are exact, verbatim symbol/constant names
+from that binary's symbol table. The `UITouchProperties` bit values are
+public Apple API, not derived from this disassembly. No disassembly, raw
+bytes, or extracted binary content is reproduced here or committed to this
+repo.
 
 ## Call graph so far
 
@@ -293,6 +488,12 @@ graph TD
   G["+[PKInk identifierForCommandType:wantsObjectErase:]"]
   H["-[PKInk initWithIdentifier:color:version:variant:]"]
   I["-[PKStrokePath initWithPoints:count:immutableCount:inputType:timestamp:UUID:]"]
+  J["-[PKDrawingConcrete(PKDrawingPersistenceAdditions)<br/>initWithArchive:loadNonInkingStrokes:error:]"]
+  K["-[_PKStrokeConcrete(PKStrokePersistenceAdditions)<br/>initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:]"]
+  L["-[PKInk(PKInkPersistenceAdditions) initWithArchive:]"]
+  M["-[PKVectorTimestamp(...) setClock:subclock:forUUID:]"]
+  N["+[PKTool _inkIsInkingTool:]"]
+  O["-[PKDrawingConcrete initWithUUID:strokes:version:<br/>canvasBounds:boundsVersion:unknownFields:]"]
 
   A --> B
   C --> D
@@ -301,6 +502,11 @@ graph TD
   C --> G
   C --> H
   C --> I
+  J --> K
+  J --> L
+  J --> M
+  J --> N
+  J --> O
 ```
 
 Note: `readPointFromLegacyArchive:deltaFrom:` has no confirmed outgoing
@@ -317,3 +523,14 @@ initWithLegacyArchive:]` calling `-[_PKStrokeConcrete(
 PKStrokePersistenceAdditions) initWithLegacyArchive:sortedUUIDs:]` (node C
 above) in a per-stroke loop - not redrawn here to keep the diagram
 readable, see `envelope.md` for that edge.
+
+Node J (`initWithArchive:loadNonInkingStrokes:error:`, Function 3 above) is
+drawn disconnected from the rest of this graph deliberately: no confirmed
+edge from any node in this graph reaches it, and it was confirmed **not**
+to call `initWithLegacyArchive:` (node absent from this graph entirely,
+since it belongs to the legacy tree headed by A/B, not this one) or
+anything else in the A-I subgraph. Whether an edge into J exists at all
+(e.g. from `_initWithUnzippedData:loadNonInkingStrokes:error:`, node B) is
+unconfirmed and was the original motivation for examining it - see "Not
+concluded" above. K, L, M, N, and O were seen only as call targets from J;
+none of them have been disassembled themselves yet.
