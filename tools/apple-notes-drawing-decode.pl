@@ -5,9 +5,12 @@
 #
 # The blob's wire format is described in apple-notes-drawing.proto (in this
 # same directory) - see that file for what's confirmed vs. guessed. This
-# script skips the 8-byte envelope in front of that protobuf message, then
-# unpacks the flat per-point float32 X/Y pairs that the .proto can't express
-# (Geometry.points is a variable-stride blob, not a repeated field).
+# script parses the envelope in front of that protobuf message (magic +
+# version + header length, per PencilKit's own parser) and starts the
+# protobuf message at the header-length offset it specifies (usually but
+# not always 8), then unpacks the flat per-point float32 X/Y pairs that the
+# .proto can't express (Geometry.points is a variable-stride blob, not a
+# repeated field).
 #
 # Usage:
 #   apple-notes-drawing-decode.pl --db NoteStore.sqlite --list
@@ -47,6 +50,10 @@ use DBI;
 use Google::ProtocolBuffers;
 # https://metacpan.org/dist/URI
 use URI::file;
+
+# Confirmed from arm64e disassembly of PencilKit's own parser - see the
+# envelope comment at the top of apple-notes-drawing.proto.
+my $ENVELOPE_MAGIC = 0xF0647277;
 
 my %INK_CATEGORY_GUESS = (
 	2 => "pen",     # unconfirmed
@@ -143,9 +150,24 @@ sub connect_db {
 
 sub decode_drawing {
 	my ($blob) = @_;
-	die "blob too short for 8-byte envelope\n" if length($blob) < 8;
-	my $envelope = substr($blob, 0, 8);
-	my $body     = substr($blob, 8);
+	die "blob too short for envelope\n" if length($blob) < 8;
+
+	my ($magic, $version, undef, $hdrlen) = unpack("V C C v", substr($blob, 0, 8));
+
+	my ($envelope, $body);
+	if ($magic == $ENVELOPE_MAGIC) {
+		die "drawing format version $version is too new (>=6); this decoder only understands PencilKit's <6 envelope layout\n"
+			if $version >= 6;
+		die "bogus envelope header length $hdrlen (need 8 <= hdrlen < " . length($blob) . ")\n"
+			unless $hdrlen >= 8 && $hdrlen < length($blob);
+		$envelope = substr($blob, 0, $hdrlen);
+		$body     = substr($blob, $hdrlen);
+	} else {
+		# Magic mismatch: PencilKit's own fallback treats the entire blob
+		# (no envelope at all) as a raw protobuf Drawing message.
+		$envelope = '';
+		$body     = $blob;
+	}
 
 	my $drawing = Drawing->decode($body);
 

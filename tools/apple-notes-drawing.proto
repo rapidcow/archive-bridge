@@ -3,13 +3,34 @@
 // ZICCLOUDSYNCINGOBJECT.ZMERGEABLEDATA1 of NoteStore.sqlite.
 //
 // This is not a published Apple .proto - it was inferred by running
-// `protoc --decode_raw` against a real drawing blob (skipping an 8-byte
-// envelope of unconfirmed purpose) and matching field shapes to known
-// PencilKit concepts. Only Drawing.ink_defs and the X/Y geometry inside
-// Stroke.geometry.points are decoded with confidence; everything else
-// (StrokeSeqInfo.ink_category, IndexEntry, BBox field order, Geometry's
-// unk2/unk4/unk5/unk6, and the >8-byte tail of each point record) is
-// exposed by the decoder as raw numbers/hex without a confirmed meaning.
+// `protoc --decode_raw` against a real drawing blob (skipping the envelope
+// described below) and matching field shapes to known PencilKit concepts.
+// Only Drawing.ink_defs and the X/Y geometry inside Stroke.geometry.points
+// are decoded with confidence; everything else (StrokeSeqInfo.ink_category,
+// IndexEntry, BBox field order, Geometry's unk2/unk4/unk5/unk6, and the
+// >8-byte tail of each point record) is exposed by the decoder as raw
+// numbers/hex without a confirmed meaning.
+//
+// Envelope (confirmed 2026-09-11 from arm64e disassembly of
+// -[PKDrawingConcrete(PKDrawingPersistenceAdditions)
+//   _initWithUnzippedData:loadNonInkingStrokes:error:] in PencilKit.framework,
+// macOS 26 dyld shared cache):
+//   offset 0, 4 bytes: magic, little-endian uint32 0xF0647277
+//                      (on-wire bytes 77 72 64 F0). If this doesn't match,
+//                      PencilKit instead treats the ENTIRE blob (offset 0)
+//                      as a raw envelope-less protobuf Drawing message -
+//                      an even older fallback format.
+//   offset 4, 1 byte:  format version (uint8). Must be < 6 or PencilKit
+//                      rejects the blob as "format too new"
+//                      (PKProtobufUtilitiesFormatTooNew).
+//   offset 5, 1 byte:  NOT read by this function. Reserved/padding;
+//                      meaning still unconfirmed.
+//   offset 6, 2 bytes: header length, little-endian uint16. Must satisfy
+//                      8 <= header_length < data.length. The protobuf
+//                      Drawing message actually starts at
+//                      `bytes + header_length`, NOT unconditionally at
+//                      byte 8 - it only looks fixed-8 because every sample
+//                      seen so far happens to have header_length == 8.
 
 syntax = "proto2";
 
