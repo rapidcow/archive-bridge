@@ -18,12 +18,12 @@ message (schema in the `.proto` file, itself inferred separately via
 
 Envelope layout, all integers little-endian:
 
-| offset | size | meaning |
-|---|---|---|
-| 0 | 4 | magic constant `0xF0647277` |
-| 4 | 1 | format version (`uint8`); rejected if `>= 6` |
-| 5 | 1 | not read by the function examined; unconfirmed |
-| 6 | 2 | header length (`uint16`); must satisfy `8 <= n < blob.length` |
+| offset | size | meaning                                                       |
+|--------|------|---------------------------------------------------------------|
+| 0      | 4    | magic constant `0xF0647277`                                   |
+| 4      | 1    | format version (`uint8`); rejected if `>= 6`                  |
+| 5      | 1    | not read by the function examined; unconfirmed                |
+| 6      | 2    | header length (`uint16`); must satisfy `8 <= n < blob.length` |
 
 The protobuf `Drawing` message starts at byte offset *header length*, not
 unconditionally at byte 8 - every sample seen so far just happens to carry

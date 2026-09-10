@@ -23,7 +23,8 @@ DEFAULT_FRAMEWORKS="
 /System/Library/PrivateFrameworks/NotesHTML.framework
 "
 
-hr() { printf '\n## %s\n\n' "$1"; }
+h1() { printf '# %s\n' "$1"; }
+h2() { printf '\n## %s\n\n' "$1"; }
 
 bundle_version() {
 	# $1 = path to a .app or .framework bundle
@@ -39,23 +40,23 @@ bundle_version() {
 	printf '%s\tversion %s, build %s%s\n' "$1" "$short" "$build" "${minos:+ (MinimumOSVersion $minos)}"
 }
 
-echo "# Provenance report"
+h1 "Provenance report"
 echo
 echo "Generated $(date -u +'%Y-%m-%dT%H:%M:%SZ') on $(hostname)."
 
-hr "macOS"
+h2 "macOS"
 sw_vers
 
-hr "Kernel / hardware"
+h2 "Kernel / hardware"
 uname -a
 echo
 sysctl -n hw.model 2>/dev/null | sed 's/^/hw.model: /'
 sysctl -n machdep.cpu.brand_string 2>/dev/null | sed 's/^/cpu.brand_string: /' || true
 
-hr "System Integrity Protection"
+h2 "System Integrity Protection"
 csrutil status 2>&1 || true
 
-hr "App / framework bundle versions"
+h2 "App / framework bundle versions"
 bundle_version "$NOTES_APP"
 for fw in $DEFAULT_FRAMEWORKS; do
 	bundle_version "$fw"
@@ -64,7 +65,7 @@ for extra in "$@"; do
 	bundle_version "$extra"
 done
 
-hr "Notes.app linked frameworks (otool -L)"
+h2 "Notes.app linked frameworks (otool -L)"
 notes_bin="$NOTES_APP/Contents/MacOS/Notes"
 if [ -x "$notes_bin" ]; then
 	otool -L "$notes_bin" 2>&1
@@ -72,7 +73,7 @@ else
 	echo "Notes binary not found/executable at $notes_bin"
 fi
 
-hr "dyld shared cache"
+h2 "dyld shared cache"
 for cache in \
 	/System/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_arm64e \
 	/System/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_x86_64 \
@@ -87,11 +88,11 @@ do
 	fi
 done
 
-hr "Reverse-engineering toolchain"
+h2 "Reverse-engineering toolchain"
 command -v otool >/dev/null 2>&1 && { printf 'otool: %s\n' "$(command -v otool)"; }
 command -v nm    >/dev/null 2>&1 && { printf 'nm:    %s\n' "$(command -v nm)"; }
 command -v ipsw  >/dev/null 2>&1 && { printf 'ipsw:  '; ipsw version 2>&1 | tr '\n' ' '; echo; }
 pkgutil --pkg-info=com.apple.pkg.CLTools_Executables 2>/dev/null || echo "Xcode Command Line Tools package info not found"
 
 echo
-echo "# End of report"
+h1 "End of report"
