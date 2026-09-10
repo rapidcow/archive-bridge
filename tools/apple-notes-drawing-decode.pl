@@ -20,14 +20,19 @@
 #
 #   apple-notes-drawing-decode.pl --db NoteStore.sqlite --pk 4756 --inkml
 #       Decode attachment Z_PK=4756, print InkML (X/Y only) to stdout.
+#
+# Add --immutable for a fixed archive (such as a git-annex object).
+# Only use this when the database will not change while being read.
 
 use strict;
 use warnings;
+use DBD::SQLite::Constants qw(:file_open);
 use DBI;
 use Getopt::Long;
 use File::Basename;  # qw(basename)
 use File::Spec;
 use FindBin;
+use URI::file;
 
 # As of Sept 2026, there is a new "Protobuf" distribution
 # that comes straight from (an employee? of) Google:
@@ -49,12 +54,14 @@ Google::ProtocolBuffers->parsefile(
 
 my $prog = basename($0);
 my $usage = <<EOM;
-usage: $0 --db NoteStore.sqlite --list
-       $0 --db NoteStore.sqlite --pk N [--sexp|--inkml] [--out FILE]
+usage: $0 --db NoteStore.sqlite [--immutable] --list
+       $0 --db NoteStore.sqlite [--immutable] --pk N [--sexp|--inkml] [--out FILE]
 EOM
 
 my ($db, $pk, $list, $want_sexp, $want_inkml, $out);
+my $immutable;
 GetOptions(
+	"immutable" => \$immutable,
 	"db=s"   => \$db,
 	"pk=i"   => \$pk,
 	"list"   => \$list,
@@ -112,10 +119,17 @@ sub fetch_blob {
 
 sub connect_db {
 	my ($db) = @_;
-	return DBI->connect("dbi:SQLite:dbname=$db", '', '', {
+	my $dsn = "dbi:SQLite:dbname=$db";
+	if ($immutable) {
+		my $uri = URI::file->new(File::Spec->rel2abs($db));
+		$uri->query('mode=ro&immutable=1');
+		$dsn = "dbi:SQLite:uri=$uri";
+	}
+	return DBI->connect($dsn, '', '', {
 		RaiseError => 1,
 		PrintError => 0,
 		AutoCommit => 1,
+		sqlite_open_flags => SQLITE_OPEN_READONLY
 	});
 }
 
