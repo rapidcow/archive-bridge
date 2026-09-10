@@ -23,6 +23,7 @@
 
 use strict;
 use warnings;
+use DBI;
 use Getopt::Long;
 use File::Basename;  # qw(basename)
 use File::Spec;
@@ -90,30 +91,32 @@ print $fh render_inkml($drawing) if $want_inkml;
 
 sub list_attachments {
 	my ($db) = @_;
-	my @rows = run_sqlite($db,
+	my $dbh = connect_db($db);
+	my $rows = $dbh->selectall_arrayref(
 		"SELECT Z_PK, ZIDENTIFIER, ZMODIFICATIONDATE FROM ZICCLOUDSYNCINGOBJECT " .
 		"WHERE ZTYPEUTI='com.apple.drawing.2' ORDER BY Z_PK;");
+	$dbh->disconnect;
 	print "Z_PK\tZIDENTIFIER\tZMODIFICATIONDATE\n";
-	print "$_\n" for @rows;
+	print join("|", map { defined $_ ? $_ : '' } @$_), "\n" for @$rows;
 }
 
 sub fetch_blob {
 	my ($db, $pk) = @_;
-	my @rows = run_sqlite($db,
-		"SELECT quote(ZMERGEABLEDATA1) FROM ZICCLOUDSYNCINGOBJECT WHERE Z_PK=$pk;");
-	return undef unless @rows;
-	my $q = $rows[0];
-	return undef unless $q =~ /^X'([0-9A-Fa-f]*)'$/;
-	return pack("H*", $1);
+	my $dbh = connect_db($db);
+	my ($blob) = $dbh->selectrow_array(
+		"SELECT ZMERGEABLEDATA1 FROM ZICCLOUDSYNCINGOBJECT WHERE Z_PK = ?",
+		undef, $pk);
+	$dbh->disconnect;
+	return $blob;
 }
 
-sub run_sqlite {
-	my ($db, $sql) = @_;
-	open(my $ph, "-|", "sqlite3", $db, $sql) or die "can't run sqlite3: $!\n";
-	my @lines = <$ph>;
-	close($ph);
-	chomp @lines;
-	return @lines;
+sub connect_db {
+	my ($db) = @_;
+	return DBI->connect("dbi:SQLite:dbname=$db", '', '', {
+		RaiseError => 1,
+		PrintError => 0,
+		AutoCommit => 1,
+	});
 }
 
 # --- drawing decode ----------------------------------------------------------
