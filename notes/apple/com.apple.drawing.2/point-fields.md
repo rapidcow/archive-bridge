@@ -4,8 +4,13 @@ Continuation of `envelope.md` in this directory, going deeper to try to pin
 down the "extra" bytes after each point's X/Y float32 pair in
 `Geometry.points` (see `tools/apple-notes-drawing.proto`, which currently
 just exposes them as an opaque hex tail per point). Covers three functions,
-examined in order, because each was needed to settle an open question left
-by the previous one.
+examined in order, each chosen to settle an open question left by the
+previous one - though Function 3 ended up settling a *different* question
+than the one it was chosen for (see its section and "Not concluded" below):
+it turned out to be genuinely reachable from the real `com.apple.drawing.2`
+read path, while Functions 1-2's `initWithLegacyArchive:` tree turned out
+never to have been actually confirmed as reachable at all. Read the "Call
+graph so far" section at the end first if you want the short version.
 
 ## Function 1: `readPointFromLegacyArchive:deltaFrom:`
 
@@ -251,13 +256,19 @@ also turned up several unrelated same-shaped selectors on other classes
 matching the full selector including `loadNonInkingStrokes:error:`, and its
 address is distinct from all of these.
 
-This function was the best candidate for the boundary between "protobuf's
-view of the data" and the flat C archive-struct tree Functions 1-2 above
-consume, per `envelope.md`'s account of
-`_initWithUnzippedData:loadNonInkingStrokes:error:` handing a parsed
-`drawing::Drawing` C++ object to a follow-on call. That link is **not**
-confirmed by this pass, and there is now positive structural evidence
-against it (see (b) below).
+**Reachability from the real path: confirmed yes**, unlike everything else
+in this file. `envelope.md` has since been corrected to state this
+precisely: `_initWithUnzippedData:loadNonInkingStrokes:error:` makes an
+unconditional call into this exact function, passing the just-parsed
+`drawing::Drawing` C++ object straight through, immediately after the
+protobuf parse succeeds. So Function 3 - not `initWithLegacyArchive:` /
+Functions 1-2 above - is the actually-confirmed next stage after envelope
+parsing. That reframes what this section originally set out to check: it
+was examined on the assumption that it might be the boundary between
+"protobuf's view of the data" and the flat C archive-struct tree Functions
+1-2 consume, and (per (b) below) it turned out not to be that boundary
+either - but it *is* real, on the real path, and Functions 1-2's tree is now
+the one whose relevance is in question. See "Not concluded" below.
 
 ### (a) Does it call `-[PKDrawingConcrete(PKDrawingPersistenceAdditions) initWithLegacyArchive:]`? No.
 
@@ -413,33 +424,35 @@ helper called on guard mismatch, which was not itself disassembled.
   altitude vs. something PencilKit-internal) beyond the tentative
   `UITouchProperties`-shaped overlap above.
 - The exact presence bits for Function 1's two 16-byte (vector) fields.
-- The raw-byte unpacking of `Geometry.points` into the pointer array
-  Function 2 consumes at archive `+0x40`/`+0x48` - still not located. The
-  stride-per-point mystery (12-22 bytes) is therefore still open; Functions
-  2 and 3 both conclusively rule themselves out as the place to look
-  (Function 3 turned out to belong to an entirely different, non-"Legacy"
-  persistence tree - see its section above), but neither identifies the
-  actual place. The next candidate would be whatever function constructs
-  the *archive* argument passed into `initWithLegacyArchive:sortedUUIDs:`
-  in the first place (i.e. its caller within the legacy tree specifically -
-  not `initWithArchive:loadNonInkingStrokes:error:`, now ruled out), not yet
-  examined.
-- Whether `-[PKDrawingConcrete(PKDrawingPersistenceAdditions)
-  initWithArchive:loadNonInkingStrokes:error:]` (Function 3) is actually
-  reachable from `_initWithUnzippedData:loadNonInkingStrokes:error:`'s
-  protobuf-parse success path at all, given it turned out to consume a
-  plain fixed-offset C struct (not a C++ protobuf object, no vtable calls)
-  structurally unrelated to the legacy chain's archive-struct offsets. It
-  may belong to a wholly separate on-disk/in-memory format (e.g. an
-  `NSSecureCoding`/`NSKeyedArchiver`-style "archive", unrelated to
-  `com.apple.drawing.2`) rather than being on the `com.apple.drawing.2`
-  read path at all. Not resolved this pass, and per this session's scoping
-  constraint, its own callers/callees were not chased further.
+- **The big one, upgraded from "stride mystery" to "is the whole legacy
+  chain even relevant":** `initWithLegacyArchive:` (Functions 1-2's tree)
+  has never actually been shown to be called from anywhere on the real
+  `com.apple.drawing.2` read path. It was picked in the very first
+  investigative session (which produced `envelope.md`) purely because its
+  name looked like an obvious next stage after envelope parsing - and that
+  assumption was never re-checked before Functions 1-2 here were built on
+  top of it. Meanwhile Function 3 (`initWithArchive:
+  loadNonInkingStrokes:error:`) *is* now confirmed-reachable from the real
+  path (see its section above) and is structurally disjoint from the
+  `initWithLegacyArchive:` tree - different archive-struct offsets, calls a
+  different per-stroke selector
+  (`initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:`, never
+  `initWithLegacyArchive:sortedUUIDs:`). So the honest current picture is:
+  Functions 1-2 in this file may be a well-documented dead end, same
+  situation as `legacy_drawing.md`'s namespace, and the real
+  raw-bytes/points-unpacking logic - if it's findable at all this way - more
+  plausibly lives somewhere in the `initWithArchive:...` family (Function 3
+  and its callee `initWithArchive:sortedUUIDs:inks:
+  transientArchiveDictionary:`, not yet disassembled) than in
+  `initWithLegacyArchive:sortedUUIDs:`. Not yet resolved either way; the
+  original stride-per-point mystery (12-22 bytes) is still open regardless
+  of which tree turns out to matter.
 - What `-[_PKStrokeConcrete(PKStrokePersistenceAdditions)
   initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:]` (called by
-  Function 3) actually does - not disassembled. Given Function 3's own
-  disjointness from the legacy chain, this is a lower-priority target than
-  finding the legacy chain's actual points-unpacking site.
+  Function 3) actually does - not disassembled. Given the above, this is now
+  a *higher*-priority target than continuing to dig into the
+  `initWithLegacyArchive:` tree, not a lower one as an earlier revision of
+  this section said.
 - Exact identity of the class behind the two `UUID`-selector sends in
   Function 2 (guessed as `+[NSUUID UUID]`, not confirmed by symbol name).
 - Where the real (non-placeholder) stroke bounds value used for
@@ -496,12 +509,7 @@ graph TD
   O["-[PKDrawingConcrete initWithUUID:strokes:version:<br/>canvasBounds:boundsVersion:unknownFields:]"]
 
   A --> B
-  C --> D
-  C --> E
-  C --> F
-  C --> G
-  C --> H
-  C --> I
+  B --> J
   J --> K
   J --> L
   J --> M
@@ -509,28 +517,43 @@ graph TD
   J --> O
 ```
 
-Note: `readPointFromLegacyArchive:deltaFrom:` has no confirmed outgoing
-edges of its own - it's pure fixed-offset struct arithmetic with no further
-calls of interest. `PKCompressStrokePoint`, `-[_PKStrokeClipPlane
-initWithOrigin:normal:]`, `+[PKInk identifierForCommandType:
-wantsObjectErase:]`, `-[PKInk initWithIdentifier:color:version:variant:]`,
-and `-[PKStrokePath
-initWithPoints:count:immutableCount:inputType:timestamp:UUID:]` were seen
-only as call targets from `initWithLegacyArchive:sortedUUIDs:` - none of
-them have been disassembled themselves yet. Separately, `envelope.md`
-already established `-[PKDrawingConcrete(PKDrawingPersistenceAdditions)
-initWithLegacyArchive:]` calling `-[_PKStrokeConcrete(
-PKStrokePersistenceAdditions) initWithLegacyArchive:sortedUUIDs:]` (node C
-above) in a per-stroke loop - not redrawn here to keep the diagram
-readable, see `envelope.md` for that edge.
+```mermaid
+graph TD
+  C2["-[_PKStrokeConcrete(PKStrokePersistenceAdditions)<br/>initWithLegacyArchive:sortedUUIDs:]"]
+  D2["-[_PKStrokeConcrete(PKStrokePersistenceAdditions)<br/>readPointFromLegacyArchive:deltaFrom:]"]
+  E2["PKCompressStrokePoint(_PKStrokePoint, double)"]
+  F2["-[_PKStrokeClipPlane initWithOrigin:normal:]"]
+  G2["+[PKInk identifierForCommandType:wantsObjectErase:]"]
+  H2["-[PKInk initWithIdentifier:color:version:variant:]"]
+  I2["-[PKStrokePath initWithPoints:count:immutableCount:inputType:timestamp:UUID:]"]
 
-Node J (`initWithArchive:loadNonInkingStrokes:error:`, Function 3 above) is
-drawn disconnected from the rest of this graph deliberately: no confirmed
-edge from any node in this graph reaches it, and it was confirmed **not**
-to call `initWithLegacyArchive:` (node absent from this graph entirely,
-since it belongs to the legacy tree headed by A/B, not this one) or
-anything else in the A-I subgraph. Whether an edge into J exists at all
-(e.g. from `_initWithUnzippedData:loadNonInkingStrokes:error:`, node B) is
-unconfirmed and was the original motivation for examining it - see "Not
-concluded" above. K, L, M, N, and O were seen only as call targets from J;
-none of them have been disassembled themselves yet.
+  C2 --> D2
+  C2 --> E2
+  C2 --> F2
+  C2 --> G2
+  C2 --> H2
+  C2 --> I2
+```
+
+The first graph is the confirmed-reachable-from-the-real-path subgraph:
+`envelope.md` established A --> B, and this file's correction above
+established the previously-missing B --> J edge (Function 3). K, L, M, N,
+and O were seen only as call targets from J; none of them have been
+disassembled themselves yet - `initWithArchive:sortedUUIDs:inks:
+transientArchiveDictionary:` (K) is the current top-priority next target,
+per "Not concluded" above.
+
+The second graph - `initWithLegacyArchive:sortedUUIDs:` (Function 2) and
+everything below it in this file, including `readPointFromLegacyArchive:
+deltaFrom:` (Function 1) - is drawn **deliberately disconnected** from the
+first, and deliberately not merged with it: despite `envelope.md`'s
+original write-up implying otherwise, no confirmed call edge from anything
+in the first graph (or anywhere else examined so far) into
+`-[PKDrawingConcrete(PKDrawingPersistenceAdditions) initWithLegacyArchive:]`
+- the presumed entry point into this whole second subgraph - has actually
+been found. Its reachability from the real `com.apple.drawing.2` read path
+is therefore unconfirmed, same status as `legacy_drawing.md`'s namespace.
+Everything else stated as "confirmed" within Function 1/2's own sections
+above (e.g. C2 --> D2) is still accurate as far as it goes - it's only the
+connection of this whole subgraph *to the rest of the program* that's now
+in question.

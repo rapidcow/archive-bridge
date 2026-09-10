@@ -90,18 +90,36 @@ sample blobs alone.
      `PKProtobufUtilitiesMalformedError` (multiple call sites, one per
      failed precondition). On success it computes a pointer/length pair
      offset by the header length and hands it to a virtual call that parses
-     the protobuf `Drawing` message from it.
-   - `initWithLegacyArchive:` (the next stage, consuming the *parsed*
-     protobuf fields rather than raw bytes) was also read; it's how the
+     the protobuf `Drawing` message from it. **Confirmed edge, stated
+     precisely (this was under-specified in an earlier revision of this
+     file):** immediately after that virtual parse call succeeds, this
+     function makes one further, unconditional call, passing the just-parsed
+     `Drawing` object straight through:
+     `-[PKDrawingConcrete(PKDrawingPersistenceAdditions)
+     initWithArchive:loadNonInkingStrokes:error:]`. That is the real,
+     disassembly-confirmed next stage on this path - see
+     `point-fields.md`'s "Function 3" section for what it does.
+   - `initWithLegacyArchive:` was also read, separately, purely because its
+     name and shape looked like an obvious next stage to check; it's how the
      `.proto`'s `Drawing`/`Stroke`/`BBox` fields were cross-checked against
      what the framework itself does with them (e.g. confirming the 4 floats
      read for canvas bounds are consumed as an x/y/width/height-shaped
-     struct). Incidentally, this function also contains a *separate*,
-     already-parsed-protobuf version check (comparing an in-message version
-     field against a expected constant) whose failure path logs a
-     printf-style diagnostic string - not the same check as the envelope's
-     byte-4 version gate above, and not reproduced here since it's a literal
-     string constant rather than an identifier.
+     struct). **Important correction:** no call edge from
+     `_initWithUnzippedData:loadNonInkingStrokes:error:` (or from anything
+     else examined so far) into `initWithLegacyArchive:` has ever actually
+     been found. It was picked as "the next stage" by naming-pattern
+     assumption only, in this very first investigative session, and every
+     later note in this directory that builds on it
+     (`point-fields.md`'s Functions 1-2) inherited that assumption without
+     re-verifying it. Whether `initWithLegacyArchive:` is reachable from the
+     real `com.apple.drawing.2` read path at all is now an open question -
+     see `point-fields.md`'s "Not concluded" section. Incidentally, this
+     function also contains a *separate*, already-parsed-protobuf version
+     check (comparing an in-message version field against a expected
+     constant) whose failure path logs a printf-style diagnostic string -
+     not the same check as the envelope's byte-4 version gate above, and not
+     reproduced here since it's a literal string constant rather than an
+     identifier.
 
 No debugger/live-process attach was used (SIP is enabled on the source Mac,
 which would block attaching to Apple-signed processes anyway) - purely

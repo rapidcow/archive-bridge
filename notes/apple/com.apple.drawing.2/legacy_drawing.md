@@ -1,4 +1,27 @@
-# `legacy_drawing::*` - the real generated protobuf parsers
+# `legacy_drawing::*` - the wrong module
+
+> **Status update (2026-09-11), per `notes-editor-entry-point.md`: likely not
+> worth further effort.** That session traced the actual Notes-side caller
+> and confirmed the real path is `-[ICAttachmentInlineDrawingModel
+> newDrawingFromMergeableData]` -> `[[PKDrawing alloc]
+> initWithData:error:]` -> `initWithData:loadNonInkingStrokes:error:` (the
+> function `envelope.md`/`point-fields.md` trace), with no UTI/version branch
+> anywhere that routes to `initWithLegacyData:` (the entry point that would
+> reach this `legacy_drawing::*` namespace). Grepping all five Notes-side
+> framework binaries (NotesEditor, NotesShared, NotesSupport, NotesHTML,
+> PaperKit) for any reference to `initWithLegacyData:` - including bare
+> selector stubs, not just resolved call sites - found zero matches. So this
+> namespace is probably unreachable from real `com.apple.drawing.2` data,
+> despite the structural coincidences noted below (matching field offsets
+> with `point-fields.md`'s archive struct, etc.) - those are now believed to
+> be exactly that, coincidences, not evidence of a shared code path.
+> Caveat carried over from `notes-editor-entry-point.md`: only those five
+> binaries were checked, not Notes.app's own executable or other linked
+> frameworks, so "unreachable" isn't airtight. **Don't resume mapping this
+> namespace's fields on the strength of the content below** unless that
+> caveat gets closed first (i.e. something turns up an actual caller).
+> Rest of this file left as-is/unedited below - still accurate as a record
+> of what was found, just probably not a productive place to keep digging.
 
 `envelope.md` and `point-fields.md` in this directory both trace hand-written
 Objective-C wrapper/conversion code that operates on an *already-parsed*
