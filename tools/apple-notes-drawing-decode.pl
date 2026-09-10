@@ -60,8 +60,8 @@ Google::ProtocolBuffers->parsefile(
 
 my $prog = basename($0);
 my $usage = <<EOM;
-usage: $0 --db NoteStore.sqlite [--immutable] --list
-       $0 --db NoteStore.sqlite [--immutable] --pk N [--sexp|--inkml] [--out FILE]
+usage: $prog --db NoteStore.sqlite [--immutable] --list
+       $prog --db NoteStore.sqlite [--immutable] --pk N [--sexp|--inkml] [--out FILE]
 EOM
 
 my ($db, $pk, $list, $want_sexp, $want_inkml, $out);
