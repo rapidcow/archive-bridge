@@ -291,15 +291,101 @@ once. The actual per-point walk that applies this metadata to every point in
 the flat buffer (multiplying by `shared+0x30`'s count) is still not located -
 see "Not concluded."
 
-`sFieldSizes` and `sFieldOffsets`'s actual numeric contents were **not**
-recoverable from the extracted binary file: both addresses
+## 6. `sFieldSizes`/`sFieldOffsets` contents - found via their writer, not just their reader
+
+An earlier revision of this file concluded the two tables' numeric contents
+were unrecoverable from static analysis, since both addresses
 (`0x1eb219438`/`0x1eb2193e0`) fall inside `PencilKit`'s `__DATA,__common`
-section, a zerofill/BSS-class section with no on-disk file backing
-(`otool -l` shows `offset 0` for it) - i.e. these tables are populated by a
-runtime static initializer, not compiled-in constant data, so `dd`-based
-static extraction (the technique `legacy_drawing.md` used for a jump table)
-does not apply here; reading them would require a live memory read, out of
-this project's static-disassembly-only scope.
+section (a zerofill/BSS-class section with no on-disk file backing -
+`otool -l` shows `offset 0` for it), and only *reader* call sites
+(`computeCachedValues()`, `updateFromCachedValues()`) had been checked. **That
+conclusion was wrong** - it never looked for the *writer*. `nm -U PencilKit`
+shows a `dispatch_once`-token local symbol, `__ZZ32+[PKStrokePath
+calculateOffsets]E9onceToken`, sitting at `0x1eb219388` - immediately
+adjacent to `sFieldOffsets`/`sFieldSizes` in the same `__common` section
+(all three fall within the same 176-byte common block). This is the writer's
+entry point.
+
+`+[PKStrokePath calculateOffsets]` (confirmed selector) is a plain
+`dispatch_once_f` call site: it builds a stack-based ObjC block (pointer-auth
+signed, as usual on arm64e) and calls `dispatch_once_f` against that
+once-token, guaranteeing the block runs exactly once per process lifetime.
+The block, `___32+[PKStrokePath calculateOffsets]_block_invoke` (confirmed
+symbol), does nothing itself but load one captured value and tail-call
+`+[PKStrokePath _calculateOffsets:sizes:]` (confirmed selector) with `x2` =
+the address of `sFieldOffsets` and `x3` = the address of `sFieldSizes` -
+i.e. this method's two out-parameters *are* the two `__common` tables,
+passed by address.
+
+`+[PKStrokePath _calculateOffsets:sizes:]`'s body writes to both output
+addresses using nothing but `ldr q`/`stp q`/plain-immediate `mov`+`str`
+instructions - nine total memory writes, all either copying a 16-byte
+literal pair straight from a fixed, file-backed address range
+(`0x1ae769170`-`0x1ae7691e0`, inside `PencilKit`'s `__TEXT` segment, i.e.
+ordinary compiled-in constant data, not computed) or storing a bare
+immediate (`#0x20`, `#0x2`) directly. There is no arithmetic, no branch, no
+external call anywhere in this function - it is a pure, unconditional
+literal-constant store, run once via `dispatch_once`. Because the source
+literals live in `__TEXT` (file-backed, unlike the `__common` destination),
+they were extracted with `dd` at the corresponding file offset (`__TEXT`
+segment `fileoff` is `0` and `vmaddr` is `0x1ae60f000` for this binary, so
+file offset = virtual address − `0x1ae60f000`), the same technique
+`legacy_drawing.md` used for a jump table - the earlier conclusion that this
+data "requires a live memory read" only held for the `__common` destination
+addresses, not for the `__TEXT` source literals the writer copies from.
+
+Decoded as eleven consecutive 8-byte little-endian integers each (matching
+the `sFieldSizes[11]`/`sFieldOffsets[11]` indexing `computeCachedValues()`
+and `updateFromCachedValues()` use), indexed by the same 0-10 channel/bit
+index as everywhere else in this file:
+
+| channel index (bit in the 11-bit presence mask) | `sFieldOffsets[i]` | `sFieldSizes[i]` |
+|---|---|---|
+| 0 | 0  | 8 |
+| 1 | 8  | 4 |
+| 2 | 12 | 4 |
+| 3 | 16 | 2 |
+| 4 | 18 | 2 |
+| 5 | 20 | 2 |
+| 6 | 22 | 2 |
+| 7 | 24 | 2 |
+| 8 | 26 | 2 |
+| 9 | 28 | 4 |
+| 10 | 32 | 2 |
+
+Internally self-consistent: `sFieldOffsets[i]` is exactly the running sum of
+`sFieldSizes[0..i-1]` (e.g. offset `12` at index 2 = size `8` + size `4` from
+indices 0-1) - i.e. this is a real packed-record layout table, offsets are
+derived from sizes in ascending bit-index order, not independently chosen.
+If every one of the 11 channels were simultaneously present, the full
+packed tail would be `32 + 2 = 34` bytes (offset of the last field plus its
+own size), for a total per-point record of `8 (X/Y) + 34 = 42` bytes -
+larger than any stride `point-fields.md` observed empirically (max `22`
+bytes total, i.e. max `14` bytes of tail). This is not a contradiction: the
+observed samples simply never had all 11 channels enabled simultaneously in
+one path's presence mask - a tail of `14` bytes is reachable from several
+different subsets of `{8,4,4,2,2,2,2,2,2,4,2}` (e.g. six of the `2`-byte
+channels, or one `4` plus five `2`s, etc.), and this pass has no way to
+determine, from the size table alone, exactly which subset any given sample
+used - that still requires reading each sample's own presence-mask byte
+(`points_archive+0x18`'s referenced struct in §4), which was not attempted
+this pass. **What this table conclusively establishes** is the *number* of
+optional channels (11, not some other count), their *individual byte
+widths* (`8,4,4,2,2,2,2,2,2,4,2`, in this fixed bit-index order), and that
+they are packed contiguously with no padding - a materially stronger result
+than "the tail is 4-14 bytes of something," even without yet knowing which
+channel bit corresponds to which semantic name (force/azimuth/altitude/
+timestamp/etc.) or which bits were set in any specific observed sample.
+
+No named symbol, string constant, or enum-like identifier tying these 11
+indices to semantic field names (e.g. "azimuth", "force") was found anywhere
+in `PencilKit`'s symbol table or string tables during this pass - a targeted
+`nm`/`strings` grep for those terms surfaced only unrelated PKInk/
+PKToolConfiguration azimuth-related API and no connection to this specific
+table. The size values themselves are suggestive by common sense (a `4`-byte
+field is plausibly a `float32`; a `2`-byte field is plausibly a quantized
+`int16`/`fixed16`; the one `8`-byte field, index 0, is plausibly a
+`double`-precision timestamp) but none of that is confirmed.
 
 ## Not concluded
 
@@ -310,10 +396,12 @@ this project's static-disassembly-only scope.
   sibling symbol, `__ZN24PKStrokePathPointsShared22updateFromCachedValuesEv`,
   not disassembled this pass) or an on-demand point-accessor method on
   `PKStrokePath` itself.
-- Numeric contents of `sFieldSizes`/`sFieldOffsets` (which channel is which
-  size, in what order) - unrecoverable from static binary analysis per §5's
-  closing paragraph; would need a live process/memory read, which is out of
-  this project's scope (SIP-enabled source Mac, static disassembly only).
+- ~~Numeric contents of `sFieldSizes`/`sFieldOffsets`~~ **Resolved, see §6**:
+  found via their writer (`+[PKStrokePath calculateOffsets]` →
+  `_calculateOffsets:sizes:`, `dispatch_once`-guarded, pure literal-constant
+  stores) rather than their readers. Still open: which bit/index corresponds
+  to which semantic channel name, and which bits are actually set in any
+  given real sample.
 - What the two independent 11-bit masks (`shared+0x28` from
   `points_archive+0x18`, `shared+0x20` from `points_archive+0x30`) actually
   mean relative to each other - one reads as "which channels are present on
@@ -339,24 +427,48 @@ this project's static-disassembly-only scope.
 
 Same source Mac/OS/build and toolchain as the other files in this directory
 (macOS 26.6.2, build 25G83, Apple Silicon T8103; `ipsw` v3.1.714; `otool`
-from Xcode Command Line Tools; `nm`). Additionally used `otool -l` (segment/
-section listing) to determine that `sFieldSizes`/`sFieldOffsets` live in a
-zerofill section, and attempted (`dd`, ultimately non-conclusive per §5) to
-read their file-backed bytes. Method, class, C++ symbol, and constant
-identifiers referenced above (e.g. `initWithArchive:sortedUUIDs:inks:parent:
-isHidden:transientArchiveDictionary:`, `readStrokeIDFromArchive:
-withSortedUUIDs:`, `decodeRenameableUUIDFromData:transientArchiveDictionary:`,
+from Xcode Command Line Tools; `nm`). Used `otool -l` (segment/section
+listing) to determine that `sFieldSizes`/`sFieldOffsets` live in a zerofill
+`__DATA,__common` section with no on-disk file backing. §6's writer
+(`+[PKStrokePath calculateOffsets]`) was located, after that dead end, by
+`nm -U PencilKit | grep -iE 'field|once'` turning up a `dispatch_once`-token
+local symbol (`__ZZ32+[PKStrokePath calculateOffsets]E9onceToken`) sharing
+the same `__common` block as the two tables - a naming-adjacency technique
+not used elsewhere in this directory. Also attempted `ipsw dyld xref`
+(a `[WIP]`-flagged ipsw subcommand for cross-reference search directly
+against the live dyld shared cache) and a brute-force whole-`__TEXT.__text`
+disassembly-plus-grep of the extracted `PencilKit` binary as parallel,
+more-exhaustive approaches to the same writer-search question; both were
+technically successful (the whole-section disassembly completed and its
+`adrp 0x1eb219000` hits were reviewed) but contributed no additional writer
+sites beyond what the naming-adjacency approach already found - the
+`dispatch_once`/`_calculateOffsets:sizes:` chain is the only writer for
+these two tables in `PencilKit`. `dd` was used twice: once (per §5, as
+before) attempting to read the `__common` destination addresses directly
+(no file backing, zero bytes, as expected), and a second time, successfully,
+against `__TEXT` segment file offset `0x15a170` (computed from
+`vmaddr 0x1ae60f000`, `fileoff 0`) to read the sixteen file-backed 8-byte
+literals `+[PKStrokePath _calculateOffsets:sizes:]` copies into the two
+tables - the actual source of §6's decoded values. Method, class, C++
+symbol, and constant identifiers referenced above (e.g.
+`initWithArchive:sortedUUIDs:inks:parent:isHidden:transientArchiveDictionary:`,
+`readStrokeIDFromArchive:withSortedUUIDs:`,
+`decodeRenameableUUIDFromData:transientArchiveDictionary:`,
 `drawing::Rectangle::Rectangle`, `OBJC_IVAR_$__PKStrokeConcrete
 ._unknownFields`, `strokeDataFromDataArchive:`, `readStrokeDataFromArchive:`,
 `PKStrokePathPointsShared`, `computeCachedValues`, `updateFromCachedValues`,
-`sFieldSizes`, `sFieldOffsets`) are exact, verbatim symbol names from
-`PencilKit.framework`'s symbol table/disassembly, extracted from the macOS
-26.6.2 (25G83) arm64e dyld shared cache in a prior session (not re-extracted
-here). The two `os_log` literal strings ("Archive had invalid ink index:
-%lu", "Unable to find ink from saved inkIndex or parent") are exact, verbatim
-string constants read directly as instruction operands. No disassembly, raw
-bytes, or extracted binary content is reproduced here or committed to this
-repo.
+`sFieldSizes`, `sFieldOffsets`, `calculateOffsets`, `_calculateOffsets:
+sizes:`) are exact, verbatim symbol names from `PencilKit.framework`'s
+symbol table/disassembly, extracted from the macOS 26.6.2 (25G83) arm64e
+dyld shared cache in a prior session (not re-extracted here). The two
+`os_log` literal strings ("Archive had invalid ink index: %lu", "Unable to
+find ink from saved inkIndex or parent") are exact, verbatim string
+constants read directly as instruction operands. The `sFieldSizes`/
+`sFieldOffsets` table *values* in §6 are decoded integers derived from raw
+bytes read via `dd`, reported as a decimal table rather than as raw
+hex/binary content, consistent with this directory's no-raw-bytes
+convention; no disassembly, hex dump, or extracted binary content is
+otherwise reproduced here or committed to this repo.
 
 ## Call graph (this file's additions)
 
