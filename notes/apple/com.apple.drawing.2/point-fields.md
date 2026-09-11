@@ -447,12 +447,20 @@ helper called on guard mismatch, which was not itself disassembled.
   `initWithLegacyArchive:sortedUUIDs:`. Not yet resolved either way; the
   original stride-per-point mystery (12-22 bytes) is still open regardless
   of which tree turns out to matter.
-- What `-[_PKStrokeConcrete(PKStrokePersistenceAdditions)
+- ~~What `-[_PKStrokeConcrete(PKStrokePersistenceAdditions)
   initWithArchive:sortedUUIDs:inks:transientArchiveDictionary:]` (called by
-  Function 3) actually does - not disassembled. Given the above, this is now
-  a *higher*-priority target than continuing to dig into the
-  `initWithLegacyArchive:` tree, not a lower one as an earlier revision of
-  this section said.
+  Function 3) actually does~~ **Resolved, see `point-decode-pipeline.md`**:
+  it's a thin wrapper into `initWithArchive:sortedUUIDs:inks:parent:
+  isHidden:transientArchiveDictionary:`, which is self-recursive (builds a
+  substroke tree) and, for point data specifically, defers through
+  `+[PKStrokePath strokeDataFromDataArchive:]` →
+  `-[PKStrokePath readStrokeDataFromArchive:]` (where `npts = byte_length /
+  stride` is actually computed) → `PKStrokePathPointsShared::
+  computeCachedValues()` (builds per-channel size/offset metadata tables,
+  `sFieldSizes`/`sFieldOffsets`, explaining the 12-22-byte stride
+  mechanism) - though the actual per-point loop that applies that metadata
+  across all `npts` points is still not located; see that file's "Not
+  concluded".
 - Exact identity of the class behind the two `UUID`-selector sends in
   Function 2 (guessed as `+[NSUUID UUID]`, not confirmed by symbol name).
 - Where the real (non-placeholder) stroke bounds value used for
