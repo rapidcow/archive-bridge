@@ -7,9 +7,58 @@
 // described below) and matching field shapes to known PencilKit concepts.
 // Only Drawing.ink_defs and the X/Y geometry inside Stroke.geometry.points
 // are decoded with confidence; everything else (StrokeSeqInfo.ink_category,
-// IndexEntry, BBox field order, Geometry's unk2/unk4/unk5/unk6, and the
-// >8-byte tail of each point record) is exposed by the decoder as raw
-// numbers/hex without a confirmed meaning.
+// IndexEntry, BBox field order, Geometry's unk2/unk5/unk6, and the exact
+// numeric encoding of each per-point auxiliary channel below) is exposed by
+// the decoder as raw numbers/hex without a confirmed meaning.
+//
+// Per-point auxiliary channel layout (confirmed 2026-09-11, two independent
+// ways - see notes/apple/com.apple.drawing.2/point-decode-pipeline.md):
+// (a) static disassembly of PencilKit's PKStrokePathPointsShared/
+//     PKStrokePathPointsPrivate found the exact fixed byte size of each of
+//     11 channel slots (sFieldSizes/sFieldOffsets, both literal-constant
+//     tables) and, via PKStrokePathPointsPrivate's named accessors, the
+//     semantic identity of every slot; (b) empirically, decoding real
+//     sample blobs and checking every observed (point_flags, stride) pair
+//     confirmed sum(sFieldSizes[i] for each set bit i in 1..10) == stride-8
+//     exactly, across 9 distinct point_flags values in one real drawing
+//     alone. Channel 0 (location) is the unconditional first 8 bytes of
+//     every point record, X/Y as little-endian float32, and is NOT gated by
+//     a point_flags bit the way channels 1-10 are:
+//
+//   idx | point_flags bit | size | name        | wire encoding
+//   ----|-----------------|------|-------------|---------------------------
+//    0  | (always)        |  8   | location    | float32 x, float32 y
+//    1  |     0x2         |  4   | timestamp   | unconfirmed (uint32?)
+//    2  |     0x4         |  4   | radius      | unconfirmed (float32?)
+//    3  |     0x8         |  2   | aspectRatio | unconfirmed
+//    4  |    0x10         |  2   | edgeWidth   | unconfirmed
+//    5  |    0x20         |  2   | force       | unconfirmed (int16, scale
+//       |                 |      |             | plausibly /0x7fff - see
+//       |                 |      |             | below - but not proven)
+//    6  |    0x40         |  2   | azimuth     | unconfirmed, same caveat
+//    7  |    0x80         |  2   | altitude    | unconfirmed, same caveat
+//    8  |   0x100         |  2   | opacity     | unconfirmed
+//    9  |   0x200         |  4   | radius2     | unconfirmed (float32?)
+//   10  |   0x400         |  2   | threshold   | unconfirmed
+//
+// Present channels (1-10, gated by their point_flags bit) are packed into
+// the flat per-point record tightly, in increasing channel-index order, with
+// no padding for absent channels - i.e. the wire layout is NOT the fixed
+// sFieldOffsets layout (that's an in-memory decode-time detail internal to
+// PencilKit), it's a variable, presence-driven concatenation. This decoder
+// does not attempt to unpack these bytes into typed values yet, beyond
+// slicing them out per named channel by size (see decode_drawing() in
+// apple-notes-drawing-decode.pl) - the one point checked by hand (a 2-byte
+// "force" slice, raw value 0xfa/250) landed suspiciously close to a
+// plausible normalized-force reading if divided by 1000, and a 2-byte
+// "altitude" slice (raw 0x7a3c) landed close to a plausible altitude angle
+// if divided by 0x7fff (32767, the same sentinel constant - literal bytes
+// "ff 7f" - separately observed inside Geometry.unk6 on every sample
+// checked). Both are suggestive, neither is confirmed across enough samples
+// to trust, and no per-channel scale/bias table has been located in the
+// binary (see point-decode-pipeline.md's "Not concluded" for why - it
+// likely exists somewhere near computeCachedValues()/updateFromCachedValues,
+// not yet disassembled).
 //
 // Envelope (confirmed 2026-09-11 from arm64e disassembly of
 // -[PKDrawingConcrete(PKDrawingPersistenceAdditions)
@@ -72,20 +121,31 @@ message BBox {
 }
 
 message Geometry {
-  optional bytes uuid    = 1;
-  optional fixed64 unk2  = 2; // unconfirmed; looked timestamp-ish
-  optional int32 npts    = 3; // point count
-  optional int32 unk4    = 4;
-  optional int32 unk5    = 5;
-  optional bytes unk6    = 6; // short (~6 byte) blob, unconfirmed
+  optional bytes uuid       = 1;
+  optional fixed64 unk2     = 2; // unconfirmed; looked timestamp-ish
+  optional int32 npts       = 3; // point count
+  // Confirmed 2026-09-11 (empirically, against real sample blobs): this is
+  // PencilKit's per-point channel presence bitmask, PKStrokePathPointsShared's
+  // pointFlags() - see the channel table in this file's header comment. Bit 0
+  // (value 0x1) is set on every sample seen so far; its meaning independent
+  // of channel 0 (location, unconditional) is unconfirmed.
+  optional int32 point_flags = 4;
+  optional int32 unk5       = 5;
+  optional bytes unk6       = 6; // short (~6-10 byte) blob, unconfirmed;
+                                  // every sample seen starts with bytes
+                                  // "e8 03 00 00" (uint32 1000) and ends with
+                                  // "ff 7f" (uint16 0x7fff/32767) - both
+                                  // reproducible across samples, meaning of
+                                  // neither confirmed.
   // Flat point table, length = npts * stride. Stride varies per stroke
   // (observed: 12,14,16,18,20,22). The first 8 bytes of every point are
-  // little-endian float32 X, float32 Y (confirmed). Remaining
-  // (stride-8) bytes are believed to hold packed/quantized auxiliary
-  // channels (force/azimuth/altitude/time) - NOT decoded here, and not
-  // expressible as a protobuf field since the stride is implicit, not
-  // itself a wire-format construct.
-  optional bytes points  = 7;
+  // little-endian float32 X, float32 Y (confirmed). The remaining
+  // (stride-8) bytes are the channels gated by `point_flags`, packed
+  // tightly in increasing channel-index order (see the table above) - NOT
+  // expressible as ordinary protobuf fields since which channels are
+  // present, and therefore the stride itself, is implicit per-stroke state
+  // instead of a wire-format construct.
+  optional bytes points     = 7;
 }
 
 message Stroke {

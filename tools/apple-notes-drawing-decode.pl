@@ -8,9 +8,12 @@
 # script parses the envelope in front of that protobuf message (magic +
 # version + header length, per PencilKit's own parser) and starts the
 # protobuf message at the header-length offset it specifies (usually but
-# not always 8), then unpacks the flat per-point float32 X/Y pairs that the
-# .proto can't express (Geometry.points is a variable-stride blob, not a
-# repeated field).
+# not always 8), then unpacks the flat per-point float32 X/Y pairs and
+# named auxiliary channels that the .proto can't express (Geometry.points is
+# a variable-stride blob, not a repeated field; which channels are present
+# in that stride is Geometry.point_flags, PencilKit's own per-point
+# presence bitmask - see apple-notes-drawing.proto's Geometry comment for
+# the channel table and what's confirmed vs. not).
 #
 # Usage:
 #   apple-notes-drawing-decode.pl --db NoteStore.sqlite --list
@@ -54,6 +57,27 @@ use URI::file;
 # Confirmed from arm64e disassembly of PencilKit's own parser - see the
 # envelope comment at the top of apple-notes-drawing.proto.
 my $ENVELOPE_MAGIC = 0xF0647277;
+
+# Per-point auxiliary channel table: index 1-10 in PencilKit's own
+# PKStrokePathPointsShared::sFieldSizes, gated by the matching bit (1<<index)
+# of Geometry.point_flags. Index 0 (location) is not in this list - it's the
+# unconditional first 8 bytes of every point record. Sizes are confirmed
+# (static disassembly + empirical cross-check against real samples); wire
+# byte order/scale for each channel's own bytes is NOT confirmed - see the
+# comment above Geometry in apple-notes-drawing.proto.
+my @POINT_CHANNELS = (
+	undef,               # index 0: location, handled separately
+	[ timestamp   => 4 ],
+	[ radius      => 4 ],
+	[ aspectRatio => 2 ],
+	[ edgeWidth   => 2 ],
+	[ force       => 2 ],
+	[ azimuth     => 2 ],
+	[ altitude    => 2 ],
+	[ opacity     => 2 ],
+	[ radius2     => 4 ],
+	[ threshold   => 2 ],
+);
 
 my %INK_CATEGORY_GUESS = (
 	2 => "pen",     # unconfirmed
@@ -188,14 +212,22 @@ sub decode_drawing {
 		if (my $geom = $st->{geometry}) {
 			my $npts  = $geom->{npts};
 			my $pdata = $geom->{points};
+			my $flags = $geom->{point_flags} // 0;
 			if (defined $npts && defined $pdata && $npts > 0
 					&& length($pdata) % $npts == 0) {
 				$stride = length($pdata) / $npts;
 				for my $i (0 .. $npts - 1) {
 					my $off = $i * $stride;
 					my ($x, $y) = unpack("f<f<", substr($pdata, $off, 8));
-					my $extra = substr($pdata, $off + 8, $stride - 8);
-					push @points, { x => $x, y => $y, extra_hex => unpack("H*", $extra) };
+					my $cursor = $off + 8;
+					my %channels;
+					for my $idx (1 .. 10) {
+						next unless ($flags >> $idx) & 1;
+						my ($name, $size) = @{ $POINT_CHANNELS[$idx] };
+						$channels{$name} = unpack("H*", substr($pdata, $cursor, $size));
+						$cursor += $size;
+					}
+					push @points, { x => $x, y => $y, channels => \%channels };
 				}
 			}
 		}
@@ -256,8 +288,10 @@ sub render_sexp {
 		push @out, "      (point-stride " . (defined $st->{point_stride} ? $st->{point_stride} : "nil") . ")";
 		push @out, "      (points";
 		for my $p (@{ $st->{points} }) {
-		    push @out, sprintf("        (%.6f %.6f) ; extra-hex %s",
-		        $p->{x}, $p->{y}, $p->{extra_hex} || "");
+		    my $chans = $p->{channels} || {};
+		    my $chan_str = join(" ", map { "$_=" . $chans->{$_} } sort keys %$chans);
+		    push @out, sprintf("        (%.6f %.6f) ; channels (hex, scale unconfirmed): %s",
+		        $p->{x}, $p->{y}, $chan_str);
 		}
 		push @out, "      )";
 		push @out, "    )";
