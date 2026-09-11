@@ -226,6 +226,14 @@ struct) - call it the "points archive." Offsets below are on it.
   stores the quotient into `shared+0x30`. This is the exact `npts = byte_length
   / stride` computation `point-fields.md`'s `.proto` comment describes as
   "implicit, not itself a wire-format construct" - now located precisely.
+  **Correction from §7**: `shared+0x30` is read back out via the identical
+  `udiv` idiom by `PKStrokePathPointsPrivate::count()`, dividing the same
+  begin/end byte range by `shared+0x30` again - i.e. `shared+0x30` is stored
+  and consumed as **the per-point-varying-channel byte stride**, not a
+  precomputed point count as this paragraph originally concluded (the two
+  are trivially confusable, since both this function and `count()` compute
+  `length / shared+0x30` and only differ in which of the two results -
+  quotient vs. divisor - each one keeps).
   Separately (same `points_archive+0x28` object), its own `{ptr, len}` pair
   is copied verbatim into a *second*, independent `std::vector<unsigned
   char>`, this one embedded directly on the `PKStrokePath` object itself at
@@ -378,35 +386,137 @@ channel bit corresponds to which semantic name (force/azimuth/altitude/
 timestamp/etc.) or which bits were set in any specific observed sample.
 
 No named symbol, string constant, or enum-like identifier tying these 11
-indices to semantic field names (e.g. "azimuth", "force") was found anywhere
-in `PencilKit`'s symbol table or string tables during this pass - a targeted
-`nm`/`strings` grep for those terms surfaced only unrelated PKInk/
-PKToolConfiguration azimuth-related API and no connection to this specific
-table. The size values themselves are suggestive by common sense (a `4`-byte
-field is plausibly a `float32`; a `2`-byte field is plausibly a quantized
-`int16`/`fixed16`; the one `8`-byte field, index 0, is plausibly a
-`double`-precision timestamp) but none of that is confirmed.
+indices to semantic field names was found searching from `PKStrokePathPointsShared`'s
+own side (a targeted `nm`/`strings` grep for "azimuth"/"force"/etc. from this
+class surfaced only unrelated PKInk/PKToolConfiguration azimuth-related API).
+**§7 below finds the mapping anyway, from the other direction** - via
+`PKStrokePoint`'s own named public/private accessors and the C++ class
+`PKStrokePathPointsPrivate` they call into, whose per-channel methods are
+individually named (`forceAtIndex`, `azimuthAtIndex`, etc.) and read from
+these exact offsets/sizes.
+
+## 7. Semantic identity of all 11 channels, confirmed via `PKStrokePathPointsPrivate`
+
+§6 closed the "what are the numeric sizes/offsets" question but left every
+channel's *name* unconfirmed. This section closes that too, via a route
+distinct from `PKStrokePathPointsShared`: the public class `PKStrokePoint`
+(confirmed real, `_OBJC_CLASS_$_PKStrokePoint`, with exactly the
+hypothesized public properties - `location`, `timeOffset`, `size`,
+`opacity`, `force`, `azimuth`, `altitude` - plus two undocumented ones,
+`secondaryScale` and `threshold`, and two private ones, `_edgeWidth` and
+`_radius2`, all confirmed via `nm -U PencilKit | grep -E '\-\[PKStrokePoint '`).
+Disassembling these accessors shows most of them (`location`, `opacity`,
+`force`, `threshold`, `_edgeWidth`) are 3-instruction wrappers that
+tail-call into a **different** C++ class than `PKStrokePathPointsShared`:
+`PKStrokePathPointsPrivate` (confirmed type name, from its own mangled
+symbols, e.g. `__ZNK25PKStrokePathPointsPrivate15locationAtIndexEm`).
+`azimuth`/`altitude` call the equivalent `*AtIndex` method and then apply a
+small fixed bias (`fadd`/`fsub` against a literal constant) before
+returning; `timeOffset`, `size`, and `secondaryScale` inline the equivalent
+logic directly into `PKStrokePoint` rather than calling out, but read from
+the exact same offsets `PKStrokePathPointsPrivate`'s own methods use.
+
+`PKStrokePathPointsPrivate` has one C++ member relevant here: a pointer at
+its own offset `+0x0` to a second, shared object - offsets read through that
+pointer (`+0x20`, `+0x28`, `+0x30`, `+0x38` onward, `+0x5c`-`+0x66`) line up
+exactly with `PKStrokePathPointsShared`'s layout as described in §4-§5 of
+this file, strongly suggesting `PKStrokePathPointsPrivate` is a lightweight
+per-range "view" object (consistent with its own `slice(_NSRange,
+PKStrokePathPointsPrivate&) const` method and `-[PKStrokePoint
+initWithSlice:index:]`) whose own `+0x10`/`+0x18` begin/end pointers are a
+sub-range into the shared byte data, wrapping a `PKStrokePathPointsShared`
+instance rather than being one - not proven identical, but the offset
+agreement below is exact enough that this pass treats them as the same
+underlying storage.
+
+Every `PKStrokePathPointsPrivate::<channel>AtIndex(unsigned long) const`
+method (eleven of them: `locationAtIndex`, `timestampAtIndex`,
+`radiusAtIndex`, `aspectRatioAtIndex`, `edgeWidthAtIndex`, `forceAtIndex`,
+`azimuthAtIndex`, `altitudeAtIndex`, `opacityAtIndex`, `radius2AtIndex`,
+`thresholdAtIndex` - confirmed exact C++ symbol names) follows the identical
+shape: test one bit of a presence-bitfield read through the shared pointer,
+and branch between two addressing modes:
+
+- **Bit clear (or requested point index out of range)**: read the channel's
+  value from a fixed offset in a single shared "default" record (base
+  `shared+0x38`) - exactly the 32-byte template `computeCachedValues()`
+  builds in §5, at exactly `sFieldOffsets[i]` past that base, for every
+  channel `i`.
+- **Bit set**: compute `address = raw_points_bytes_begin + index *
+  per_point_stride + shared[0x5c + i]` (an `madd` instruction fusing the
+  multiply-by-stride and add-of-per-channel-offset in one op) and read from
+  there - `shared[0x5c+i]` is exactly the per-channel cumulative-offset byte
+  `computeCachedValues()`'s second loop (§5) writes for channel `i`. This
+  directly answers this file's previous "where's the per-point loop"
+  question (see below): **there is no bulk per-point decode loop** - each
+  channel accessor computes one point's one field's address on demand, using
+  metadata `computeCachedValues()` precomputed once per path. `count()`
+  (confirmed method, used for bounds-checking in every accessor) computes
+  `(end - begin) / stride` from the same begin/end pair `readStrokeDataFromArchive:`
+  (§4) populated - stride here is read from the shared object's `+0x30`
+  field, which this pass now reads as "the per-point-varying-channels
+  stride," not the point count as an earlier revision of §4 guessed (a
+  stride and a count are computed by the identical `udiv` idiom in this
+  binary, and are easy to conflate without a second confirming site like
+  this one).
+
+The channel-index-to-size/offset match against §6's table is exact for all
+eleven entries, and each accessor's own read width (`ldr s0` for `float32`,
+`ldr h0` for a 16-bit half-float, or a plain `ldr`/`ldp` for the 8-byte
+`location` pair) matches `sFieldSizes[i]` exactly:
+
+| index | `sFieldOffsets`/`sFieldSizes` | channel (from `PKStrokePathPointsPrivate`) | raw storage | normalization applied by the accessor |
+|---|---|---|---|---|
+| 0 | 0 / 8  | `location` (→ `PKStrokePoint.location`) | two `float32` (x, y) | none |
+| 1 | 8 / 4  | `timestamp` (→ `PKStrokePoint.timeOffset`) | `float32` | none |
+| 2 | 12 / 4 | `radius` (→ `PKStrokePoint.size.width`, and combined with aspectRatio for `.height`) | `float32` | none |
+| 3 | 16 / 2 | `aspectRatio` (→ `PKStrokePoint.size.height` via `radius * aspectRatio`) | `float16` | divided by a fixed constant |
+| 4 | 18 / 2 | `edgeWidth` (→ `PKStrokePoint._edgeWidth`, private) | `float16` | divided by literal `10.0` |
+| 5 | 20 / 2 | `force` (→ `PKStrokePoint.force`) | `float16` | divided by a fixed constant |
+| 6 | 22 / 2 | `azimuth` (→ `PKStrokePoint.azimuth`) | `float16` | divided by a fixed constant, then biased by addition in the public accessor |
+| 7 | 24 / 2 | `altitude` (→ `PKStrokePoint.altitude`) | `float16` | divided by a fixed constant, then `bias - raw` in the public accessor |
+| 8 | 26 / 2 | `opacity` (→ `PKStrokePoint.opacity`) | `float16` | divided by a fixed constant |
+| 9 | 28 / 4 | `radius2` (→ `PKStrokePoint._radius2`, private) | `float32` | none |
+| 10 | 32 / 2 | `threshold` (→ `PKStrokePoint.threshold`, undocumented public) | `float16` | divided by a fixed constant (same slot as `opacity`'s) |
+
+The normalization constants themselves live at fixed, named-adjacent
+`adrp`/`ldr` addresses in `PencilKit`'s `__TEXT` segment (file-backed, same
+as §6's literal-constant source range) but their numeric values were not
+extracted this pass - out of scope for this round's specific ask, though
+recoverable with the identical `dd`-against-file-offset technique §6 used,
+should a future pass need them.
+
+This also resolves the presence-bitfield question §5/§6 left open. Two
+distinct, now-named accessors exist on `PKStrokePathPointsPrivate`:
+`pointFlags()` (reads the shared object's `+0x20` field) and
+`constantFlags()` (reads `+0x28`) - both return a plain integer, not a
+pointer, correcting an earlier guess in §4 that `shared+0x20` held "a
+pointer." Cross-referencing against each `*AtIndex` accessor's own bit
+tests: **`pointFlags` (`shared+0x20`) is the per-point-varying-channel
+mask** - the one whose bits gate the `index`-addressed branch above and
+whose cumulative layout `computeCachedValues()`'s second loop builds into
+`shared+0x5c`/`+0x58` - while **`constantFlags` (`shared+0x28`) is the
+whole-path-constant-channel mask** - the one `computeCachedValues()`'s
+*first* loop (§5) uses to fill the single shared default record at
+`shared+0x38`. In other words: a channel that is constant for an entire
+stroke path (its `constantFlags` bit set) is stored once, read out of the
+raw bytes only at path-load time into the shared default record, and never
+takes up per-point space at all; a channel that varies per point
+(`pointFlags` bit set) is the one actually packed into the flat, per-point,
+variable-stride byte array `point-fields.md` originally set out to decode -
+this is a materially more precise model than "the tail is 4-14 bytes of
+enabled channels" and explains variability beyond simple presence/absence:
+a channel can be present for a stroke yet cost zero per-point bytes if it's
+constant across that stroke.
 
 ## Not concluded
 
-- The actual per-point iteration that applies `sFieldSizes`/`sFieldOffsets`
-  (or the `shared+0x5c` cumulative-offset table) to every point in the
-  `shared+0x8` raw-bytes vector, `shared+0x30` times - not located. Likely
-  candidates: `PKStrokePathPointsShared::updateFromCachedValues()` (confirmed
-  sibling symbol, `__ZN24PKStrokePathPointsShared22updateFromCachedValuesEv`,
-  not disassembled this pass) or an on-demand point-accessor method on
-  `PKStrokePath` itself.
-- ~~Numeric contents of `sFieldSizes`/`sFieldOffsets`~~ **Resolved, see §6**:
-  found via their writer (`+[PKStrokePath calculateOffsets]` →
-  `_calculateOffsets:sizes:`, `dispatch_once`-guarded, pure literal-constant
-  stores) rather than their readers. Still open: which bit/index corresponds
-  to which semantic channel name, and which bits are actually set in any
-  given real sample.
-- What the two independent 11-bit masks (`shared+0x28` from
-  `points_archive+0x18`, `shared+0x20` from `points_archive+0x30`) actually
-  mean relative to each other - one reads as "which channels are present on
-  disk," the other as "which channels the caller wants materialized," but
-  this is inferred from shape, not confirmed by any named field.
+- The two normalization-constant addresses per channel (§7's "fixed
+  constant" column) - located but not read/decoded this pass.
+- Whether `PKStrokePathPointsPrivate` is literally the same type as
+  `PKStrokePathPointsShared` or a distinct "view" type wrapping/pointing at
+  one - inferred from matching offsets (§7), not proven by a shared symbol
+  or cast.
 - `-[_PKStrokeConcrete readStrokeIDFromArchive:withSortedUUIDs:]` - called
   from three sites in §2b/§2d, confirmed exact selector, not itself
   disassembled; its 24-byte result shape (UUID-sized value across two stack
@@ -469,6 +579,23 @@ bytes read via `dd`, reported as a decimal table rather than as raw
 hex/binary content, consistent with this directory's no-raw-bytes
 convention; no disassembly, hex dump, or extracted binary content is
 otherwise reproduced here or committed to this repo.
+
+§7 was produced in a later pass of the same session, starting from an
+untested hypothesis (that the public `PKStrokePoint` class's documented
+properties might correspond to the 10 optional channels) supplied as a
+starting point, then independently confirmed rather than assumed: `nm -U
+PencilKit | grep -i strokepoint` and `grep -E '\-\[PKStrokePoint '`
+established the class and every accessor selector actually exist verbatim
+in this binary (not just NotesEditor/NotesShared, which were also checked
+per the same instruction and came back empty for `PKStrokePoint` itself);
+each accessor was then disassembled individually (the demangled
+`(unsigned long) const`-suffixed C++ signature form did not resolve as an
+`ipsw -s` argument for the `PKStrokePathPointsPrivate::*AtIndex` methods,
+so the mangled form from `nm`'s raw output was used instead, the same
+fallback `legacy_drawing.md` needed for a similar reason). The
+offset/size/bit-index agreement against `PKStrokePathPointsShared`'s
+already-recovered `sFieldOffsets`/`sFieldSizes` (§5-§6) was checked by hand
+across all eleven channels, not sampled.
 
 ## Call graph (this file's additions)
 
