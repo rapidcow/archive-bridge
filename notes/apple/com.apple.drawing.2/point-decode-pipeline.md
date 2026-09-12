@@ -481,10 +481,11 @@ eleven entries, and each accessor's own read width (`ldr s0` for `float32`,
 
 The normalization constants themselves live at fixed, named-adjacent
 `adrp`/`ldr` addresses in `PencilKit`'s `__TEXT` segment (file-backed, same
-as §6's literal-constant source range) but their numeric values were not
-extracted this pass - out of scope for this round's specific ask, though
-recoverable with the identical `dd`-against-file-offset technique §6 used,
-should a future pass need them.
+as §6's literal-constant source range). **§8 below extracts the three that
+matter most (`force`, `azimuth`, `altitude`) using exactly this
+`dd`-against-file-offset technique**, and also corrects this table's "raw
+storage" column for those three: it says `float16` above, but that is
+wrong - see §8's opening paragraph.
 
 This also resolves the presence-bitfield question §5/§6 left open. Two
 distinct, now-named accessors exist on `PKStrokePathPointsPrivate`:
@@ -509,10 +510,112 @@ enabled channels" and explains variability beyond simple presence/absence:
 a channel can be present for a stroke yet cost zero per-point bytes if it's
 constant across that stroke.
 
+## 8. `force`/`azimuth`/`altitude` normalization constants - confirmed exact, and a correction to the table above
+
+Session date 2026-09-12, live SSH access to the same Mac (`cooper.plug.rapidcow.net`,
+macOS 26.6.2 build 25G83) this directory's other files were produced on,
+reusing the `~/re-notes/PencilKit` extraction and `PencilKit.a2s` symbol
+cache already sitting on that machine from the 2026-09-11 session - no
+re-extraction needed, `ipsw dyld extract` wasn't even invoked this pass.
+
+**Correction to §7's table**: the "raw storage" column calls channels 3-8/10
+`float16`. That's wrong, at least for `force`/`azimuth`/`altitude` (index
+5/6/7), and by strong analogy (identical accessor codegen shape, same
+2-byte size bucket) very likely wrong for `aspectRatio`/`edgeWidth`/
+`opacity`/`threshold` too (indices 3/4/8/10 - not individually disassembled
+this pass, so left as an inference, not a confirmed fact, for those four).
+The tell is in the disassembly of each `*AtIndex` accessor
+(`__ZNK25PKStrokePathPointsPrivate12forceAtIndexEm` at `0x1ae682950`,
+`...14azimuthAtIndexEm` at `0x1ae681838`, `...15altitudeAtIndexEm` at
+`0x1ae682a68` - all found via `nm -U ~/re-notes/PencilKit | grep -i AtIndex`,
+disassembled via `ipsw macho disass ~/re-notes/PencilKit -s '<mangled-name>'
+--demangle --force`; e.g. `azimuthAtIndex`'s mangling breaks down as
+`_Z` [mangled-name marker] `N` [nested-name open] `K` [const method]
+`25PKStrokePathPointsPrivate` [25-char class name] `14azimuthAtIndex`
+[14-char method name] `E` [nested-name close] `m` [one `unsigned long`
+param] - the leading digit before each identifier is just that
+identifier's `strlen`, a quick way to sanity-check a mangled name by hand):
+each ends with
+
+```
+ldr  h0, [x8]        ; load the raw 2 bytes into a v-register (no type implied yet)
+ucvtf d0, d0         ; UNSIGNED-INT-to-float convert
+adrp x8, 0x1ae769000
+ldr  d1, [x8, #0x14X]
+fdiv d0, d0, d1
+ret
+```
+
+`ucvtf` converts an integer value to floating-point; a genuine `float16`
+reinterpretation would need `fcvt` (float-to-float). So the raw 2 bytes are
+a **plain fixed-point `uint16`**, not IEEE754 half-precision - confirmed
+both by this instruction choice and empirically (interpreting a real
+sample's `force` bytes as `float16` gives nonsense values ~0.00002;
+as `uint16` they give a sane 0-to-1-ish pressure curve, see below).
+
+`azimuth`/`altitude` additionally go through a second, public-API wrapper
+that isn't in `PKStrokePathPointsPrivate` at all: `-[PKStrokePoint azimuth]`
+(`0x1ae645e9c`) and `-[PKStrokePoint altitude]` (`0x1ae645ec8`), found via
+`nm -U ~/re-notes/PencilKit | grep -E '\-\[PKStrokePoint (azimuth|altitude)\]'`.
+Each calls straight into its `*AtIndex` private accessor, then applies one
+more constant: `azimuth` does `fadd d0, d0, d1` (add a bias), `altitude`
+does `fsub d0, d1, d0` (bias **minus** raw, not raw minus bias - order
+matters, since it means `altitude` decreases as the raw accessor's
+pre-bias value increases).
+
+Every constant was resolved from its `adrp base + ldr #imm` pair to an
+absolute address, converted to a `__TEXT` file offset via
+`file_offset = vmaddr - 0x1ae60f000` (`__TEXT`'s `vmaddr`/`fileoff` from
+`otool -l ~/re-notes/PencilKit`, `fileoff` is `0`, same segment §6 used),
+then read with `dd if=~/re-notes/PencilKit bs=1 skip=$((file_offset))
+count=8` and unpacked as a little-endian IEEE754 `double` - identical
+mechanical technique to §6's `sFieldSizes`/`sFieldOffsets` extraction, just
+pointed at four new addresses (two divisors, two biases) instead of one
+16-literal table.
+
+| channel | divisor addr | divisor value | bias addr | bias value | formula |
+|---|---|---|---|---|---|
+| `force` | `0x1ae769140` | `1000.0` (exact) | none | - | `raw_uint16 / 1000.0` |
+| `azimuth` | `0x1ae769138` | `65535/(2π)` (exact) | `0x1ae768848` | `-π` (exact) | `raw_uint16 × (2π/65535) - π` |
+| `altitude` | `0x1ae769150` | `4×65535/(2π)` (exact, i.e. `65535/divisor = π/2` exactly) | `0x1ae768850` | `π/2` (exact) | `π/2 - raw_uint16 × (π/2/65535)` = `(π/2)×(65535-raw)/65535` |
+
+All three divisor/bias values are exact IEEE754 doubles (not approximations
+landing near a clean number by coincidence) - `1000.0` outright, and the
+azimuth/altitude constants built directly from `65535` and `π`
+(`65535/altitude_divisor` comes back as exactly `1.5707963267948966`, i.e.
+`math.pi/2` to full double precision). That, plus the empirical cross-check
+below, is why this pass treats all three as confirmed rather than merely
+plausible.
+
+**Empirical cross-check**, against a real stroke decoded straight from the
+user's own archived `NoteStore.sqlite` (`tools/apple-notes-drawing-decode.pl
+--pk 15436`, point-flags subset `{altitude, force, radius, timestamp}` -
+`azimuth` wasn't present in this particular stroke's channel mask, so only
+`force`/`altitude` could be checked against real bytes this pass):
+- `force` raw `uint16` sequence for this stroke: `344, 428, 484, 502, 510,
+  502, 480, 420, 332, 237, 147, 66, 0` -> `/1000.0` gives `0.344 -> 0.510
+  (peak, mid-stroke) -> 0.0` (at the final point, i.e. pen lift) - exactly
+  the press-then-lift pressure curve a real handwriting stroke should
+  produce.
+- `altitude` raw `uint16` goes `30976` (first three points, unchanged) down
+  to `28768` (last point) -> formula gives `≈ 47.5°` at the start
+  drifting to `≈ 50.5°` at the end - a small, physically
+  plausible wobble in pencil-to-surface angle over one stroke, not noise.
+- `timestamp` (already known to need no normalization, per §7's table) was
+  also checked against this same stroke as a sanity anchor: successive
+  deltas are a steady `~4-8ms`, consistent with Apple Pencil's up-to-240Hz
+  sample rate - confirms the `float32`-seconds-no-scaling reading already
+  in the table is still correct.
+
 ## Not concluded
 
-- The two normalization-constant addresses per channel (§7's "fixed
-  constant" column) - located but not read/decoded this pass.
+- `force`/`azimuth`/`altitude`'s normalization constants are now confirmed
+  exact (§8). `aspectRatio`/`edgeWidth`/`opacity`/`threshold` (indices
+  3/4/8/10) are not: still not individually disassembled. Presumed `uint16`
+  fixed-point by analogy to `force`/`azimuth`/`altitude`'s accessor shape,
+  not confirmed the same way. `edgeWidth`'s "divided by literal `10.0`"
+  note in §7's table predates §8's session and was not independently
+  re-verified against a live disassembly there.
 - Whether `PKStrokePathPointsPrivate` is literally the same type as
   `PKStrokePathPointsShared` or a distinct "view" type wrapping/pointing at
   one - inferred from matching offsets (§7), not proven by a shared symbol
