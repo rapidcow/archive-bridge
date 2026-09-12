@@ -170,14 +170,94 @@ investigated further this pass. The six HDR/multi-channel color fields
 `requiredContentVersion` have no counterpart in the current `.proto`'s
 `InkDef` message at all.
 
+## Update (2026-09-12, later session): `drawing::Stroke`'s real field numbers
+
+The "not mapped to field numbers" gap below is now mostly closed. Two
+corrections to how this was originally scoped, first:
+
+- `formatText`'s string-literal order is **not** declaration order after
+  all - re-extracting it *without* piping through `sort -u` (the original
+  extraction command, quoted above, did pipe through `sort -u`) produced
+  the exact same alphabetical sequence. So `formatText` itself must sort
+  fields by name before printing (a reasonable thing for a canonical/diff-
+  friendly text format to do), independent of wire field numbers or
+  declaration order. This method genuinely cannot recover field-number
+  order; the real technique needed disassembling `readFrom` directly.
+- `drawing::Stroke::readFrom(PB::Reader&)` (`0x1ae6488f0`) parses each
+  field's protobuf tag into a field number (`x28`/`w8` in the disassembly)
+  and dispatches through a computed jump table at `0x1ae611e84` (16
+  entries, one per field number 1-16, resolved via `adrp`/`add` then a
+  `ldrsw`+`br` indirect branch). Reading the jump table's 16 relative
+  offsets directly off disk gives the real code address for every field
+  number 1-16 without guessing.
+- Separately, `drawing::Stroke` exports seven `makeXXX()` accessors
+  (`makeBounds`, `makeSortID`, `makeVersion`, `makeTransform`,
+  `makeStrokeData`, `makeInkTransform`, `makeSubstrokesVersion`) - these
+  are the lazy-construct-if-absent accessors for every field whose type
+  needs vtable-based construction (`Rectangle`/`StrokeID`/`Transform`/
+  `StrokeData`, as opposed to a plain scalar or `PB::Data` blob). Each one
+  is a two-instruction giveaway: `ldr x8, [x0, #OFFSET]` (read the field)
+  then, further down, construct-and-store back at that same `OFFSET`. That
+  directly ties a *name* to a *struct offset*, with zero ambiguity.
+
+Cross-referencing those two independent things - "field number N's
+`readFrom` case touches offset X" and "`makeFoo` touches offset X" - gives
+a fully proven number for every field that has a `make` accessor:
+
+| field # | name                  | type         |
+|---------|-----------------------|--------------|
+| 2       | `sortID`              | `StrokeID`   |
+| 3       | `version`             | `StrokeID`   |
+| 4       | `inkIndex`            | scalar int32 (confirms `apple-notes-drawing.proto`'s guessed `f4`) |
+| 5       | `strokeData`          | `StrokeData` (confirms `apple-notes-drawing.proto`'s `geometry`) |
+| 6       | `bounds`              | `Rectangle`  (confirms `apple-notes-drawing.proto`'s `bbox`) |
+| 7       | `transform`           | `Transform`  |
+| 9       | `substrokesVersion`   | `StrokeID`   |
+| 15      | `inkTransform`        | `Transform`  |
+
+`substrokes` (field 11) is separately proven without needing an offset
+match at all: its `readFrom` case literally calls
+`PB::PtrVector<drawing::Stroke>::emplace_back<>()` - the mangled type name
+alone says "repeated `Stroke` message," which is exactly `substrokes`.
+
+One finding worth flagging on its own: `StrokeID` is *not* purely a UUID
+wrapper the way its name suggests - Apple reuses the same class for
+`sortID`/`version`/`substrokesVersion`, none of which are identity/UUID
+concepts. It's better understood as a generic versioned-identifier type
+(plausibly a `{replicaID, counter}`-shaped logical-clock value, given this
+codebase's other CRDT-flavored machinery - see `point-decode-pipeline.md`'s
+`PKVectorTimestamp` notes) that Apple happens to reuse for both identity
+and version-numbering purposes.
+
+That leaves 9 of 16 fields with hard, disassembly-proven numbers
+(2,3,4,5,6,7,9,11,15 above). The remaining 7 fields have no `make`
+accessor to cross-reference (they're plain scalars or `PB::Data` blobs,
+which don't need lazy vtable construction), so only *type*, not exact
+number, could be nailed down for them - by matching each remaining
+`readFrom` case's type against the remaining name list
+(`centerlineSlices`, `groupUUID`, `maskPoints`, `renderGroupUUID`,
+`shapeType`, `strokeUUID`, `styleFlags`):
+
+| field #s      | plausible name(s)                              | type (proven) |
+|---------------|-------------------------------------------------|---------------|
+| 1, 13, 16     | `groupUUID`, `renderGroupUUID`, `strokeUUID` (order unconfirmed) | `PB::Data` (raw byte blob) |
+| 8, 14         | `shapeType`, `styleFlags` (order unconfirmed)   | scalar int32  |
+| 10            | `centerlineSlices` (by elimination + shape fit) | `vector<PB::Data>` (repeated blob) |
+| 12            | `maskPoints` (by elimination + name fit - a flat float list literally called "points") | `vector<float>` (repeated, packed-or-unpacked dual path) |
+
+The three-way and two-way ties are a real, currently-unresolved gap - all
+three `PB::Data`-typed fields (and both scalar-int fields) look identical
+at the `readFrom`-dispatch level, since the field number alone determines
+behavior and there's no accessor symbol left to disambiguate further.
+Resolving them would need something like disassembling `writeTo`/
+`hash_value` (which iterate fields in some order that might reveal more)
+or testing against real sample data where these fields are actually
+populated - not attempted this pass.
+
 ## Not concluded
 
-- None of the newly-confirmed field *names* above have been mapped back to
-  confirmed wire *field numbers* - `formatText`'s string literals give
-  names in declaration order but not the field-number constants
-  `readFrom`/`writeTo` dispatch on. That would need actually disassembling
-  `readFrom` (a tag-based dispatch loop, likely a large switch/jump table)
-  for each class, not attempted this pass.
+- The exact field number for 7 of `Stroke`'s 16 fields - see the update
+  above for the specifics of what's still tied.
 - `centerlineSlices`/`maskPoints` (`Stroke`), `bounds`/`boundsVersion`
   (`Drawing`), and all six HDR/multi-channel color fields plus
   `requiredContentVersion` (`Ink`) are confirmed-real names with no

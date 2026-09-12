@@ -14,12 +14,15 @@
 //     ground truth, not guesses.
 //   - names not yet matched to a `drawing.md` counterpart are still this
 //     script's own guesses, unconfirmed the way they always were.
-// `drawing.md` also found that `Geometry` and `StrokeSeqInfo` below almost
-// certainly are NOT real nested message types in Apple's own schema - see
-// that file for why - but their field NUMBERS/shapes are kept as-is here
-// since decode_raw's byte-level observation of "a length-delimited
-// sub-message lives at this wire position" is still valid even though the
-// name/structure invented around it was likely wrong.
+// `drawing.md` also found that `Geometry` below is NOT a real nested message
+// type in Apple's own schema - see that file for why - but its field
+// NUMBERS/shape are kept as-is here since decode_raw's byte-level
+// observation of "a length-delimited sub-message lives at this wire
+// position" is still valid even though the name/structure invented around
+// it was likely wrong. (An earlier guess along the same lines, once called
+// `StrokeSeqInfo`/`StrokeUnknown2`, turned out to be the opposite case - a
+// real embedded message, Apple's own `StrokeID` class - see StrokeID below
+// and drawing.md's later update section.)
 //
 // Per-point auxiliary channel layout (confirmed 2026-09-11/2026-09-12, two
 // independent ways - see notes/apple/com.apple.drawing.2/
@@ -124,37 +127,36 @@ message Ink {
   optional int32 weight = 3;  // real field name: weight; tool weight/width class, units unconfirmed
 }
 
-// Shape shared by Drawing's top-level field 3 and Stroke's own field 3.
+// Used by Drawing's top-level field 3 only (Stroke's own field 3 was
+// originally guessed to share this shape too, before drawing::Stroke's real
+// field-number mapping proved field 3 is actually StrokeID-typed - see
+// StrokeID below - so this message is no longer shared between the two).
 // Drawing.version_vector's use of this shape is a plausible (not confirmed)
-// match to the real `versionVector` field name found in drawing.md;
-// Stroke.f3's use of it has no such candidate name at all - the two uses
-// are NOT known to be the same real field, just the same observed wire
-// shape (three int32 sub-fields). f1/f2/f3 meanings unconfirmed either way.
+// match to the real `versionVector` field name found in drawing.md.
+// f1/f2/f3 meanings unconfirmed.
 message IndexEntry {
   optional int32 f1 = 1;
   optional int32 f2 = 2;
   optional int32 f3 = 3;
 }
 
-// drawing.md found no `StrokeSeqInfo`-shaped nested message anywhere in the
-// real `drawing::Stroke` field list (`bounds`, `centerlineSlices`,
-// `groupUUID`, `inkIndex`, `inkTransform`, `maskPoints`, `renderGroupUUID`,
-// `shapeType`, `sortID`, `strokeData`, `strokeUUID`, `styleFlags`,
-// `substrokes`, `substrokesVersion`, `transform`, `version`) - so `seq`/
-// `ink_category` below are almost certainly NOT real field names; this is
-// likely decode_raw grouping several adjacent real scalar fields (perhaps
-// some combination of `sortID`/`inkIndex`/`version`/`styleFlags`) into what
-// only *looks* like one nested submessage. Kept at its original field
-// number/shape (that part of the raw decode is still valid) but the field
-// names are downgraded to unconfirmed placeholders rather than asserting
-// semantics `drawing.md` casts doubt on. The real `inkIndex` field (an
-// index into Drawing.inks[]) is confirmed to exist and matches
-// point-decode-pipeline.md's independently-confirmed ink-selection
-// mechanism - it just isn't known which of f1/f2/f3 (if any) it actually
-// is at this field number.
-message StrokeUnknown2 {
-  optional int32 f1 = 1;  // formerly guessed "seq" - unconfirmed, see above
-  optional int32 f2 = 2;  // formerly guessed "ink_category" - unconfirmed, see above
+// UPDATE (2026-09-12, later session, see drawing.md's own update section):
+// this was originally named StrokeUnknown2 and guessed to be either a
+// phantom decode_raw grouping artifact, or (before that) StrokeSeqInfo with
+// seq/ink_category fields - both wrong. Disassembling
+// drawing::Stroke::readFrom's real field-number jump table, cross-checked
+// against the struct offsets touched by Stroke's own makeSortID()/
+// makeVersion()/makeSubstrokesVersion() accessors, proved this shape is a
+// genuine embedded message - Apple's real `drawing::StrokeID` class - reused
+// by Stroke at three different real field numbers (2 = sortID, 3 = version,
+// 9 = substrokesVersion), not scalar fields decode_raw misgrouped as this
+// message was long suspected to be. StrokeID's own internal three-int32
+// shape (f1/f2/f3 below) is still unconfirmed at the sub-field level - only
+// its existence, real class name, and reuse across those three Stroke
+// fields is proven.
+message StrokeID {
+  optional int32 f1 = 1;
+  optional int32 f2 = 2;
   optional int32 f3 = 3;
 }
 
@@ -203,16 +205,35 @@ message Geometry {
 }
 
 // Real name confirmed as `drawing::Stroke` (drawing.md); see that file for
-// the full real field list. Only fields with a specific mapping attempt are
-// listed below - see each field's own comment for confidence level.
+// the full real field list and, in its later update section, how each field
+// number below was actually proven (readFrom's jump table cross-referenced
+// against the makeXXX() accessors' struct offsets - hard proof for numbers
+// 2/3/4/5/6/7/9/11/15; type-only confidence, not individual-number proof,
+// for the rest - see drawing.md for exactly which are still tied).
+//
+// Field 3 here is a real Stroke field (StrokeID-typed, real name `version`)
+// and is UNRELATED to the top-level IndexEntry-shaped field this file's
+// Drawing message also happens to number 3 - the two were only ever linked
+// by sharing an old, since-abandoned guessed shape (IndexEntry), not by any
+// real correspondence. Kept as its own field here to avoid re-introducing
+// that conflation.
 message Stroke {
-  optional bytes stroke_uuid       = 1; // real field name: strokeUUID
-  optional StrokeUnknown2 f2       = 2; // NOT confirmed "seq_info" - see StrokeUnknown2
-  optional IndexEntry f3           = 3; // unconfirmed - see IndexEntry
-  optional int32 f4                = 4;
-  optional Geometry stroke_data    = 5; // real field name: strokeData (absent for empty/zero-point strokes)
-  optional Bounds bounds           = 6; // real field name: bounds
-  optional int32 f8                = 8;
+  optional bytes stroke_uuid       = 1; // real field name: strokeUUID (unconfirmed vs. groupUUID/renderGroupUUID which also live at 1/13/16 in some order - see drawing.md)
+  optional StrokeID sort_id        = 2; // real field name: sortID - proven, see StrokeID
+  optional StrokeID version        = 3; // real field name: version - proven, see StrokeID
+  optional int32 ink_index         = 4; // real field name: inkIndex - proven; index into Drawing.inks[]
+  optional Geometry stroke_data    = 5; // real field name: strokeData - proven (absent for empty/zero-point strokes)
+  optional Bounds bounds           = 6; // real field name: bounds - proven
+  optional bytes transform         = 7; // real field name: transform - proven to exist at this number; real drawing::Transform class, internal shape not reverse-engineered, kept as opaque bytes
+  optional int32 f8                = 8; // unconfirmed - plausibly shapeType or styleFlags, see drawing.md
+  optional StrokeID substrokes_version = 9; // real field name: substrokesVersion - proven, see StrokeID
+  repeated bytes centerline_slices = 10; // unconfirmed - plausibly centerlineSlices (repeated PB::Data blob list observed at this number), see drawing.md
+  repeated Stroke substrokes       = 11; // real field name: substrokes - proven (readFrom calls PB::PtrVector<drawing::Stroke>::emplace_back directly)
+  repeated float mask_points       = 12; // unconfirmed - plausibly maskPoints (repeated float list observed at this number, packed or unpacked), see drawing.md
+  optional bytes f13               = 13; // unconfirmed - plausibly groupUUID/renderGroupUUID/strokeUUID, see drawing.md
+  optional int32 f14               = 14; // unconfirmed - plausibly shapeType or styleFlags, see drawing.md
+  optional bytes transform2        = 15; // real field name: inkTransform - proven to exist at this number; same caveat as field 7 (opaque bytes, internal shape unreversed)
+  optional bytes f16               = 16; // unconfirmed - plausibly groupUUID/renderGroupUUID/strokeUUID, see drawing.md
 }
 
 // Real name confirmed as `drawing::Drawing` (drawing.md), with real fields
