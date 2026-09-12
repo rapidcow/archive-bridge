@@ -252,16 +252,17 @@ sub decode_drawing {
 			}
 		}
 
-		# Stroke.f2 (StrokeUnknown2) - NOT a confirmed "seq_info"/
-		# "ink_category" (see apple-notes-drawing-2.proto and
-		# notes/apple/com.apple.drawing.2/drawing.md for why that guess was
-		# withdrawn) - exposed here only as raw, unlabeled integers.
-		my $unk2 = $st->{f2};
+		# Stroke.sort_id (field 2) - real field name confirmed as sortID,
+		# type confirmed as StrokeID (see apple-notes-drawing-2.proto and
+		# notes/apple/com.apple.drawing.2/drawing.md) - but StrokeID's own
+		# f1/f2/f3 sub-fields are still unconfirmed, so exposed here only as
+		# raw, unlabeled integers.
+		my $sort_id = $st->{sort_id};
 		my $bounds = $st->{bounds};
 
 		push @strokes, {
 		    stroke_uuid  => unpack("H*", $st->{stroke_uuid} || ""),
-		    unknown2     => $unk2 ? [ $unk2->{f1}, $unk2->{f2}, $unk2->{f3} ] : undef,
+		    sort_id      => $sort_id ? [ $sort_id->{f1}, $sort_id->{f2}, $sort_id->{f3} ] : undef,
 		    bounds       => $bounds ? [ $bounds->{f1}, $bounds->{f2}, $bounds->{f3}, $bounds->{f4} ] : undef,
 		    point_stride => $stride,
 		    points       => \@points,
@@ -334,8 +335,8 @@ sub render_sexp {
 	for my $st (@{ $d->{strokes} }) {
 		push @out, "    (stroke";
 		push @out, "      (uuid " . esc_str($st->{stroke_uuid}) . ")";
-		push @out, "      (unknown2 " . ($st->{unknown2} ? join(" ", map { $_ // "nil" } @{ $st->{unknown2} }) : "nil") .
-		            ") ; formerly guessed seq/ink_category - withdrawn, see drawing.md";
+		push @out, "      (sort-id " . ($st->{sort_id} ? join(" ", map { $_ // "nil" } @{ $st->{sort_id} }) : "nil") .
+		            ") ; field name confirmed, sub-fields f1/f2/f3 unconfirmed - see drawing.md";
 		if ($st->{bounds}) {
 		    push @out, sprintf("      (bounds %.6f %.6f %.6f %.6f) ; order unconfirmed", @{ $st->{bounds} });
 		}
