@@ -415,22 +415,69 @@ just advance in lockstep).
 Net conclusion: **field 2 = `replicaIndex`** (empirically solid - the
 per-note-constant/cross-note-varying pattern is a strong signal, though
 still empirical rather than disassembly-proven the way `strokeUUID` was in
-Update 3). **Fields 1 and 3 = `{clock, subclock}`, order still
-unresolved** - they co-vary in every sample seen so far because this
-corpus has no genuinely concurrent multi-device edits to tell them apart;
-resolving that fully would need either a note edited from two devices, or
-disassembling whatever comparison logic breaks ties between `clock` and
-`subclock` values (`-[PKVectorTimestamp compareClock:subclock:forUUID:]`
-looked like a promising candidate, not attempted this pass).
+Update 3). Fields 1 and 3 co-vary in every sample seen so far because this
+corpus has no genuinely concurrent multi-device edits to tell them apart -
+but see Update 5 below, which resolves the order anyway via a different
+route (comparator priority, not divergent values).
+
+## Update 5: `clock` vs. `subclock` resolved via the stroke-ordering comparator
+
+Update 4 left fields 1/3 as "`{clock, subclock}`, order unresolved" -
+genuinely undecidable from *values* alone in a single-writer corpus, since
+both counters trivially advance together when there's never a tie to
+break. Resolved it a different way instead: by disassembling the actual
+comparator that orders strokes for rendering, and reading off which field
+it treats as primary vs. tiebreak - that's a property of the *code*, not
+the *data*, so a single-writer corpus doesn't block it.
+
+`-[_PKStrokeConcrete compareToStroke:]` (`0x1ae6bbb00`) fetches both
+strokes' `_sortID` (the ObjC-bridged form of `Stroke.sortID`, i.e.
+`StrokeID`) into a lightweight `_PKStrokeID` C struct, then calls
+`_PKStrokeIDCompare(_PKStrokeID, _PKStrokeID)` (`0x1ae6c5c18`). That
+comparator's structure is a plain three-level cascade:
+
+1. compare `int32` at struct offset `0x0` - if unequal, return immediately
+   (this is the primary sort key)
+2. else compare a value at offset `0x4` via a helper (`0x1ae7588e4`) that
+   looks like a string/UUID comparison - a secondary tiebreak
+3. else compare `int32` at offset `0x14` - the final fallback, only
+   reached if both of the above were equal
+
+That's the textbook Lamport/vector-clock ordering convention: compare the
+primary clock value first; if two operations happen to share a clock value
+(only possible across *different* replicas, in a real concurrent-edit
+scenario), break the tie by replica identity; only fall back to a
+secondary counter (`subclock`) if even the replica identity somehow
+matches too. Assuming this lightweight bridging struct's field order
+mirrors `drawing::StrokeID`'s own declared field order (reasonable - such
+structs are typically populated by copying fields out of the parsed
+protobuf object in order - though not itself independently disassembly-
+proven byte-for-byte), this gives:
+
+- **field 1 (offset `0x8` in `drawing::StrokeID`) = `clock`** - compared
+  first, i.e. the primary key, matching offset `0x0`'s priority in
+  `_PKStrokeID`.
+- **field 3 (offset `0x18`) = `subclock`** - the last-resort tiebreak,
+  matching offset `0x14`'s priority.
+
+This also explains the `third = first + 1` lockstep pattern more
+precisely than either Update 4 hypothesis did: with `clock` alone already
+sufficient to totally order every stroke in a single-writer trace (no two
+strokes ever share a `clock` value), `subclock` never actually has
+tie-breaking work to do - it just advances alongside `clock` because
+there's nothing for it to disambiguate. A real multi-device concurrent
+edit is still the only way to see `clock` and `subclock` genuinely
+diverge, but the comparator's priority order settles which name goes with
+which field regardless.
+
+`StrokeID`'s three fields are now all named: 1 = `clock`, 2 =
+`replicaIndex` (Update 4), 3 = `subclock`.
 
 ## Not concluded
 
 - Field 16's identity as `groupUUID` rests on elimination only (see Update
   2) - would benefit from finding even one real sample where it's actually
   populated.
-- `StrokeID.f1`/`f3`'s exact identity as `clock` vs. `subclock` (as opposed
-  to just "one of the two") - see Update 4; would need concurrent-edit
-  sample data or a disassembled tie-breaking comparator to resolve further.
 - `Ink.azimuth`, `Drawing.bounds`/`boundsVersion`, `Ink`'s six HDR/multi-
   channel color fields, `Ink.requiredContentVersion`, and
   `legacy_drawing::Drawing` remain untouched - see the original "Not
