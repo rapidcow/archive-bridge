@@ -1,3 +1,5 @@
+$ tools/apple-notes-drawing-decode.pl --db NoteStore.sqlite --pk 15436
+...
       (points
         (148.497391 3932.989746) ; channels (hex, scale unconfirmed): altitude=0079 force=5801 radius=99cf3140 timestamp=00000000
         (148.873489 3934.601562) ; channels (hex, scale unconfirmed): altitude=0079 force=ac01 radius=686b3340 timestamp=a69b443c
