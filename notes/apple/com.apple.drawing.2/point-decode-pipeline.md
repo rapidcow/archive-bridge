@@ -697,16 +697,22 @@ evidence.
   confirmed by live disassembly (§9), not just inherited from an earlier
   pass. All 11 point channels now have confirmed decode formulas (§7-§9) -
   nothing left open in the per-point channel table itself.
-- `StrokeSeqInfo.ink_category`'s actual meaning (observed raw values
-  `2`/`3`/`4`/`6`) is still unconfirmed. §9 ruled out one candidate
-  explanation (`identifierForCommandType:wantsObjectErase:`'s commandType
-  parameter) as not applicable, since that function is only reachable via
-  the unconfirmed `initWithLegacyArchive:` subgraph, not the confirmed `K`/
-  `K2` path. The confirmed path's own ink-selection mechanism (`K2`'s
-  `ink_index` at `archive+0x30`) has not been traced back to a specific
-  `.proto` field number either, so both "what field feeds `K2`'s ink
-  selection" and "what `ink_category` itself means" remain open, and may
-  not even be the same question.
+- `StrokeSeqInfo.ink_category`'s actual meaning: **superseded, see
+  `drawing.md`.** §9 (above) only got as far as ruling out one candidate
+  explanation; a later same-day session went further and found real
+  `drawing::Stroke` field names via `formatText()` string literals -
+  there's no `seq`/`ink_category`/`StrokeSeqInfo`-shaped field anywhere in
+  the real schema at all, so the question wasn't "what does `ink_category`
+  mean" but "`ink_category` almost certainly isn't a real field, period."
+  `apple-notes-drawing-2.proto` and `apple-notes-drawing-decode.pl` have
+  since been updated accordingly: `StrokeSeqInfo` is now `StrokeUnknown2`
+  with plain unlabeled `f1`/`f2`/`f3`, printed by the decoder as `(unknown2
+  ...)` rather than asserted `seq`/`ink-category-raw` values. The real
+  `inkIndex` field `drawing.md` did confirm (matching `K2`'s already-
+  confirmed ink-selection mechanism by name) still hasn't been traced to a
+  specific wire field number - that part of the original question is
+  still open, now recorded in `drawing.md`'s own "Not concluded" instead of
+  here.
 - Whether `PKStrokePathPointsPrivate` is literally the same type as
   `PKStrokePathPointsShared` or a distinct "view" type wrapping/pointing at
   one - inferred from matching offsets (§7), not proven by a shared symbol

@@ -7,7 +7,22 @@ deliberately **not** a correction to `envelope.md`/`point-fields.md`/
 `point-decode-pipeline.md` - those stay as-written, as the historical
 record of what was known/guessed at the time. This file records a later,
 more direct finding that supersedes some of those guesses in practice; see
-each file's own text for what it originally claimed and why.
+each file's own text for what it originally claimed and why (and
+`point-decode-pipeline.md`'s "Not concluded" now points forward to this
+file for the `ink_category` question specifically).
+
+**Status as of 2026-09-12, later same day**: acted on. The findings below
+are no longer just a recommendation for "any future `.proto` rewrite" - a
+new `tools/apple-notes-drawing-2.proto` (kept alongside, not replacing, the
+original `apple-notes-drawing.proto`) applies the renames this file
+justifies, and `tools/apple-notes-drawing-decode.pl` now parses against
+that file. Concretely: `StrokeSeqInfo`/`seq`/`ink_category` are gone,
+replaced by `StrokeUnknown2`/`f1`/`f2`/`f3` (the decoder now prints these as
+an unlabeled `(unknown2 ...)` triple, not as asserted `seq`/
+`ink-category-raw` values); `Geometry`/`BBox`/`InkDef` are renamed to
+reference `stroke_data`/`bounds`/`Ink` per this file's findings, kept under
+their old internal shapes where the real wire field numbers still aren't
+known (see "Not concluded" below - unchanged by this update).
 
 ## Method: `formatText` prints real field names as literal strings
 
