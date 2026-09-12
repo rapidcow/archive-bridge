@@ -607,15 +607,106 @@ user's own archived `NoteStore.sqlite` (`tools/apple-notes-drawing-decode.pl
   sample rate - confirms the `float32`-seconds-no-scaling reading already
   in the table is still correct.
 
+## 9. `aspectRatio`/`edgeWidth`/`opacity`/`threshold` - the remaining four channels, and an unrelated ink-identifier finding
+
+Same session as §8 (2026-09-12, same SSH access, same `~/re-notes/PencilKit`
+extraction). Disassembled all four remaining `*AtIndex` accessors
+(`__ZNK25PKStrokePathPointsPrivate18aspectRatioAtIndexEm` at `0x1ae6827d8`,
+`...16edgeWidthAtIndexEm` at `0x1ae682898`, `...14opacityAtIndexEm` at
+`0x1ae682b28`, `...16thresholdAtIndexEm` at `0x1ae682be8`) the same way as
+§8: `nm -U ~/re-notes/PencilKit | grep -i AtIndex` for the mangled symbol,
+`ipsw macho disass ~/re-notes/PencilKit -s '<mangled-name>' --demangle
+--force` to disassemble it. All four show the identical `ldr h0, [x]` /
+`ucvtf d0, d0` / `fdiv` shape as `force`/`azimuth`/`altitude` - confirming
+§8's "presumed `uint16` by analogy" guess was correct for all four, not
+just plausible. None of the four go through a `PKStrokePoint`-level public
+wrapper adding a bias afterward (unlike `azimuth`/`altitude`) - each
+`*AtIndex` accessor divides and returns directly, matching §7's original
+note that `opacity`/`threshold`/`_edgeWidth` (and, now also confirmed,
+`aspectRatio`) are plain wrappers with no extra bias step.
+
+| channel | divisor | how found |
+|---|---|---|
+| `aspectRatio` | `1000.0` | reuses the *exact same* constant address as `force` (`0x1ae769140`) - a shared divisor across two unrelated channels |
+| `edgeWidth` | `10.0` | not a data-table constant at all - a bare immediate operand, `fmov d1, #10.00000000`, visible directly in the instruction. This independently confirms §7's pre-existing "divided by literal `10.0`" note, which had predated any live disassembly of this specific accessor. |
+| `opacity` | `32767.5` | new address `0x1ae769158`, `dd`'d out the same way as §8's constants; exactly `65535/2` |
+| `threshold` | `32767.5` | same address as `opacity` - confirms §7's pre-existing "same slot as `opacity`'s" note |
+
+All four: `decoded_value = raw_uint16 / divisor`, no bias. This closes out
+every one of the 11 point channels from §6/§7's table - all now have a
+confirmed decode formula (10 with a divisor-only formula, 2 of those 10
+[`azimuth`/`altitude`] additionally biased in a `PKStrokePoint`-level
+wrapper, `location`/`timestamp`/`radius`/`radius2` needing no division at
+all).
+
+### An ink-identifier mapping, found while looking for `ink_category` - important caveat attached
+
+While chasing whether `StrokeSeqInfo.ink_category` (the `.proto` field
+showing observed raw values `2`/`3`/`4`/`6` in real samples, printed as
+`; guess: unknown` by the decoder for value `6`) has a confirmed meaning,
+found and disassembled `+[PKInk(PKCommandCompatibility)
+identifierForCommandType:wantsObjectErase:]` (`0x1ae755eb0`, found via `nm
+-U ~/re-notes/PencilKit | grep -iE 'identifierForCommandType|PKInkIdentifier'`,
+which also surfaced sixteen `_PKInkIdentifier*` string-constant symbols).
+This function maps a raw `int32` "command type" argument to a named ink
+identifier, confirmed directly from string literals visible as instruction
+operands (`"com.apple.ink.pencil"`, `"...pen"`, `"...marker"`,
+`"...eraser"`, `"...objectEraser"`, `"...lasso"`) plus the
+`arrayWithObjects:count:`/`objectAtIndexedSubscript:` call sequence used to
+index into them:
+
+| commandType | ink identifier |
+|---|---|
+| 0 | `com.apple.ink.pencil` |
+| 1 | `com.apple.ink.pen` |
+| 2 | `com.apple.ink.marker` |
+| 3 | `com.apple.ink.eraser`, or `com.apple.ink.objectEraser` if `wantsObjectErase` is true - handled by its own branch (`cmp w2, #0x3` / `b.ne`) *before* the array lookup below, not via the array itself |
+| 4 | `com.apple.ink.lasso` |
+| anything else (unsigned `> 4`) | logs `"Unknown command type for ink: %d"` (subsystem `"com.apple.pencilkit"`, same `os_log` idiom as `point-decode-pipeline.md`'s other diagnostics) and falls back to `com.apple.ink.pen` |
+
+**Important caveat, not a confirmation of `ink_category`'s meaning**: this
+function is only ever called from `-[_PKStrokeConcrete(
+PKStrokePersistenceAdditions) initWithLegacyArchive:sortedUUIDs:]`
+(`point-fields.md`'s Function 2, reading its `archive+0x60` field as the
+`commandType` argument) - and that entire `initWithLegacyArchive:` subgraph
+was already flagged in `point-fields.md`'s own "Not concluded" section as
+**never confirmed reachable** from the real `com.apple.drawing.2` read
+path; it may be dead code for modern data, same status as
+`legacy_drawing.md`'s namespace. The path that *is* confirmed reachable
+(`point-decode-pipeline.md`'s own `K`/`K2` chain, via
+`initWithArchive:sortedUUIDs:inks:parent:isHidden:transientArchiveDictionary:`)
+picks ink a completely different way: an `ink_index` read from `K2`'s own
+`archive+0x30` (gated by flag bit `0x1` of `archive+0xb8`, per §2b above),
+indexing straight into the drawing-level `inks[]` array - never through
+`identifierForCommandType:wantsObjectErase:` at all. So this table is real
+and confirmed **on its own terms**, but it does **not** establish what
+`StrokeSeqInfo.ink_category` means on the confirmed-reachable path - that
+would require tracing `K2`'s own `ink_index`/`archive+0x60` "shapeType"
+fields back to specific `Stroke`/`StrokeSeqInfo` `.proto` field numbers,
+which has not been attempted. Recorded here because the mapping itself is
+genuine and may still be useful (e.g. if a future sample turns out to
+route through the legacy path after all, or if `ink_category`'s own values
+turn out to coincidentally line up with this table once traced) - but
+treat any resemblance between `ink_category`'s observed `2`/`3`/`4`/`6` and
+this table's `0`-`4` indices as coincidence until actually traced, not
+evidence.
+
 ## Not concluded
 
-- `force`/`azimuth`/`altitude`'s normalization constants are now confirmed
-  exact (§8). `aspectRatio`/`edgeWidth`/`opacity`/`threshold` (indices
-  3/4/8/10) are not: still not individually disassembled. Presumed `uint16`
-  fixed-point by analogy to `force`/`azimuth`/`altitude`'s accessor shape,
-  not confirmed the same way. `edgeWidth`'s "divided by literal `10.0`"
-  note in §7's table predates §8's session and was not independently
-  re-verified against a live disassembly there.
+- `edgeWidth`'s "divided by literal `10.0`" note is now independently
+  confirmed by live disassembly (§9), not just inherited from an earlier
+  pass. All 11 point channels now have confirmed decode formulas (§7-§9) -
+  nothing left open in the per-point channel table itself.
+- `StrokeSeqInfo.ink_category`'s actual meaning (observed raw values
+  `2`/`3`/`4`/`6`) is still unconfirmed. §9 ruled out one candidate
+  explanation (`identifierForCommandType:wantsObjectErase:`'s commandType
+  parameter) as not applicable, since that function is only reachable via
+  the unconfirmed `initWithLegacyArchive:` subgraph, not the confirmed `K`/
+  `K2` path. The confirmed path's own ink-selection mechanism (`K2`'s
+  `ink_index` at `archive+0x30`) has not been traced back to a specific
+  `.proto` field number either, so both "what field feeds `K2`'s ink
+  selection" and "what `ink_category` itself means" remain open, and may
+  not even be the same question.
 - Whether `PKStrokePathPointsPrivate` is literally the same type as
   `PKStrokePathPointsShared` or a distinct "view" type wrapping/pointing at
   one - inferred from matching offsets (§7), not proven by a shared symbol
