@@ -364,16 +364,73 @@ non-UUID field.
 Field 1 = `strokeUUID` is now proven at the same rigor as Update 1's
 `makeXXX()`-derived fields, not merely empirically inferred.
 
+## Update 4: `StrokeID`'s own `f1`/`f2`/`f3` - `clock`/`subclock`/`replicaIndex`
+
+`drawing::StrokeID` (see Update 1/`StrokeID` message) has no `makeXXX()`
+accessor of its own (all three sub-fields are plain scalars, no lazy
+vtable construction needed), so the `makeXXX()` trick doesn't apply here.
+But `drawing::StrokeID::readFrom(PB::Reader&)` (`0x1ae7069b8`) is small
+enough to read directly - no computed jump table this time, just three
+inline `cmp`/`b.eq` checks on the field number - and each of its three
+branches writes to a distinct, easy-to-read offset in the `StrokeID`
+struct:
+
+| field # | offset | 
+|---------|--------|
+| 1       | `0x8`  |
+| 2       | `0x10` |
+| 3       | `0x18` |
+
+`drawing::StrokeID::formatText`'s string literals (ground truth, same as
+every other class here) give the three real names: `clock`, `subclock`,
+`replicaIndex` - exactly the `{replicaID, counter}`-shaped logical-clock
+concept speculated about in Update 1, and matching this framework's wider
+CRDT machinery (`PKReplicaEntry`, `PKVectorTimestamp`/
+`PKVectorMultiTimestamp`, all dealing in clock/subclock/replica-UUID
+concepts for merge ordering).
+
+First hypothesis, from `-[PKReplicaEntry
+initWithReplicaUUIDIndex:clock:subclock:inUse:forDrawing:]`'s parameter
+order (and its ivar layout mirroring that same order): guessed field 1 =
+`replicaIndex`, field 2 = `clock`, field 3 = `subclock`. **This hypothesis
+turned out to be wrong** - checked against real `sort-id` (`Stroke.sortID`,
+field 2 of `Stroke`, `StrokeID`-typed) values across several real
+drawings:
+
+```
+pk 15436: (sort-id 0 11 1) (sort-id 1 11 2) (sort-id 2 11 3) ... up through (sort-id N 11 N+1)
+pk 20035: (sort-id 0 1 1)  (sort-id 1 1 2)  (sort-id 10 1 11) ...
+```
+
+Two clear patterns: the **middle** value (offset `0x10`, field 2) is
+constant *within* one drawing but differs *across* drawings (`11` vs.
+`1`) - exactly what you'd expect from a per-note/per-device replica
+identifier, not a chronological counter. The **first and third** values
+(offsets `0x8`/`0x18`, fields 1/3) always satisfy `third = first + 1`,
+consistently, across every stroke checked - consistent with a
+`clock`/`subclock` pair that ticks up together in simple single-writer,
+non-concurrent editing (no actual conflict to arbitrate, so both counters
+just advance in lockstep).
+
+Net conclusion: **field 2 = `replicaIndex`** (empirically solid - the
+per-note-constant/cross-note-varying pattern is a strong signal, though
+still empirical rather than disassembly-proven the way `strokeUUID` was in
+Update 3). **Fields 1 and 3 = `{clock, subclock}`, order still
+unresolved** - they co-vary in every sample seen so far because this
+corpus has no genuinely concurrent multi-device edits to tell them apart;
+resolving that fully would need either a note edited from two devices, or
+disassembling whatever comparison logic breaks ties between `clock` and
+`subclock` values (`-[PKVectorTimestamp compareClock:subclock:forUUID:]`
+looked like a promising candidate, not attempted this pass).
+
 ## Not concluded
 
 - Field 16's identity as `groupUUID` rests on elimination only (see Update
   2) - would benefit from finding even one real sample where it's actually
   populated.
-- `StrokeID`'s own internal `f1`/`f2`/`f3` sub-field meanings are still
-  unconfirmed (only its existence, real class name, and reuse across
-  `sortID`/`version`/`substrokesVersion` is proven) - though the empirical
-  `sort-id` values seen in real decoder output so far (`f1` incrementing
-  per stroke, `f2` constant) are suggestive for at least that one field.
+- `StrokeID.f1`/`f3`'s exact identity as `clock` vs. `subclock` (as opposed
+  to just "one of the two") - see Update 4; would need concurrent-edit
+  sample data or a disassembled tie-breaking comparator to resolve further.
 - `Ink.azimuth`, `Drawing.bounds`/`boundsVersion`, `Ink`'s six HDR/multi-
   channel color fields, `Ink.requiredContentVersion`, and
   `legacy_drawing::Drawing` remain untouched - see the original "Not

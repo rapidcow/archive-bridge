@@ -150,14 +150,20 @@ message IndexEntry {
 // genuine embedded message - Apple's real `drawing::StrokeID` class - reused
 // by Stroke at three different real field numbers (2 = sortID, 3 = version,
 // 9 = substrokesVersion), not scalar fields decode_raw misgrouped as this
-// message was long suspected to be. StrokeID's own internal three-int32
-// shape (f1/f2/f3 below) is still unconfirmed at the sub-field level - only
-// its existence, real class name, and reuse across those three Stroke
-// fields is proven.
+// message was long suspected to be.
+//
+// StrokeID's own three real sub-field names, from its own formatText: clock,
+// subclock, replicaIndex - a {replicaID, counter}-shaped logical-clock
+// value, matching this framework's wider CRDT machinery (PKReplicaEntry,
+// PKVectorTimestamp). Field 2 = replicaIndex is empirically solid (constant
+// within one drawing, varies across drawings - see drawing.md Update 4).
+// Fields 1/3 are {clock, subclock} in some order - which is which is still
+// unresolved (they always co-vary by exactly +1 in every non-concurrent,
+// single-writer sample checked, so nothing distinguishes them yet).
 message StrokeID {
-  optional int32 f1 = 1;
-  optional int32 f2 = 2;
-  optional int32 f3 = 3;
+  optional int32 f1            = 1; // clock or subclock (order vs. f3 unresolved), see drawing.md Update 4
+  optional int32 replica_index = 2; // real field name: replicaIndex - empirically solid, see drawing.md Update 4
+  optional int32 f3            = 3; // clock or subclock (order vs. f1 unresolved), see drawing.md Update 4
 }
 
 // Real field name confirmed as `bounds` (drawing.md). Sub-field order
