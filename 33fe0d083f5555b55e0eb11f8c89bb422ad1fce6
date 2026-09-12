@@ -1,5 +1,10 @@
-$ tools/apple-notes-drawing-decode.pl --db NoteStore.sqlite --pk 15436
-...
+$ tools/apple-notes-drawing-decode.pl --db ~/archive/backup/takeout/apple/notes/2024-03-29/main/data/NoteStore.sqlite --immutable --pk 15436 | tail -24
+    (stroke
+      (uuid "3e4e429b895e42768909f05cd29db77c")
+      (seq 1022)
+      (ink-category-raw 6) ; guess: unknown
+      (bbox 147.000000 3931.000000 7.000000 26.000000) ; order unconfirmed
+      (point-stride 20)
       (points
         (148.497391 3932.989746) ; channels (hex, scale unconfirmed): altitude=0079 force=5801 radius=99cf3140 timestamp=00000000
         (148.873489 3934.601562) ; channels (hex, scale unconfirmed): altitude=0079 force=ac01 radius=686b3340 timestamp=a69b443c
@@ -15,6 +20,9 @@ $ tools/apple-notes-drawing-decode.pl --db NoteStore.sqlite --pk 15436
         (150.924866 3952.679688) ; channels (hex, scale unconfirmed): altitude=0b77 force=4200 radius=d9932e40 timestamp=1b2f5d3d
         (151.984756 3955.223145) ; channels (hex, scale unconfirmed): altitude=0677 force=0000 radius=5ba12d40 timestamp=b6f37d3d
       )
+    )
+  )
+)
 
 OHHHH i get it.  These are the raw bytes and we
 don't know the type XD so it's still (technically)
