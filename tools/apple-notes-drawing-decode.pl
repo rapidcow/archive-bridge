@@ -54,9 +54,12 @@ use Google::ProtocolBuffers;
 # https://metacpan.org/dist/URI
 use URI::file;
 
+use constant M_PI2 => 2*atan2(1,1);  # π/2
+use constant M_PI  => 4*atan2(1,1);  # π
+use constant M_TAU => 8*atan2(1,1);  # 2π
 # Confirmed from arm64e disassembly of PencilKit's own parser - see the
 # envelope comment at the top of apple-notes-drawing.proto.
-my $ENVELOPE_MAGIC = 0xF0647277;
+use constant ENVELOPE_MAGIC => 0xF0647277;
 
 # Per-point auxiliary channel table: index 1-10 in PencilKit's own
 # PKStrokePathPointsShared::sFieldSizes, gated by the matching bit (1<<index)
@@ -80,10 +83,10 @@ my $ENVELOPE_MAGIC = 0xF0647277;
 #           edgeWidth/opacity/threshold - presumed uint16 fixed-point by
 #           analogy to force/azimuth/altitude, per §8's "Not concluded",
 #           but not individually confirmed)
-my $AZIMUTH_DIVISOR  = 65535 / (2 * 4*atan2(1,1));
-my $AZIMUTH_BIAS     = -(4*atan2(1,1));
-my $ALTITUDE_DIVISOR = 4 * 65535 / (2 * 4*atan2(1,1));
-my $ALTITUDE_BIAS    = 4*atan2(1,1) / 2;
+use constant AZIMUTH_DIVISOR  => 65535 / M_TAU;
+use constant AZIMUTH_BIAS     => (- M_PI);
+use constant ALTITUDE_DIVISOR => 65535 / M_PI2;
+use constant ALTITUDE_BIAS    => M_PI2;
 my @POINT_CHANNELS = (
 	undef,                        # index 0: location, handled separately
 	[ timestamp   => 4, 'f32'      ],
@@ -198,7 +201,7 @@ sub decode_drawing {
 	my ($magic, $version, undef, $hdrlen) = unpack("V C C v", substr($blob, 0, 8));
 
 	my ($envelope, $body);
-	if ($magic == $ENVELOPE_MAGIC) {
+	if ($magic == ENVELOPE_MAGIC) {
 		die "drawing format version $version is too new (>=6); this decoder only understands PencilKit's <6 envelope layout\n"
 			if $version >= 6;
 		die "bogus envelope header length $hdrlen (need 8 <= hdrlen < " . length($blob) . ")\n"
@@ -283,9 +286,9 @@ sub decode_channel {
 	} elsif ($kind eq 'force') {
 		return { kind => $kind, value => unpack("v", $raw) / 1000.0 };
 	} elsif ($kind eq 'azimuth') {
-		return { kind => $kind, value => unpack("v", $raw) * (1 / $AZIMUTH_DIVISOR) + $AZIMUTH_BIAS };
+		return { kind => $kind, value => unpack("v", $raw) * (1 / AZIMUTH_DIVISOR) + AZIMUTH_BIAS };
 	} elsif ($kind eq 'altitude') {
-		return { kind => $kind, value => $ALTITUDE_BIAS - unpack("v", $raw) / $ALTITUDE_DIVISOR };
+		return { kind => $kind, value => ALTITUDE_BIAS - unpack("v", $raw) / ALTITUDE_DIVISOR };
 	} else {
 		return { kind => 'hex', value => unpack("H*", $raw) };
 	}
