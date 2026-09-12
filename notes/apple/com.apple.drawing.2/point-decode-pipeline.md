@@ -348,17 +348,17 @@ and `updateFromCachedValues()` use), indexed by the same 0-10 channel/bit
 index as everywhere else in this file:
 
 | channel index (bit in the 11-bit presence mask) | `sFieldOffsets[i]` | `sFieldSizes[i]` |
-|---|---|---|
-| 0 | 0  | 8 |
-| 1 | 8  | 4 |
-| 2 | 12 | 4 |
-| 3 | 16 | 2 |
-| 4 | 18 | 2 |
-| 5 | 20 | 2 |
-| 6 | 22 | 2 |
-| 7 | 24 | 2 |
-| 8 | 26 | 2 |
-| 9 | 28 | 4 |
+|----|----|---|
+|  0 |  0 | 8 |
+|  1 |  8 | 4 |
+|  2 | 12 | 4 |
+|  3 | 16 | 2 |
+|  4 | 18 | 2 |
+|  5 | 20 | 2 |
+|  6 | 22 | 2 |
+|  7 | 24 | 2 |
+|  8 | 26 | 2 |
+|  9 | 28 | 4 |
 | 10 | 32 | 2 |
 
 Internally self-consistent: `sFieldOffsets[i]` is exactly the running sum of
