@@ -62,21 +62,40 @@ my $ENVELOPE_MAGIC = 0xF0647277;
 # PKStrokePathPointsShared::sFieldSizes, gated by the matching bit (1<<index)
 # of Geometry.point_flags. Index 0 (location) is not in this list - it's the
 # unconditional first 8 bytes of every point record. Sizes are confirmed
-# (static disassembly + empirical cross-check against real samples); wire
-# byte order/scale for each channel's own bytes is NOT confirmed - see the
-# comment above Geometry in apple-notes-drawing.proto.
+# (static disassembly + empirical cross-check against real samples).
+#
+# 'kind' says how to decode the channel's raw bytes:
+#   f32   - little-endian float32, used as-is (no normalization) - confirmed
+#           via disassembly of PKStrokePathPointsPrivate's *AtIndex accessors
+#   force - little-endian uint16, decoded value = raw / 1000.0 - confirmed
+#           via disassembly (ucvtf, not fcvt - i.e. NOT float16 - then fdiv
+#           by an exact 1000.0 double read out of PencilKit's __TEXT), see
+#           notes/apple/com.apple.drawing.2/point-decode-pipeline.md §8
+#   azimuth  - little-endian uint16, decoded value = raw*(2*PI/65535) - PI
+#              (radians) - confirmed the same way as force, §8
+#   altitude - little-endian uint16, decoded value =
+#              PI/2 - raw*(PI/2/65535) (radians) - confirmed the same way,
+#              §8; note the bias is subtracted from, not added to
+#   hex   - raw bytes, hex-encoded, no known decoding yet (aspectRatio/
+#           edgeWidth/opacity/threshold - presumed uint16 fixed-point by
+#           analogy to force/azimuth/altitude, per §8's "Not concluded",
+#           but not individually confirmed)
+my $AZIMUTH_DIVISOR  = 65535 / (2 * 4*atan2(1,1));
+my $AZIMUTH_BIAS     = -(4*atan2(1,1));
+my $ALTITUDE_DIVISOR = 4 * 65535 / (2 * 4*atan2(1,1));
+my $ALTITUDE_BIAS    = 4*atan2(1,1) / 2;
 my @POINT_CHANNELS = (
-	undef,               # index 0: location, handled separately
-	[ timestamp   => 4 ],
-	[ radius      => 4 ],
-	[ aspectRatio => 2 ],
-	[ edgeWidth   => 2 ],
-	[ force       => 2 ],
-	[ azimuth     => 2 ],
-	[ altitude    => 2 ],
-	[ opacity     => 2 ],
-	[ radius2     => 4 ],
-	[ threshold   => 2 ],
+	undef,                        # index 0: location, handled separately
+	[ timestamp   => 4, 'f32'      ],
+	[ radius      => 4, 'f32'      ],
+	[ aspectRatio => 2, 'hex'      ],
+	[ edgeWidth   => 2, 'hex'      ],
+	[ force       => 2, 'force'    ],
+	[ azimuth     => 2, 'azimuth'  ],
+	[ altitude    => 2, 'altitude' ],
+	[ opacity     => 2, 'hex'      ],
+	[ radius2     => 4, 'f32'      ],
+	[ threshold   => 2, 'hex'      ],
 );
 
 my %INK_CATEGORY_GUESS = (
@@ -223,8 +242,9 @@ sub decode_drawing {
 					my %channels;
 					for my $idx (1 .. 10) {
 						next unless ($flags >> $idx) & 1;
-						my ($name, $size) = @{ $POINT_CHANNELS[$idx] };
-						$channels{$name} = unpack("H*", substr($pdata, $cursor, $size));
+						my ($name, $size, $kind) = @{ $POINT_CHANNELS[$idx] };
+						my $raw = substr($pdata, $cursor, $size);
+						$channels{$name} = decode_channel($kind, $raw);
 						$cursor += $size;
 					}
 					push @points, { x => $x, y => $y, channels => \%channels };
@@ -253,12 +273,45 @@ sub decode_drawing {
 	};
 }
 
+# Decode one channel's raw bytes per its 'kind' (see @POINT_CHANNELS above).
+# Returns { kind => ..., value => ... } - 'value' is a number for confirmed
+# kinds (f32/force/azimuth/altitude), a hex string for 'hex' (unconfirmed).
+sub decode_channel {
+	my ($kind, $raw) = @_;
+	if ($kind eq 'f32') {
+		return { kind => $kind, value => unpack("f<", $raw) };
+	} elsif ($kind eq 'force') {
+		return { kind => $kind, value => unpack("v", $raw) / 1000.0 };
+	} elsif ($kind eq 'azimuth') {
+		return { kind => $kind, value => unpack("v", $raw) * (1 / $AZIMUTH_DIVISOR) + $AZIMUTH_BIAS };
+	} elsif ($kind eq 'altitude') {
+		return { kind => $kind, value => $ALTITUDE_BIAS - unpack("v", $raw) / $ALTITUDE_DIVISOR };
+	} else {
+		return { kind => 'hex', value => unpack("H*", $raw) };
+	}
+}
+
 # --- output: s-expression ----------------------------------------------------
 
 sub esc_str {
 	my ($s) = @_;
 	$s =~ s/(["\\])/\\$1/g;
 	return "\"$s\"";
+}
+
+# Render one decode_channel() result for the s-expression's inline comment.
+# 'hex' kinds are flagged unconfirmed; the others are confirmed decodings
+# (see @POINT_CHANNELS / decode_channel() above).
+sub format_channel {
+	my ($c) = @_;
+	return "nil" unless $c;
+	if ($c->{kind} eq 'hex') {
+		return sprintf("%s(hex,unconfirmed)", $c->{value});
+	} elsif ($c->{kind} eq 'azimuth' || $c->{kind} eq 'altitude') {
+		return sprintf("%.6frad", $c->{value});
+	} else {
+		return sprintf("%.6f", $c->{value});
+	}
 }
 
 sub render_sexp {
@@ -289,8 +342,8 @@ sub render_sexp {
 		push @out, "      (points";
 		for my $p (@{ $st->{points} }) {
 		    my $chans = $p->{channels} || {};
-		    my $chan_str = join(" ", map { "$_=" . $chans->{$_} } sort keys %$chans);
-		    push @out, sprintf("        (%.6f %.6f) ; channels (hex, scale unconfirmed): %s",
+		    my $chan_str = join(" ", map { "$_=" . format_channel($chans->{$_}) } sort keys %$chans);
+		    push @out, sprintf("        (%.6f %.6f) ; channels: %s",
 		        $p->{x}, $p->{y}, $chan_str);
 		}
 		push @out, "      )";
