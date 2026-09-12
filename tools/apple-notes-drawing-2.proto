@@ -205,11 +205,13 @@ message Geometry {
 }
 
 // Real name confirmed as `drawing::Stroke` (drawing.md); see that file for
-// the full real field list and, in its later update section, how each field
-// number below was actually proven (readFrom's jump table cross-referenced
-// against the makeXXX() accessors' struct offsets - hard proof for numbers
-// 2/3/4/5/6/7/9/11/15; type-only confidence, not individual-number proof,
-// for the rest - see drawing.md for exactly which are still tied).
+// the full real field list and, across its two update sections, how each
+// field number below was pinned down: hard disassembly proof (readFrom's
+// jump table cross-referenced against the makeXXX() accessors' struct
+// offsets) for numbers 2/3/4/5/6/7/9/11/15; empirical proof (real sample
+// data - value distributions/co-occurrence counts/bit patterns) for
+// 1/8/10/12/13/14; field 16 is elimination-only, the one number here still
+// short of either kind of proof.
 //
 // Field 3 here is a real Stroke field (StrokeID-typed, real name `version`)
 // and is UNRELATED to the top-level IndexEntry-shaped field this file's
@@ -218,22 +220,22 @@ message Geometry {
 // real correspondence. Kept as its own field here to avoid re-introducing
 // that conflation.
 message Stroke {
-  optional bytes stroke_uuid       = 1; // real field name: strokeUUID (unconfirmed vs. groupUUID/renderGroupUUID which also live at 1/13/16 in some order - see drawing.md)
+  optional bytes stroke_uuid       = 1; // real field name: strokeUUID - proven empirically (16 bytes on 100% of 773710 real strokes sampled)
   optional StrokeID sort_id        = 2; // real field name: sortID - proven, see StrokeID
   optional StrokeID version        = 3; // real field name: version - proven, see StrokeID
   optional int32 ink_index         = 4; // real field name: inkIndex - proven; index into Drawing.inks[]
   optional Geometry stroke_data    = 5; // real field name: strokeData - proven (absent for empty/zero-point strokes)
   optional Bounds bounds           = 6; // real field name: bounds - proven
   optional bytes transform         = 7; // real field name: transform - proven to exist at this number; real drawing::Transform class, internal shape not reverse-engineered, kept as opaque bytes
-  optional int32 f8                = 8; // unconfirmed - plausibly shapeType or styleFlags, see drawing.md
+  optional int32 style_flags       = 8; // real field name plausibly styleFlags - empirical (outlier values all share bit 37 set, a flags-field signature, not the small closed enum shapeType would need), see drawing.md
   optional StrokeID substrokes_version = 9; // real field name: substrokesVersion - proven, see StrokeID
-  repeated bytes centerline_slices = 10; // unconfirmed - plausibly centerlineSlices (repeated PB::Data blob list observed at this number), see drawing.md
+  repeated bytes centerline_slices = 10; // real field name plausibly centerlineSlices - empirical (rare, always exactly 1 element in real samples), see drawing.md
   repeated Stroke substrokes       = 11; // real field name: substrokes - proven (readFrom calls PB::PtrVector<drawing::Stroke>::emplace_back directly)
-  repeated float mask_points       = 12; // unconfirmed - plausibly maskPoints (repeated float list observed at this number, packed or unpacked), see drawing.md
-  optional bytes f13               = 13; // unconfirmed - plausibly groupUUID/renderGroupUUID/strokeUUID, see drawing.md
-  optional int32 f14               = 14; // unconfirmed - plausibly shapeType or styleFlags, see drawing.md
+  repeated float mask_points       = 12; // real field name plausibly maskPoints - empirical (rare, always an even element count = flat x,y pairs in real samples), see drawing.md
+  optional bytes render_group_uuid = 13; // real field name plausibly renderGroupUUID - empirical (16 bytes, rare, occurrence count exactly matches shape_type's), see drawing.md
+  optional int32 shape_type        = 14; // real field name plausibly shapeType - empirical (small closed set of values in real samples: 1,2,3,6,7,10,12; co-occurs exactly with render_group_uuid), see drawing.md
   optional bytes transform2        = 15; // real field name: inkTransform - proven to exist at this number; same caveat as field 7 (opaque bytes, internal shape unreversed)
-  optional bytes f16               = 16; // unconfirmed - plausibly groupUUID/renderGroupUUID/strokeUUID, see drawing.md
+  optional bytes group_uuid        = 16; // real field name plausibly groupUUID - elimination only, see drawing.md (never observed populated in ~774k real strokes sampled)
 }
 
 // Real name confirmed as `drawing::Drawing` (drawing.md), with real fields

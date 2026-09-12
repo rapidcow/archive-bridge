@@ -245,19 +245,83 @@ number, could be nailed down for them - by matching each remaining
 | 10            | `centerlineSlices` (by elimination + shape fit) | `vector<PB::Data>` (repeated blob) |
 | 12            | `maskPoints` (by elimination + name fit - a flat float list literally called "points") | `vector<float>` (repeated, packed-or-unpacked dual path) |
 
-The three-way and two-way ties are a real, currently-unresolved gap - all
-three `PB::Data`-typed fields (and both scalar-int fields) look identical
-at the `readFrom`-dispatch level, since the field number alone determines
-behavior and there's no accessor symbol left to disambiguate further.
-Resolving them would need something like disassembling `writeTo`/
-`hash_value` (which iterate fields in some order that might reveal more)
-or testing against real sample data where these fields are actually
-populated - not attempted this pass.
+The three-way and two-way ties were a real gap at the `readFrom`-dispatch
+level - all three `PB::Data`-typed fields (and both scalar-int fields) look
+identical there, since the field number alone determines behavior and
+there's no accessor symbol left to disambiguate further via disassembly.
+`writeTo`/`hash_value` wouldn't help either - they'd just re-confirm the
+same offset<->number pairs `readFrom` already gave, not new name evidence.
+
+## Update 2: resolving the remaining ties empirically
+
+Closed almost all of the above by decoding real sample data instead -
+`xt/probe-stroke-fields.pl`, run against every `com.apple.drawing.2`
+attachment in a real local `NoteStore.sqlite` (1278 drawings, 773710
+strokes total), tallying the raw values Google::ProtocolBuffers actually
+produces for fields 1/8/10/12/13/14/16 (using the already-updated
+`apple-notes-drawing-2.proto`, which by this point has real field numbers
+for `Stroke` - see Update 1 above):
+
+- **Field 1 (`stroke_uuid`) is 16 bytes on literally 100% of strokes**
+  (773710/773710) - about as strong a confirmation as `strokeUUID` could
+  get without a name-level proof.
+- **Field 13 is 16 bytes on exactly 532 strokes** (rare) - **and field 14's
+  532 total occurrences match that count exactly.** That's a strong
+  co-occurrence signal that fields 13 and 14 are part of the same feature -
+  consistent with "a group of strokes recognized as one rendered shape
+  carries both a group id and the shape's type." Field 14's actual values
+  are small and enum-like (`1,2,3,6,7,10,12` - seven distinct values, in
+  the right ballpark for a PencilKit shape-type enum: line/arrow/rectangle/
+  filled-rectangle/oval/filled-oval/star, or similar). That fits
+  **field 14 = `shapeType`**, and by the co-occurrence, **field 13 =
+  `renderGroupUUID`** (a shape's render group, not the more general
+  `groupUUID`).
+- **Field 16 never appeared even once** across the whole dataset. By
+  elimination this leaves **field 16 = `groupUUID`** - the weakest
+  conclusion of this batch, since it's argument-by-elimination only, not
+  positive evidence; `groupUUID` (arbitrary multi-stroke selection
+  grouping, distinct from `renderGroupUUID`'s shape-recognition grouping)
+  is plausibly just a feature these particular sample notes never
+  exercised.
+- **Field 8's values are overwhelmingly `0` (273230) or `1` (246592), with
+  a small cluster of `6` (26), then hundreds of large, all-distinct 64-bit-
+  ish values (~1.37×10^11), each occurring exactly once.** Checked those
+  outliers bit-by-bit: every single one has bit 37 set
+  (`v & (1<<37) != 0`), with the remaining bits varying per-stroke and
+  otherwise mostly zero - i.e. a sentinel high bit plus a handful of
+  per-stroke low bits, the classic shape of a bitmask/flags field, not a
+  small closed enum. That rules out `shapeType` for field 8 and leaves
+  **field 8 = `styleFlags`**, matching by elimination with field 14 above.
+- **Field 10 (`centerlineSlices`) had 27 occurrences, always exactly 1
+  element** - rare and small, consistent with its guessed name (unchanged
+  from Update 1).
+- **Field 12 (`maskPoints`) had 14 occurrences, always an even element
+  count (2 or 4)** - consistent with flat (x,y) point pairs, matching its
+  guessed name literally (unchanged from Update 1).
+
+Net result: of the 7 fields left tied after Update 1, 6 now have a specific
+proposed field number (1=`strokeUUID`, 8=`styleFlags`, 10=`centerlineSlices`,
+12=`maskPoints`, 13=`renderGroupUUID`, 14=`shapeType`), all but the last two
+resting on much stronger evidence than a guess (100% presence, exact
+co-occurrence counts, or a literal shared high bit). Only field 16
+(`groupUUID`) is argument-by-elimination rather than positive evidence.
+`apple-notes-drawing-2.proto`'s `Stroke` message has been updated to use
+these names.
 
 ## Not concluded
 
-- The exact field number for 7 of `Stroke`'s 16 fields - see the update
-  above for the specifics of what's still tied.
+- Field 16's identity as `groupUUID` rests on elimination only (see Update
+  2) - would benefit from finding even one real sample where it's actually
+  populated.
+- `StrokeID`'s own internal `f1`/`f2`/`f3` sub-field meanings are still
+  unconfirmed (only its existence, real class name, and reuse across
+  `sortID`/`version`/`substrokesVersion` is proven) - though the empirical
+  `sort-id` values seen in real decoder output so far (`f1` incrementing
+  per stroke, `f2` constant) are suggestive for at least that one field.
+- `Ink.azimuth`, `Drawing.bounds`/`boundsVersion`, `Ink`'s six HDR/multi-
+  channel color fields, `Ink.requiredContentVersion`, and
+  `legacy_drawing::Drawing` remain untouched - see the original "Not
+  concluded" items above (still true, not superseded by either update).
 - `centerlineSlices`/`maskPoints` (`Stroke`), `bounds`/`boundsVersion`
   (`Drawing`), and all six HDR/multi-channel color fields plus
   `requiredContentVersion` (`Ink`) are confirmed-real names with no
