@@ -1,0 +1,227 @@
+// Reverse-engineered schema for the pre-Coherence Apple Notes PencilKit
+// drawing blob (UTI "com.apple.drawing.2"), found in
+// ZICCLOUDSYNCINGOBJECT.ZMERGEABLEDATA1 of NoteStore.sqlite.
+//
+// This is not a published Apple .proto - it was inferred by running
+// `protoc --decode_raw` against a real drawing blob (skipping the envelope
+// described below) and matching field shapes to known PencilKit concepts.
+// Field NUMBERS below come from that raw decode and are reliable (wire
+// tags/lengths are objective, not guesswork). Field/message NAMES have two
+// different confidence levels, noted per-field below:
+//   - names taken from real `drawing::*` C++ class field names, recovered
+//     directly from PencilKit.framework's own `formatText()` string
+//     literals - see notes/apple/com.apple.drawing.2/drawing.md. These are
+//     ground truth, not guesses.
+//   - names not yet matched to a `drawing.md` counterpart are still this
+//     script's own guesses, unconfirmed the way they always were.
+// `drawing.md` also found that `Geometry` and `StrokeSeqInfo` below almost
+// certainly are NOT real nested message types in Apple's own schema - see
+// that file for why - but their field NUMBERS/shapes are kept as-is here
+// since decode_raw's byte-level observation of "a length-delimited
+// sub-message lives at this wire position" is still valid even though the
+// name/structure invented around it was likely wrong.
+//
+// Per-point auxiliary channel layout (confirmed 2026-09-11/2026-09-12, two
+// independent ways - see notes/apple/com.apple.drawing.2/
+// point-decode-pipeline.md):
+// (a) static disassembly of PencilKit's PKStrokePathPointsShared/
+//     PKStrokePathPointsPrivate found the exact fixed byte size of each of
+//     11 channel slots (sFieldSizes/sFieldOffsets, both literal-constant
+//     tables) and, via PKStrokePathPointsPrivate's named accessors, the
+//     semantic identity of every slot; (b) empirically, decoding real
+//     sample blobs and checking every observed (point_flags, stride) pair
+//     confirmed sum(sFieldSizes[i] for each set bit i in 1..10) == stride-8
+//     exactly, across 9 distinct point_flags values in one real drawing
+//     alone. Channel 0 (location) is the unconditional first 8 bytes of
+//     every point record, X/Y as little-endian float32, and is NOT gated by
+//     a point_flags bit the way channels 1-10 are:
+//
+//   idx | point_flags bit | size | name        | wire encoding
+//   ----|-----------------|------|-------------|---------------------------
+//    0  | (always)        |  8   | location    | float32 x, float32 y
+//    1  |     0x2         |  4   | timestamp   | float32 seconds, no scaling
+//    2  |     0x4         |  4   | radius      | float32, no scaling
+//    3  |     0x8         |  2   | aspectRatio | uint16 / 1000.0
+//    4  |    0x10         |  2   | edgeWidth   | uint16 / 10.0
+//    5  |    0x20         |  2   | force       | uint16 / 1000.0
+//    6  |    0x40         |  2   | azimuth     | uint16*(2*PI/65535) - PI (rad)
+//    7  |    0x80         |  2   | altitude    | PI/2 - uint16*(PI/2/65535) (rad)
+//    8  |   0x100         |  2   | opacity     | uint16 / 32767.5
+//    9  |   0x200         |  4   | radius2     | float32, no scaling
+//   10  |   0x400         |  2   | threshold   | uint16 / 32767.5 (same divisor as opacity)
+//
+// All of the above formulas are confirmed exactly (not just plausible) via
+// disassembly of each channel's own PKStrokePathPointsPrivate::*AtIndex
+// accessor plus (for azimuth/altitude only) its PKStrokePoint-level public
+// wrapper - see point-decode-pipeline.md §7-§9 for the disassembly, the
+// exact IEEE754 constant values, and an empirical cross-check against a
+// real stroke. `uint16` here means a plain fixed-point unsigned 16-bit
+// integer - NOT IEEE754 float16, despite the same 2-byte size; confirmed by
+// the `ucvtf` (unsigned-int-to-float) instruction each accessor uses, which
+// would need to be `fcvt` (float-to-float) for a real float16 reinterpret.
+//
+// Present channels (1-10, gated by their point_flags bit) are packed into
+// the flat per-point record tightly, in increasing channel-index order, with
+// no padding for absent channels - i.e. the wire layout is NOT the fixed
+// sFieldOffsets layout (that's an in-memory decode-time detail internal to
+// PencilKit), it's a variable, presence-driven concatenation. This decoder
+// does not attempt to unpack these bytes into typed values yet, beyond
+// slicing them out per named channel by size (see decode_drawing() in
+// apple-notes-drawing-decode.pl) - the one point checked by hand (a 2-byte
+// "force" slice, raw value 0xfa/250) landed suspiciously close to a
+// plausible normalized-force reading if divided by 1000, and a 2-byte
+// "altitude" slice (raw 0x7a3c) landed close to a plausible altitude angle
+// if divided by 0x7fff (32767, the same sentinel constant - literal bytes
+// "ff 7f" - separately observed inside Geometry.unk6 on every sample
+// checked). Both are suggestive, neither is confirmed across enough samples
+// to trust, and no per-channel scale/bias table has been located in the
+// binary (see point-decode-pipeline.md's "Not concluded" for why - it
+// likely exists somewhere near computeCachedValues()/updateFromCachedValues,
+// not yet disassembled).
+//
+// Envelope (confirmed 2026-09-11 from arm64e disassembly of
+// -[PKDrawingConcrete(PKDrawingPersistenceAdditions)
+//   _initWithUnzippedData:loadNonInkingStrokes:error:] in PencilKit.framework,
+// macOS 26 dyld shared cache):
+//   offset 0, 4 bytes: magic, little-endian uint32 0xF0647277
+//                      (on-wire bytes 77 72 64 F0). If this doesn't match,
+//                      PencilKit instead treats the ENTIRE blob (offset 0)
+//                      as a raw envelope-less protobuf Drawing message -
+//                      an even older fallback format.
+//   offset 4, 1 byte:  format version (uint8). Must be < 6 or PencilKit
+//                      rejects the blob as "format too new"
+//                      (PKProtobufUtilitiesFormatTooNew).
+//   offset 5, 1 byte:  NOT read by this function. Reserved/padding;
+//                      meaning still unconfirmed.
+//   offset 6, 2 bytes: header length, little-endian uint16. Must satisfy
+//                      8 <= header_length < data.length. The protobuf
+//                      Drawing message actually starts at
+//                      `bytes + header_length`, NOT unconditionally at
+//                      byte 8 - it only looks fixed-8 because every sample
+//                      seen so far happens to have header_length == 8.
+
+syntax = "proto2";
+
+message RGBA {
+  optional float r = 1;
+  optional float g = 2;
+  optional float b = 3;
+  optional float a = 4;
+}
+
+// Real name confirmed as `drawing::Ink` (drawing.md), with real fields
+// `identifier`/`color`/`weight`/`variant`/`version`/`azimuth`/`hdrColor`/
+// `hdrAddColor`/`hdrMultiplyColor`/`hdrHeadroom`/`sixChannelAddColor`/
+// `sixChannelMultiplyColor`/`requiredContentVersion`. Only the three below
+// are mapped to a specific wire field number here (from the original
+// decode_raw pass); the rest of the real field list exists but has not
+// been mapped to a field number yet. NOTE: `Ink.azimuth` is a real but
+// entirely different field from the per-point `azimuth` channel in the
+// table above - do not conflate the two, see drawing.md.
+message Ink {
+  optional RGBA color   = 1;  // real field name: color
+  optional string identifier = 2;  // real field name: identifier, e.g. "com.apple.ink.pen"
+  optional int32 weight = 3;  // real field name: weight; tool weight/width class, units unconfirmed
+}
+
+// Shape shared by Drawing's top-level field 3 and Stroke's own field 3.
+// Drawing.version_vector's use of this shape is a plausible (not confirmed)
+// match to the real `versionVector` field name found in drawing.md;
+// Stroke.f3's use of it has no such candidate name at all - the two uses
+// are NOT known to be the same real field, just the same observed wire
+// shape (three int32 sub-fields). f1/f2/f3 meanings unconfirmed either way.
+message IndexEntry {
+  optional int32 f1 = 1;
+  optional int32 f2 = 2;
+  optional int32 f3 = 3;
+}
+
+// drawing.md found no `StrokeSeqInfo`-shaped nested message anywhere in the
+// real `drawing::Stroke` field list (`bounds`, `centerlineSlices`,
+// `groupUUID`, `inkIndex`, `inkTransform`, `maskPoints`, `renderGroupUUID`,
+// `shapeType`, `sortID`, `strokeData`, `strokeUUID`, `styleFlags`,
+// `substrokes`, `substrokesVersion`, `transform`, `version`) - so `seq`/
+// `ink_category` below are almost certainly NOT real field names; this is
+// likely decode_raw grouping several adjacent real scalar fields (perhaps
+// some combination of `sortID`/`inkIndex`/`version`/`styleFlags`) into what
+// only *looks* like one nested submessage. Kept at its original field
+// number/shape (that part of the raw decode is still valid) but the field
+// names are downgraded to unconfirmed placeholders rather than asserting
+// semantics `drawing.md` casts doubt on. The real `inkIndex` field (an
+// index into Drawing.inks[]) is confirmed to exist and matches
+// point-decode-pipeline.md's independently-confirmed ink-selection
+// mechanism - it just isn't known which of f1/f2/f3 (if any) it actually
+// is at this field number.
+message StrokeUnknown2 {
+  optional int32 f1 = 1;  // formerly guessed "seq" - unconfirmed, see above
+  optional int32 f2 = 2;  // formerly guessed "ink_category" - unconfirmed, see above
+  optional int32 f3 = 3;
+}
+
+// Real field name confirmed as `bounds` (drawing.md). Sub-field order
+// (which of f1-f4 is x/y/w/h) is still unconfirmed.
+message Bounds {
+  optional float f1 = 1; // observed as x in samples - order unconfirmed
+  optional float f2 = 2; // observed as y
+  optional float f3 = 3; // observed as w
+  optional float f4 = 4; // observed as h
+}
+
+// drawing.md found no `drawing::Geometry` class at all in the real schema -
+// this message's payload is really part of Stroke's real `strokeData`
+// field (a confirmed real `drawing::StrokeData` class - see drawing.md).
+// Kept under its original name/shape here since the internal field-level
+// analysis (uuid/npts/point_flags/points, all below) predates and is
+// independent of that finding and none of it has been re-derived against
+// StrokeData's own real internal field names yet.
+message Geometry {
+  optional bytes uuid       = 1;
+  optional fixed64 unk2     = 2; // unconfirmed; looked timestamp-ish
+  optional int32 npts       = 3; // point count
+  // Confirmed 2026-09-11 (empirically, against real sample blobs): this is
+  // PencilKit's per-point channel presence bitmask, PKStrokePathPointsShared's
+  // pointFlags() - see the channel table in this file's header comment. Bit 0
+  // (value 0x1) is set on every sample seen so far; its meaning independent
+  // of channel 0 (location, unconditional) is unconfirmed.
+  optional int32 point_flags = 4;
+  optional int32 unk5       = 5;
+  optional bytes unk6       = 6; // short (~6-10 byte) blob, unconfirmed;
+                                  // every sample seen starts with bytes
+                                  // "e8 03 00 00" (uint32 1000) and ends with
+                                  // "ff 7f" (uint16 0x7fff/32767) - both
+                                  // reproducible across samples, meaning of
+                                  // neither confirmed.
+  // Flat point table, length = npts * stride. Stride varies per stroke
+  // (observed: 12,14,16,18,20,22). The first 8 bytes of every point are
+  // little-endian float32 X, float32 Y (confirmed). The remaining
+  // (stride-8) bytes are the channels gated by `point_flags`, packed
+  // tightly in increasing channel-index order (see the table above) - NOT
+  // expressible as ordinary protobuf fields since which channels are
+  // present, and therefore the stride itself, is implicit per-stroke state
+  // instead of a wire-format construct.
+  optional bytes points     = 7;
+}
+
+// Real name confirmed as `drawing::Stroke` (drawing.md); see that file for
+// the full real field list. Only fields with a specific mapping attempt are
+// listed below - see each field's own comment for confidence level.
+message Stroke {
+  optional bytes stroke_uuid       = 1; // real field name: strokeUUID
+  optional StrokeUnknown2 f2       = 2; // NOT confirmed "seq_info" - see StrokeUnknown2
+  optional IndexEntry f3           = 3; // unconfirmed - see IndexEntry
+  optional int32 f4                = 4;
+  optional Geometry stroke_data    = 5; // real field name: strokeData (absent for empty/zero-point strokes)
+  optional Bounds bounds           = 6; // real field name: bounds
+  optional int32 f8                = 8;
+}
+
+// Real name confirmed as `drawing::Drawing` (drawing.md), with real fields
+// `bounds`/`boundsVersion`/`inks`/`replicaUUIDs`/`strokes`/`uuid`/
+// `versionVector`. `bounds`/`boundsVersion` have no field-number mapping
+// attempt at all here (not identified at any specific field number).
+message Drawing {
+  repeated bytes replica_uuids  = 2; // real field name plausibly replicaUUIDs; 16-byte UUIDs, use unidentified
+  repeated IndexEntry version_vector = 3; // real field name plausibly versionVector - see IndexEntry's own caveat
+  repeated Ink inks             = 4; // real field name: inks
+  repeated Stroke strokes       = 5; // real field name: strokes
+}
