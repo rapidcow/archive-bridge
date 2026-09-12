@@ -3,8 +3,11 @@
 # stored in ZICCLOUDSYNCINGOBJECT.ZMERGEABLEDATA1 of NoteStore.sqlite) into
 # either an s-expression or an InkML document.
 #
-# The blob's wire format is described in apple-notes-drawing.proto (in this
-# same directory) - see that file for what's confirmed vs. guessed. This
+# The blob's wire format is described in apple-notes-drawing-2.proto (in
+# this same directory) - see that file for what's confirmed vs. guessed,
+# and see notes/apple/com.apple.drawing.2/drawing.md for how its field
+# names were confirmed/corrected against PencilKit.framework's own real
+# `drawing::*` C++ class field names. This
 # script parses the envelope in front of that protobuf message (magic +
 # version + header length, per PencilKit's own parser) and starts the
 # protobuf message at the header-length offset it specifies (usually but
@@ -101,14 +104,8 @@ my @POINT_CHANNELS = (
 	[ threshold   => 2, 'hex'      ],
 );
 
-my %INK_CATEGORY_GUESS = (
-	2 => "pen",     # unconfirmed
-	3 => "pencil",  # unconfirmed
-	4 => "marker",  # unconfirmed
-);
-
 Google::ProtocolBuffers->parsefile(
-	File::Spec->catfile( $FindBin::Bin, "apple-notes-drawing.proto" )
+	File::Spec->catfile( $FindBin::Bin, "apple-notes-drawing-2.proto" )
 );
 
 my $prog = basename($0);
@@ -217,13 +214,13 @@ sub decode_drawing {
 
 	my $drawing = Drawing->decode($body);
 
-	my @ink_defs;
-	for my $ink (@{ $drawing->{ink_defs} || [] }) {
-		my $rgba = $ink->{rgba} || {};
-		push @ink_defs, {
-			rgba   => [ $rgba->{r} || 0, $rgba->{g} || 0, $rgba->{b} || 0, $rgba->{a} || 0 ],
-			name   => $ink->{name} || "",
-			weight => $ink->{weight},
+	my @inks;
+	for my $ink (@{ $drawing->{inks} || [] }) {
+		my $color = $ink->{color} || {};
+		push @inks, {
+			color      => [ $color->{r} || 0, $color->{g} || 0, $color->{b} || 0, $color->{a} || 0 ],
+			identifier => $ink->{identifier} || "",
+			weight     => $ink->{weight},
 		};
 	}
 
@@ -231,7 +228,7 @@ sub decode_drawing {
 	for my $st (@{ $drawing->{strokes} || [] }) {
 		my @points;
 		my $stride;
-		if (my $geom = $st->{geometry}) {
+		if (my $geom = $st->{stroke_data}) {
 			my $npts  = $geom->{npts};
 			my $pdata = $geom->{points};
 			my $flags = $geom->{point_flags} // 0;
@@ -255,23 +252,25 @@ sub decode_drawing {
 			}
 		}
 
-		my $category = $st->{seq_info} ? $st->{seq_info}{ink_category} : undef;
-		my $bbox = $st->{bbox};
+		# Stroke.f2 (StrokeUnknown2) - NOT a confirmed "seq_info"/
+		# "ink_category" (see apple-notes-drawing-2.proto and
+		# notes/apple/com.apple.drawing.2/drawing.md for why that guess was
+		# withdrawn) - exposed here only as raw, unlabeled integers.
+		my $unk2 = $st->{f2};
+		my $bounds = $st->{bounds};
 
 		push @strokes, {
-		    uuid               => unpack("H*", $st->{uuid} || ""),
-		    seq                => $st->{seq_info} ? $st->{seq_info}{seq} : undef,
-		    ink_category       => $category,
-		    ink_category_guess => $INK_CATEGORY_GUESS{ $category // -1 } || "unknown",
-		    bbox               => $bbox ? [ $bbox->{f1}, $bbox->{f2}, $bbox->{f3}, $bbox->{f4} ] : undef,
-		    point_stride       => $stride,
-		    points             => \@points,
+		    stroke_uuid  => unpack("H*", $st->{stroke_uuid} || ""),
+		    unknown2     => $unk2 ? [ $unk2->{f1}, $unk2->{f2}, $unk2->{f3} ] : undef,
+		    bounds       => $bounds ? [ $bounds->{f1}, $bounds->{f2}, $bounds->{f3}, $bounds->{f4} ] : undef,
+		    point_stride => $stride,
+		    points       => \@points,
 		};
 	}
 
 	return {
 		envelope_hex => unpack("H*", $envelope),
-		ink_defs     => \@ink_defs,
+		inks         => \@inks,
 		strokes      => \@strokes,
 	};
 }
@@ -322,24 +321,23 @@ sub render_sexp {
 	my @out;
 	push @out, "(drawing";
 	push @out, "  (envelope-hex " . esc_str($d->{envelope_hex}) . ")";
-	push @out, "  (ink-defs";
-	for my $ink (@{ $d->{ink_defs} }) {
+	push @out, "  (inks";
+	for my $ink (@{ $d->{inks} }) {
 		push @out, sprintf(
-		    "    (ink (name %s) (rgba %.6f %.6f %.6f %.6f) (weight %s))",
-		    esc_str($ink->{name}),
-		    @{ $ink->{rgba} },
+		    "    (ink (identifier %s) (color %.6f %.6f %.6f %.6f) (weight %s))",
+		    esc_str($ink->{identifier}),
+		    @{ $ink->{color} },
 		    defined $ink->{weight} ? $ink->{weight} : "nil");
 	}
 	push @out, "  )";
 	push @out, "  (strokes";
 	for my $st (@{ $d->{strokes} }) {
 		push @out, "    (stroke";
-		push @out, "      (uuid " . esc_str($st->{uuid}) . ")";
-		push @out, "      (seq " . (defined $st->{seq} ? $st->{seq} : "nil") . ")";
-		push @out, "      (ink-category-raw " . (defined $st->{ink_category} ? $st->{ink_category} : "nil") .
-		            ") ; guess: " . $st->{ink_category_guess};
-		if ($st->{bbox}) {
-		    push @out, sprintf("      (bbox %.6f %.6f %.6f %.6f) ; order unconfirmed", @{ $st->{bbox} });
+		push @out, "      (uuid " . esc_str($st->{stroke_uuid}) . ")";
+		push @out, "      (unknown2 " . ($st->{unknown2} ? join(" ", map { $_ // "nil" } @{ $st->{unknown2} }) : "nil") .
+		            ") ; formerly guessed seq/ink_category - withdrawn, see drawing.md";
+		if ($st->{bounds}) {
+		    push @out, sprintf("      (bounds %.6f %.6f %.6f %.6f) ; order unconfirmed", @{ $st->{bounds} });
 		}
 		push @out, "      (point-stride " . (defined $st->{point_stride} ? $st->{point_stride} : "nil") . ")";
 		push @out, "      (points";
@@ -369,24 +367,19 @@ sub render_inkml {
 	push @out, '    <channel name="Y" type="decimal"/>';
 	push @out, '  </traceFormat>';
 
-	my $ctx_i = 0;
-	my %ctx_for_category;
-	for my $st (@{ $d->{strokes} }) {
-		my $cat = $st->{ink_category_guess};
-		next if exists $ctx_for_category{$cat};
-		my $id = "ctx" . $ctx_i++;
-		$ctx_for_category{$cat} = $id;
-		push @out, sprintf('  <context xml:id="%s"><!-- ink category guess: %s (unconfirmed mapping) --></context>',
-			$id, $cat);
-	}
+	# A single shared context: there is no confirmed per-stroke ink-category
+	# signal to group by (the earlier "ink_category" guess was withdrawn -
+	# see apple-notes-drawing-2.proto and drawing.md - and the real
+	# ink-selection mechanism, Stroke.inkIndex, isn't decoded by this
+	# script at all yet).
+	push @out, '  <context xml:id="ctx0"/>';
 
 	my $trace_i = 0;
 	for my $st (@{ $d->{strokes} }) {
 		next unless @{ $st->{points} };
-		my $ctx = $ctx_for_category{ $st->{ink_category_guess} };
 		my @pts = map { sprintf("%.4f %.4f", $_->{x}, $_->{y}) } @{ $st->{points} };
-		push @out, sprintf('  <trace id="t%d" contextRef="#%s">%s</trace>',
-			$trace_i++, $ctx, join(", ", @pts));
+		push @out, sprintf('  <trace id="t%d" contextRef="#ctx0">%s</trace>',
+			$trace_i++, join(", ", @pts));
 	}
 
 	push @out, '</ink>';
