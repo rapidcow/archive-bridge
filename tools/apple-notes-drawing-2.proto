@@ -177,7 +177,7 @@ message Bounds {
 // independent of that finding and none of it has been re-derived against
 // StrokeData's own real internal field names yet.
 message Geometry {
-  optional bytes uuid       = 1;
+  optional bytes uuid       = 1; // plausibly what PencilKit's ObjC bridge calls strokeDataUUID (-[_PKStrokeConcrete _strokeDataUUID], -[PKStrokePath _strokeDataUUID]) - a DIFFERENT UUID concept from Stroke.strokeUUID (field 1 of the Stroke message above) - not yet disassembly-confirmed at this specific field number, see drawing.md Update 3
   optional fixed64 unk2     = 2; // unconfirmed; looked timestamp-ish
   optional int32 npts       = 3; // point count
   // Confirmed 2026-09-11 (empirically, against real sample blobs): this is
@@ -205,13 +205,15 @@ message Geometry {
 }
 
 // Real name confirmed as `drawing::Stroke` (drawing.md); see that file for
-// the full real field list and, across its two update sections, how each
+// the full real field list and, across its three update sections, how each
 // field number below was pinned down: hard disassembly proof (readFrom's
-// jump table cross-referenced against the makeXXX() accessors' struct
-// offsets) for numbers 2/3/4/5/6/7/9/11/15; empirical proof (real sample
-// data - value distributions/co-occurrence counts/bit patterns) for
-// 1/8/10/12/13/14; field 16 is elimination-only, the one number here still
-// short of either kind of proof.
+// jump table cross-referenced against either the makeXXX() accessors'
+// struct offsets, or - for field 1 specifically - the NSUUID-construction
+// bridge in -[_PKStrokeConcrete initWithArchive:...]) for numbers
+// 1/2/3/4/5/6/7/9/11/15; empirical proof only (real sample data - value
+// distributions/co-occurrence counts/bit patterns) for 8/10/12/13/14;
+// field 16 is elimination-only, the one number here still short of either
+// kind of proof.
 //
 // Field 3 here is a real Stroke field (StrokeID-typed, real name `version`)
 // and is UNRELATED to the top-level IndexEntry-shaped field this file's
@@ -220,7 +222,7 @@ message Geometry {
 // real correspondence. Kept as its own field here to avoid re-introducing
 // that conflation.
 message Stroke {
-  optional bytes stroke_uuid       = 1; // real field name: strokeUUID - proven empirically (16 bytes on 100% of 773710 real strokes sampled)
+  optional bytes stroke_uuid       = 1; // real field name: strokeUUID - proven at disassembly level: -[_PKStrokeConcrete initWithArchive:...]'s NSUUID-construction bridge reads this exact offset (0x78), not just empirically (16 bytes on 100% of 773710 real strokes sampled), see drawing.md
   optional StrokeID sort_id        = 2; // real field name: sortID - proven, see StrokeID
   optional StrokeID version        = 3; // real field name: version - proven, see StrokeID
   optional int32 ink_index         = 4; // real field name: inkIndex - proven; index into Drawing.inks[]

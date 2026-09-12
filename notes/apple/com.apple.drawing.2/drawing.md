@@ -308,6 +308,62 @@ co-occurrence counts, or a literal shared high bit). Only field 16
 `apple-notes-drawing-2.proto`'s `Stroke` message has been updated to use
 these names.
 
+## Update 3: `strokeUUID` proven at disassembly level, not just empirically
+
+Update 2 left field 1 = `strokeUUID` resting on "100% presence across
+773710 real strokes" - strong, but statistical, not a name-level proof like
+Update 1's `makeXXX()` trick gave for `sortID`/`version`/etc. Closed that
+gap too, via a different disassembly route: PencilKit's public/private
+Objective-C bridge onto the C++ `drawing::` types.
+
+`nm -U` (grepping broadly for `-i strokeuuid`, not scoped to `drawing::`)
+turned up `-[_PKStrokeConcrete _strokeUUID]` / `_setStrokeUUID:`, and -
+notably - a **separate** `-[_PKStrokeConcrete _strokeDataUUID]` /
+`-[PKStrokePath _strokeDataUUID]`. That's a second UUID concept entirely,
+plausibly the `uuid` field already sitting inside `Geometry` in this same
+`.proto` (i.e. `Stroke.strokeData`'s own internal UUID) - worth remembering
+so `strokeUUID` and `strokeDataUUID` don't get conflated; only the former
+is this section's subject.
+
+`-[_PKStrokeConcrete _strokeUUID]` itself just returns a cached `NSUUID*`
+ivar (a plain ObjC property getter, no direct struct access) - not useful
+by itself. But disassembling
+`-[_PKStrokeConcrete(PKStrokePersistenceAdditions)
+initWithArchive:sortedUUIDs:inks:parent:isHidden:transientArchiveDictionary:]`
+(`0x1ae67ae24` - the method that constructs a `_PKStrokeConcrete` from a
+freshly-`readFrom`'d `drawing::Stroke`) shows exactly where that ivar gets
+populated:
+
+```
+ldr  x8, [x24, #0x78]        ; x24 = drawing::Stroke*, read field at offset 0x78
+cbz  x8, loc_1ae67af10       ; null? -> fallback path
+...
+ldr  x8, [x24, #0x78]        ; (reloaded after a helper call)
+ldr  x2, [x8]                ; dereference the PB::Data - its raw byte pointer
+bl   _objc_msgSend$initWithUUIDBytes:   ; wrap those 16 bytes as an NSUUID
+bl   _objc_msgSend$_setStrokeUUID:      ; store it
+```
+
+and the fallback path (field absent) is:
+
+```
+bl   _objc_msgSend$UUID      ; +[NSUUID UUID] - a fresh RANDOM UUID
+bl   _objc_msgSend$_setStrokeUUID:
+```
+
+Offset `0x78` is exactly field 1's offset per Update 1's `readFrom`
+jump-table entry - so this is a direct, non-statistical proof that field 1
+holds 16 raw bytes which get wrapped as an `NSUUID` and become the object's
+`strokeUUID`. The "generate a random UUID if this field was absent"
+fallback is itself a strong sanity check: that's exactly the kind of
+backfill behavior you'd want for an identity field, and would make little
+sense for `groupUUID`/`renderGroupUUID` (which are legitimately *supposed*
+to be absent on most strokes, per Update 2's rarity findings) or for any
+non-UUID field.
+
+Field 1 = `strokeUUID` is now proven at the same rigor as Update 1's
+`makeXXX()`-derived fields, not merely empirically inferred.
+
 ## Not concluded
 
 - Field 16's identity as `groupUUID` rests on elimination only (see Update
