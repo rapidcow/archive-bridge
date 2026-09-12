@@ -33,6 +33,7 @@
 # Add --immutable for a fixed archive (such as a git-annex object).
 # Only use this when the database will not change while being read.
 
+use 5.010;
 use strict;
 use warnings;
 use Getopt::Long;
