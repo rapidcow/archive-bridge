@@ -1,0 +1,17 @@
+it's actually pretty benign, and looks weirdly poetic.
+but i am going to be left wondering why i put it there
+-- too tempting of a lead! :x
+
+$ ~/tree/utils/diff-range rpi/master@{1} 2 @
+ORIG = 9de50e93cbd4dc0899ac22019b1326ac9059b2ab (rpi/master@{1})
+HEAD = 4989058f310900a200e01fabde5938c3de1fd1a7 (@)
+ 0:  9de50e9 =  0:  4989058 Last detour: groupID and canonical stroke order
+ 1:  78b0b13 !  1:  71dfaed Disambiguate clock and subclock with _PKStrokeIDCompare
+--- a/78b0b137fa87d38d28d33361c7b9466101029b30	2026-09-12 07:41:17.000000000 +0000
++++ b/71dfaedbb11346837b08dbe962834b387d43bdfe	2026-09-12 07:41:17.000000000 +0000
+@@ -11,5 +11,4 @@
+ to observe the race to discern the subclock from the clock!!)
+ 
+ Claude also updated the script to output the full s-expression.
+ Functionally, I think our reverse-engineering is complete....
+-.
