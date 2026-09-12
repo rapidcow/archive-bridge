@@ -1,0 +1,3 @@
+#!/bin/sh
+git update-server-info
+git pack-refs --all

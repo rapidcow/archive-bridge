@@ -1,0 +1,2 @@
+#!/bin/sh
+exec ~/bin/post-receive --ref refs/info/rpi-self
