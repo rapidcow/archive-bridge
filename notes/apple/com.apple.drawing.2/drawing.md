@@ -473,6 +473,77 @@ which field regardless.
 `StrokeID`'s three fields are now all named: 1 = `clock`, 2 =
 `replicaIndex` (Update 4), 3 = `subclock`.
 
+## Update 6: array order is not reliably z-order - sort by `sortID` before rendering
+
+Practical question that came up while actually rendering imported
+drawings: is `Stroke`'s position in `Drawing.strokes` (the array order as
+stored on the wire) already the correct painter's-algorithm z-order, or
+does something need to re-sort it first using `sortID`
+(`clock`/`replicaIndex`/`subclock`, Update 4/5)?
+
+Two pieces of evidence, one from the framework's own code and one
+empirical, both pointing the same way:
+
+- `+[PKDrawing sortStrokes:]` (`0x1ae69b6f8`) exists as its own explicit
+  operation - `[strokes sortWithOptions:usingComparator:]`, and its
+  comparator block (`0x1ae69b70c`) is a one-line forward to
+  `-compareToStroke:`, i.e. the exact `_PKStrokeIDCompare`-based
+  `clock`/`replicaIndex`/`subclock` cascade from Update 5. The mere
+  existence of a dedicated "sort the strokes" operation, built on the
+  `sortID` comparator specifically, is a strong signal that Apple's own
+  code does not treat array order as trustworthy by construction - if it
+  were always already sorted, this function would have nothing to do.
+- Checked empirically against every real drawing with 2+ strokes in the
+  same local corpus used throughout this document (`xt/
+  check-strokes-presorted.pl`): **1260 of 1272 drawings have array order
+  exactly matching ascending `clock`, but 12 do not.** Inspecting one
+  violator (`Z_PK=20438`) in detail: a small, non-contiguous cluster of
+  earlier strokes (`clock` values 944, 949, 983-995 - scattered, not a
+  contiguous run, consistent with an eraser or selection tool touching a
+  sparse set of existing strokes) appears **twice** in the array,
+  interrupting an otherwise cleanly-ascending sequence around `clock`
+  1120-1128. Not fully explained (would need to trace whatever specific
+  edit produced it), but it's clearly some kind of edit-time
+  revisit/duplication artifact, not random corruption - the vast majority
+  of the array is untouched and in order.
+
+**Conclusion for anything that renders these drawings: sort strokes by
+`(clock, replicaIndex, subclock)` ascending before drawing them, rather
+than trusting `Drawing.strokes`'s stored order.** It's right ~99% of the
+time in this corpus, but the exception is real, reproducible, and exactly
+the kind of bug that would show up as strokes rendering in the wrong
+stacking order wherever two strokes visually overlap.
+
+## Update 7: `groupUUID` (field 16) - a real feature, unconfirmed wire connection
+
+Acknowledging and closing out field 16 without further pursuit (per
+project decision - it's expected to come up rarely if at all, so
+elimination-only confidence, Update 2, is good enough to leave as-is).
+Worth recording what *was* found while looking, though: `groupID` (the
+ObjC-level name; `_groupID`/`_setGroupID:` on `PKStroke`/`_PKStrokeConcrete`)
+is a real, actively-used concept - `PKGroupQuery`, `PKHandwritingTranscriptionCache`,
+and `PKMathRecognitionController` all tag strokes with a `groupID` to
+identify "these strokes together form one recognized unit" (a handwritten
+word, a math expression), for transcription caching and batch undo/redo
+(`PKModifyStrokesGroupIDCommand`).
+
+Tried to prove the same way `strokeUUID` was proven in Update 3 - tracing
+the bridge from the freshly-`readFrom`'d protobuf `Stroke` into this ObjC
+ivar - and came up empty: `-[_PKStrokeConcrete
+initWithArchive:sortedUUIDs:inks:parent:isHidden:transientArchiveDictionary:]`
+(the modern load path, already disassembled in full for Update 3) never
+references `_groupID`/`_setGroupID:` anywhere. `_groupID`/`_renderGroupID`
+*are* both referenced from `-[_PKStrokeConcrete
+saveToArchive:sortedUUIDs:inks:withPathData:parent:transient:]`, but that
+"Archive" persistence mechanism may not even be the same one this whole
+document has been reverse-engineering (the modern `drawing::Stroke::
+readFrom`/`writeTo` protobuf path) - it could plausibly be a separate
+pasteboard/drag-and-drop/undo-snapshot serialization instead. Left
+genuinely open: whether `groupID` round-trips through the wire field this
+`.proto` calls `group_uuid` at all, or whether it's recomputed fresh each
+session by `PKGroupQuery` rather than persisted per-stroke - not resolved,
+not pursued further.
+
 ## Not concluded
 
 - Field 16's identity as `groupUUID` rests on elimination only (see Update

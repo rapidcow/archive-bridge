@@ -32,6 +32,14 @@
 #
 # Add --immutable for a fixed archive (such as a git-annex object).
 # Only use this when the database will not change while being read.
+#
+# Add --sort to reorder strokes by ascending sortID (clock, replicaIndex,
+# subclock) before printing, matching PencilKit's own +[PKDrawing
+# sortStrokes:] - see notes/apple/com.apple.drawing.2/drawing.md Update 6
+# for why this can matter: the stored array order usually already matches
+# this, but not always (confirmed empirically against real sample data),
+# so anything doing painter's-algorithm rendering should sort explicitly
+# rather than trust array order.
 
 use 5.010;
 use strict;
@@ -112,10 +120,10 @@ Google::ProtocolBuffers->parsefile(
 my $prog = basename($0);
 my $usage = <<EOM;
 usage: $prog --db NoteStore.sqlite [--immutable] --list
-       $prog --db NoteStore.sqlite [--immutable] --pk N [--sexp|--inkml] [--out FILE]
+       $prog --db NoteStore.sqlite [--immutable] --pk N [--sexp|--inkml] [--sort] [--out FILE]
 EOM
 
-my ($db, $pk, $list, $want_sexp, $want_inkml, $out);
+my ($db, $pk, $list, $want_sexp, $want_inkml, $out, $want_sort);
 my $immutable;
 GetOptions(
 	"immutable" => \$immutable,
@@ -124,6 +132,7 @@ GetOptions(
 	"list"   => \$list,
 	"sexp"   => \$want_sexp,
 	"inkml"  => \$want_inkml,
+	"sort"   => \$want_sort,
 	"out=s"  => \$out,
 ) or die $usage;
 
@@ -142,6 +151,7 @@ die "no ZMERGEABLEDATA1 for Z_PK=$pk (wrong pk, or not a com.apple.drawing.2 att
 	unless defined $blob && length($blob);
 
 my $drawing = decode_drawing($blob);
+sort_strokes_by_sort_id($drawing) if $want_sort;
 
 my $fh = \*STDOUT;
 if ($out) {
@@ -276,6 +286,28 @@ sub decode_drawing {
 		inks         => \@inks,
 		strokes      => \@strokes,
 	};
+}
+
+# Reorders $drawing->{strokes} in place by ascending sort_id (clock,
+# replica_index, subclock) - i.e. PencilKit's own +[PKDrawing sortStrokes:]
+# comparator (see notes/apple/com.apple.drawing.2/drawing.md Update 6).
+# Stored array order is usually already this order, but not always -
+# confirmed empirically against real sample data - so anything that
+# renders these drawings (painter's algorithm, later strokes on top)
+# should sort explicitly rather than trust array order. Strokes with no
+# sort_id (shouldn't happen in practice) sort last, keeping their relative
+# order among themselves.
+sub sort_strokes_by_sort_id {
+	my ($drawing) = @_;
+	my $key = sub {
+		my ($st) = @_;
+		return $st->{sort_id} ? [ 0, @{ $st->{sort_id} } ] : [ 1, 0, 0, 0 ];
+	};
+	@{ $drawing->{strokes} } = sort {
+		my ($ka, $kb) = ($key->($a), $key->($b));
+		$ka->[0] <=> $kb->[0] || $ka->[1] <=> $kb->[1]
+		|| $ka->[2] <=> $kb->[2] || $ka->[3] <=> $kb->[3]
+	} @{ $drawing->{strokes} };
 }
 
 # Decode one channel's raw bytes per its 'kind' (see @POINT_CHANNELS above).
