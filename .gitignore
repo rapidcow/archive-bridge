@@ -1,0 +1,8 @@
+# Since this repository is going on a lot of Macs,
+# this ignore rule will be necessary beyond a doubt.
+.DS_Store
+._*
+
+# Ignore vim swap too (i just have to, sorry lol :P)
+*.sw[a-p]
+
