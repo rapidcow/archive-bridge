@@ -1,0 +1,29 @@
+# We are not a Git worktree, so this isn't intended
+# for git to read -- instead, this informs store-meta
+# what NOT to include in its snapshot report. :)
+#
+# Be careful that a directory exclude is a bit nuclear
+# at the moment, being effectively a --path --prune.
+#
+# A directory exclude must also be explicitly stated
+# as such (e.g., "annex/" and not "annex" alone.)
+# If you want to include both a file and a directory,
+# you must write the same name twice -- once with "/"
+# and once without.
+#
+# A leading slash pins the path to the root directory.
+#
+# For Git repositories turned non-bare, a second copy
+# of the tree might be nice; but if you prefer to leave
+# out the index (or cache, as it used to be called):
+#/index
+#
+# For Git-annex repositories, you might want this:
+#/annex/
+#
+# If you want to index Git objects within itself,
+# you can reverse the ignore rule very much like
+# you would with the real gitignore file (though be
+# warned that info/refs and packed-refs are still
+# filtered unless you override --blob-filter).
+#!/objects/
