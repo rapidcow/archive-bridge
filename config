@@ -16,3 +16,5 @@
 	permission = rx
 [shell "guest@rapidcow.org"]
 	permission = 
+[shell "meng69@INFO-COL-A418.ad.wisc.edu"]
+	permission = rwx
