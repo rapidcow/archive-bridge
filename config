@@ -3,7 +3,7 @@
 	filemode = true
 	bare = true
 [shell "rapidcow@RCs-T480s.local"]
-	permission = rwsx
+	permission = DEFAULT
 [shell "rapidcow@RCs-MacBook-Pro.local"]
 	permission = rwsx
 [shell "rapidcow@NucBox-G3.local"]
