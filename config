@@ -2,3 +2,17 @@
 	repositoryformatversion = 0
 	filemode = true
 	bare = true
+[shell "rapidcow@RCs-T480s.local"]
+	permission = rwsx
+[shell "rapidcow@RCs-MacBook-Pro.local"]
+	permission = rwsx
+[shell "rapidcow@NucBox-G3.local"]
+	permission = rwsx
+[shell "rapidcow@RPi-4B.local"]
+	permission = rwsx
+[shell "com.termux@Pixel-9-Pro.local"]
+	permission = rwsx
+[shell]
+	permission = rx
+[shell "guest@rapidcow.org"]
+	permission = 
