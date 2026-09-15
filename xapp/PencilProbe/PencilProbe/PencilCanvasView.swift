@@ -21,6 +21,7 @@ final class PencilCanvasView: UIView {
     private var azimuthUnitVector: CGVector = .zero
     private var altitudeAngle: CGFloat = 0
     private var forceFraction: CGFloat = 0
+    private var sourceDescription = "none"
 
     private let cursorRadius: CGFloat = 12
     private let diagnosticsLabel = UILabel()
@@ -56,25 +57,34 @@ final class PencilCanvasView: UIView {
 
     // MARK: - Touch (pen in contact with the glass)
 
+    // NOTE: not filtered to touch.type == .pencil — on the Simulator every
+    // click/drag arrives as .direct (finger-like), so filtering to pencil
+    // only would mean nothing ever renders there. We accept any touch and
+    // just label what kind it was, so the on-screen circle/label can be
+    // sanity-checked without real Pencil hardware. azimuth/altitude/force
+    // are only *meaningful* when source reads "pencil" — for anything else
+    // UIKit returns fixed constants (altitude = pi/2, azimuth = 0), which is
+    // expected, not a bug.
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        guard let touch = touches.first else { return }
         isPenDown = true
         capture(from: touch)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        guard let touch = touches.first else { return }
         capture(from: touch)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        guard let touch = touches.first else { return }
         isPenDown = false
         capture(from: touch)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        guard let touch = touches.first else { return }
         isPenDown = false
         capture(from: touch)
     }
@@ -85,8 +95,19 @@ final class PencilCanvasView: UIView {
         azimuthUnitVector = touch.azimuthUnitVector(in: self)
         altitudeAngle = touch.altitudeAngle
         forceFraction = touch.maximumPossibleForce > 0 ? touch.force / touch.maximumPossibleForce : 0
+        sourceDescription = describe(touch.type)
         hasReading = true
         refresh()
+    }
+
+    private func describe(_ type: UITouch.TouchType) -> String {
+        switch type {
+        case .pencil: return "pencil"
+        case .direct: return "finger/direct"
+        case .indirect: return "indirect"
+        case .indirectPointer: return "mouse/trackpad"
+        @unknown default: return "unknown"
+        }
     }
 
     // MARK: - Hover (pen in proximity, iPad Pro M2+/Pencil Pro, iPadOS 16.1+)
@@ -100,6 +121,7 @@ final class PencilCanvasView: UIView {
             azimuthUnitVector = recognizer.azimuthUnitVector(in: self)
             altitudeAngle = recognizer.altitudeAngle
             forceFraction = 0
+            sourceDescription = "hover"
             hasReading = true
         case .ended, .cancelled:
             cursorLocation = nil
@@ -118,11 +140,13 @@ final class PencilCanvasView: UIView {
 
     private func updateDiagnosticsText() {
         guard hasReading else {
-            diagnosticsLabel.text = "azimuth   —\naltitude  —\nforce     —"
+            diagnosticsLabel.text = "source    —\nazimuth   —\naltitude  —\nforce     —"
             return
         }
+        let note = sourceDescription == "pencil" ? "" : "  (not pencil — angles are fixed defaults)"
         diagnosticsLabel.text = String(
-            format: "azimuth   %+.4f rad  (x=%+.4f, y=%+.4f)\naltitude  %+.4f rad\nforce     %5.1f%%",
+            format: "source    %@%@\nazimuth   %+.4f rad  (x=%+.4f, y=%+.4f)\naltitude  %+.4f rad\nforce     %5.1f%%",
+            sourceDescription, note,
             azimuthAngle, azimuthUnitVector.dx, azimuthUnitVector.dy,
             altitudeAngle,
             forceFraction * 100
