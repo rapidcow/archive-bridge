@@ -123,8 +123,6 @@ final class PencilCanvasView: UIView {
             forceFraction = 0
             sourceDescription = "hover"
             hasReading = true
-        case .ended, .cancelled:
-            cursorLocation = nil
         default:
             break
         }
@@ -140,13 +138,20 @@ final class PencilCanvasView: UIView {
 
     private func updateDiagnosticsText() {
         guard hasReading else {
-            diagnosticsLabel.text = "source    -\nazimuth   -\naltitude  -\nforce     -"
+            diagnosticsLabel.text = "source    -\npoint     -\nazimuth   -\naltitude  -\nforce     -"
             return
         }
         let note = sourceDescription == "pencil" ? "" : "  (not pencil -- angles are fixed defaults)"
+        let pointText: String
+        if let point = cursorLocation {
+            pointText = String(format: "(%.1f, %.1f)  [origin top-left, x->right, y->down]", point.x, point.y)
+        } else {
+            pointText = "-"
+        }
         diagnosticsLabel.text = String(
-            format: "source    %@%@\nazimuth   %+.4f rad  (x=%+.4f, y=%+.4f)\naltitude  %+.4f rad\nforce     %5.1f%%",
+            format: "source    %@%@\npoint     %@\nazimuth   %+.4f rad  (x=%+.4f, y=%+.4f)\naltitude  %+.4f rad\nforce     %5.1f%%",
             sourceDescription, note,
+            pointText,
             azimuthAngle, azimuthUnitVector.dx, azimuthUnitVector.dy,
             altitudeAngle,
             forceFraction * 100
