@@ -140,10 +140,10 @@ final class PencilCanvasView: UIView {
 
     private func updateDiagnosticsText() {
         guard hasReading else {
-            diagnosticsLabel.text = "source    —\nazimuth   —\naltitude  —\nforce     —"
+            diagnosticsLabel.text = "source    -\nazimuth   -\naltitude  -\nforce     -"
             return
         }
-        let note = sourceDescription == "pencil" ? "" : "  (not pencil — angles are fixed defaults)"
+        let note = sourceDescription == "pencil" ? "" : "  (not pencil -- angles are fixed defaults)"
         diagnosticsLabel.text = String(
             format: "source    %@%@\nazimuth   %+.4f rad  (x=%+.4f, y=%+.4f)\naltitude  %+.4f rad\nforce     %5.1f%%",
             sourceDescription, note,
