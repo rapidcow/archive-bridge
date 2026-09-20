@@ -145,6 +145,46 @@ Three shapes were found, keyed by how `Data` starts:
    doesn't need CRDT bookkeeping) or something unrelated. `protoc
    --decode_raw` parses all of them without the prefix strip.
 
+## Possible ordered-sequence CRDT structure (not confirmed)
+
+`com.apple.drawing.2` turned out to need real disassembly to learn that
+stroke paint order is *not* array order but an explicit `StrokeID`
+(`sortID`, clock/replicaIndex/subclock) — see
+`../com.apple.drawing.2/point-decode-pipeline.md`. The obvious follow-up
+question for a from-scratch CRDT format: does it even *have* an implicit
+array order to be suspicious of, or is ordering explicit by construction?
+
+One data point, from the `0xFF`-keyed root/manifest record of a bundle
+(`44B21FC9-.../Bundles/44B21FC9-....bundle`, its own self-referential
+UUID-keyed row, after stripping the `crdt` header):
+
+```
+2 { 9 { 1 { 1: 4  2 { 1: "\005"  2 { 2: "\000," } } }
+        2 { 3 { 1 { 1: 1 }              4: "\001" }
+            3 { 1 { 1: 2  2: 8 } 2: 14  4: "\002" }
+            3 { 1 { 1: 2  2: 7 } 2: 1   4: "\003" }
+            3 { 1 { 1: 2  2: 1 } 2: 6   4: "\004" }
+            3 { 1 { 1: 2 }       2: 1   4: "\005" }
+            3 { 1 { 1: 1  2: 4294967295 } }
+            4 { 1: "\002"  2 { 2: "\000\026" } }
+            5 { 1: "\003"  2 { 2: "\000," } } } } }
+```
+
+Repeated `field 3` entries, each carrying a `(N[, M])` position-pair key
+plus a single, sequentially-incrementing tie-break byte (`\001`…`\005`),
+and one entry whose position pair is `(1, 4294967295)` —
+`4294967295 = 0xFFFFFFFF`, a plausible sentinel/boundary value. This shape
+(position key + monotonic tie-break tag + a max-value sentinel entry) is
+consistent with an RGA/Fugue-style ordered-list CRDT encoding, i.e. an
+*explicit* ordering primitive, structurally distinct from the
+hash-keyed `Reference` table itself. Not confirmed what this particular
+list orders (this sample is from the bundle-root manifest, not obviously a
+stroke list) or whether it's the same primitive `Paper.strokes` (if that's
+even how strokes are collected) would use. Worth checking for this same
+`field3`-repeated-with-incrementing-tag shape wherever an actual ordered
+collection (a `Paper`'s child elements, a stroke's `substrokes`, etc.) turns
+up once more records are decoded.
+
 ## Methodology
 
 1. Located real sample data: `~/archive/backup/takeout/apple/notes/
@@ -153,11 +193,15 @@ Three shapes were found, keyed by how `Data` starts:
    already fetched for these specific files, unlike most of the rest of that
    backup tree).
 2. `sqlite3` refused to open these files in place (`unable to open database
-   file`, code 14) — almost certainly a sandboxed-write restriction on
-   creating `-journal`/`-wal` siblings next to a read-only annex object, not
-   a problem with the files themselves (`file(1)` and reading the SQLite
-   magic bytes directly both confirmed they're intact). Copied each
-   `data.sqlite3`(`-wal`) pair to a scratch directory and worked from there.
+   file`, code 14) — a sandboxed-write restriction on creating
+   `-journal`/`-wal` siblings next to a read-only annex object, not a
+   problem with the files themselves (`file(1)` and reading the SQLite
+   magic bytes directly both confirmed they're intact); confirmed sqlite3
+   itself wants a lock, not a Claude-Code-sandbox-specific issue. Worked
+   around at first by copying each `data.sqlite3`(`-wal`) pair to a scratch
+   directory. `apple-notes-paper-dump.pl --immutable` (added later this
+   session) opens the annex objects directly via sqlite's `immutable=1` URI
+   parameter and needs no copy — prefer that going forward.
 3. Dumped every `(Id, Data)` row from every bundle via `sqlite3`/Python
    (`sqlite3` stdlib module), histogrammed `Id`'s first byte and `Data`'s
    first 4 bytes, and — for the `crdt`-prefixed rows — verified the 4-byte
