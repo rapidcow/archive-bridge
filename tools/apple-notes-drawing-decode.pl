@@ -67,6 +67,8 @@ use Google::ProtocolBuffers;
 use URI::file;
 # https://metacpan.org/pod/Math::BigRat
 use Math::BigRat;
+# https://metacpan.org/pod/Data::Float
+use Data::Float qw(float_hex);
 
 # Confirmed from arm64e disassembly of PencilKit's own parser - see the
 # envelope comment at the top of apple-notes-drawing.proto.
@@ -80,7 +82,9 @@ use constant ENVELOPE_MAGIC => 0xF0647277;
 #
 # 'kind' says how to decode the channel's raw bytes:
 #   f32   - little-endian float32, used as-is (no normalization) - confirmed
-#           via disassembly of PKStrokePathPointsPrivate's *AtIndex accessors
+#           via disassembly of PKStrokePathPointsPrivate's *AtIndex accessors;
+#           printed via Data::Float::float_hex() as exact IEEE754 hex
+#           (e.g. "0x1.8p+3"), not a lossy decimal %.6f rounding
 #   force - little-endian uint16, decoded value = raw / 1000.0 - confirmed
 #           via disassembly (ucvtf, not fcvt - i.e. NOT float16 - then fdiv
 #           by an exact 1000.0 double read out of PencilKit's __TEXT), see
@@ -364,7 +368,7 @@ sub format_channel {
 	} elsif ($c->{kind} eq 'force') {
 		return $c->{value}->bstr();  # exact rational
 	} else {
-		return sprintf("%.6f", $c->{value});
+		return float_hex($c->{value});  # f32 kind (timestamp/radius/radius2) - exact IEEE754 hex, not lossy decimal
 	}
 }
 
