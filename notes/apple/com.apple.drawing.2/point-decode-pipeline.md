@@ -951,11 +951,33 @@ match, not independently re-derived from a real rotated/scaled sample.
 
 ### Not concluded
 
-- Exact mathematical convention (row- vs. column-vector, `a*x+c*y+tx` vs.
-  some other pairing) - inferred from the name match to Apple's public
-  `CGAffineTransform`, not re-derived from this framework's own
-  matrix-multiply code (no rotated/scaled real sample was found to check
-  against, see (d)).
+- ~~Exact mathematical convention~~ **Upgraded from "name-match inference"
+  to "real type identity", same 2026-09-20 session**: `nm -U
+  ~/re-notes/PencilKit | c++filt | grep -i CGAffineTransform` turns up
+  `PencilKit.PKStroke.transform: CoreGraphics.CGAffineTransform` (Swift
+  property accessors, mangled type `So17CGAffineTransformV` - the standard
+  Swift-mangled spelling for the *bridged system* `CGAffineTransform`, not
+  a look-alike struct) - i.e. `PKStroke`'s own Swift-visible `transform`
+  property is typed as the literal system struct, not just something with
+  matching field names. Confirmed further by disassembling `-[PKStroke
+  _applyTransform:]` (`0x1ae6cd72c`): it loads `self._transform` and an
+  argument transform (both 6-double records, identical stack layout to
+  §10(c)'s), passes both to a stub call, then feeds the result straight to
+  `_setTransform:` - the shape of composing two `CGAffineTransform`s
+  (concatenation), consistent with (but not pinned to an exact symbol name
+  for, since the stub's target GOT slot wasn't resolved) the public
+  `CGAffineTransformConcat`. Given the confirmed real type, **Apple's own
+  public, documented `CGAffineTransform` semantics are authoritative here,
+  not something this repo needs to re-derive**: `CGPointApplyAffineTransform`
+  is specified as `x' = a*x + c*y + tx`, `y' = b*x + d*y + ty` - i.e. in
+  column-vector-on-the-right matrix form, the linear part's *columns* are
+  `(a,b)` and `(c,d)` (equivalently: row 1 is `(a, c, tx)`, row 2 is
+  `(b, d, ty)`), **not** the naive `(a,b,tx)`/`(c,d,ty)` row grouping a
+  reader might guess just from adjacent field-name order - `b` and `c` are
+  transposed relative to that guess. Still not independently re-verified
+  against a real rotated/scaled sample from this repo's own archives (see
+  (d) - only an identity-linear-part translation sample was found), but no
+  longer resting on a name-match inference alone.
 - The NaN-select granularity flagged in (c) (whole-transform vs.
   per-component) - offered with lower confidence than the rest of this
   section, not re-traced lane-by-lane to full certainty.
