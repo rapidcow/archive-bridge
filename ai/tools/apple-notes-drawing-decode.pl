@@ -101,33 +101,38 @@ use constant ENVELOPE_MAGIC => 0xF0647277;
 #              §8 - exactly (65535 - raw)/131070 *turns of PI* - kept as an
 #              exact Math::BigRat fraction of PI, in [0, 1/2] (flat pen = 0,
 #              upright pen = 1/2)
-#   hex   - raw bytes, hex-encoded, no known decoding yet (aspectRatio/
-#           edgeWidth/opacity/threshold - presumed uint16 fixed-point by
-#           analogy to force/azimuth/altitude, per §8's "Not concluded",
-#           but not individually confirmed)
+#   aspect_ratio/edge_width/opacity/threshold - little-endian uint16, plain
+#           divide (no bias) by the per-field constant below - same
+#           confirmed formulas as force/azimuth/altitude (see the .proto's
+#           channel table), kept as an exact Math::BigRat, no double.
 #
-# force/azimuth/altitude's divisor/bias are exact Math::BigRat constants
-# (azimuth/altitude in units of "turns of PI", per the comment above), so
-# decode_channel()'s raw*(1/DIVISOR)+BIAS arithmetic below stays exact -
-# same expression shape the old floating-point version used, just with
-# BigRat operands instead of Perl doubles.
-use constant FORCE_DIVISOR    => Math::BigRat->new(1000);
-use constant AZIMUTH_DIVISOR  => Math::BigRat->new("65535/2");
-use constant AZIMUTH_BIAS     => Math::BigRat->new(-1);
-use constant ALTITUDE_DIVISOR => Math::BigRat->new(131070);
-use constant ALTITUDE_BIAS    => Math::BigRat->new("1/2");
+# force/azimuth/altitude/aspect_ratio/edge_width/opacity/threshold's
+# divisor/bias are exact Math::BigRat constants (azimuth/altitude in units
+# of "turns of PI", per the comment above), so decode_channel()'s
+# raw*(1/DIVISOR)+BIAS arithmetic below stays exact - same expression shape
+# the old floating-point version used, just with BigRat operands instead of
+# Perl doubles.
+use constant FORCE_DIVISOR        => Math::BigRat->new(1000);
+use constant AZIMUTH_DIVISOR      => Math::BigRat->new("65535/2");
+use constant AZIMUTH_BIAS         => Math::BigRat->new(-1);
+use constant ALTITUDE_DIVISOR     => Math::BigRat->new(131070);
+use constant ALTITUDE_BIAS        => Math::BigRat->new("1/2");
+use constant ASPECT_RATIO_DIVISOR => Math::BigRat->new(1000);
+use constant EDGE_WIDTH_DIVISOR   => Math::BigRat->new(10);
+use constant OPACITY_DIVISOR      => Math::BigRat->new("65535/2");
+use constant THRESHOLD_DIVISOR    => Math::BigRat->new("65535/2");
 my @POINT_CHANNELS = (
 	undef,                        # index 0: location, handled separately
-	[ timestamp   => 4, 'f32'      ],
-	[ radius      => 4, 'f32'      ],
-	[ aspectRatio => 2, 'hex'      ],
-	[ edgeWidth   => 2, 'hex'      ],
-	[ force       => 2, 'force'    ],
-	[ azimuth     => 2, 'azimuth'  ],
-	[ altitude    => 2, 'altitude' ],
-	[ opacity     => 2, 'hex'      ],
-	[ radius2     => 4, 'f32'      ],
-	[ threshold   => 2, 'hex'      ],
+	[ timestamp   => 4, 'f32'         ],
+	[ radius      => 4, 'f32'         ],
+	[ aspectRatio => 2, 'aspect_ratio' ],
+	[ edgeWidth   => 2, 'edge_width'  ],
+	[ force       => 2, 'force'       ],
+	[ azimuth     => 2, 'azimuth'     ],
+	[ altitude    => 2, 'altitude'    ],
+	[ opacity     => 2, 'opacity'     ],
+	[ radius2     => 4, 'f32'         ],
+	[ threshold   => 2, 'threshold'   ],
 );
 
 Google::ProtocolBuffers->parsefile(
@@ -252,72 +257,101 @@ sub decode_drawing {
 		};
 	}
 
-	my @strokes;
-	for my $st (@{ $drawing->{strokes} || [] }) {
-		my @points;
-		my $stride;
-		if (my $geom = $st->{stroke_data}) {
-			my $npts  = $geom->{npts};
-			my $pdata = $geom->{points};
-			my $flags = $geom->{point_flags} // 0;
-			if (defined $npts && defined $pdata && $npts > 0
-					&& length($pdata) % $npts == 0) {
-				$stride = length($pdata) / $npts;
-				for my $i (0 .. $npts - 1) {
-					my $off = $i * $stride;
-					my ($x, $y) = unpack("f<f<", substr($pdata, $off, 8));
-					my $cursor = $off + 8;
-					my %channels;
-					for my $idx (1 .. 10) {
-						next unless ($flags >> $idx) & 1;
-						my ($name, $size, $kind) = @{ $POINT_CHANNELS[$idx] };
-						my $raw = substr($pdata, $cursor, $size);
-						$channels{$name} = decode_channel($kind, $raw);
-						$cursor += $size;
-					}
-					push @points, { x => $x, y => $y, channels => \%channels };
-				}
-			}
-		}
-
-		# Stroke.sort_id (field 2) - real field name confirmed as sortID,
-		# type confirmed as StrokeID, all three of whose own fields are now
-		# named (clock/replicaIndex/subclock, see apple-notes-drawing-2.proto
-		# and notes/apple/com.apple.drawing.2/drawing.md Update 5). Exposed
-		# here as [clock, replicaIndex, subclock], matching the real wire
-		# field order (1, 2, 3).
-		my $sort_id = $st->{sort_id};
-		my $bounds = $st->{bounds};
-
-		# Stroke.transform / Stroke.ink_transform (fields 7/15) - real
-		# drawing::Transform shape, confirmed 2026-09-20 via live disassembly
-		# of both readFrom() (field numbers 1-6 = a/b/c/d/tx/ty, no gaps) and
-		# the ObjC bridge that builds a runtime CGAffineTransform from it
-		# (see apple-notes-drawing-2.proto's Transform message comment and
-		# notes/apple/com.apple.drawing.2/point-decode-pipeline.md). Each of
-		# the 6 fields is independently optional/presence-tracked on the
-		# wire - undef here means "absent", NOT "identity"; PencilKit's own
-		# runtime default (falling back to an identity CGAffineTransform, or
-		# to a parent stroke's transform) is an in-memory behavior, not a
-		# wire-format fact, so this decoder reports raw presence as-is.
-		my $xf  = $st->{transform};
-		my $ixf = $st->{ink_transform};
-
-		push @strokes, {
-		    stroke_uuid   => unpack("H*", $st->{stroke_uuid} || ""),
-		    sort_id       => $sort_id ? [ $sort_id->{clock}, $sort_id->{replica_index}, $sort_id->{subclock} ] : undef,
-		    bounds        => $bounds ? [ $bounds->{origin_x}, $bounds->{origin_y}, $bounds->{width}, $bounds->{height} ] : undef,
-		    transform     => $xf  ? [ @{$xf}{qw(a b c d tx ty)} ]  : undef,
-		    ink_transform => $ixf ? [ @{$ixf}{qw(a b c d tx ty)} ] : undef,
-		    point_stride  => $stride,
-		    points        => \@points,
-		};
-	}
+	my @strokes = map { decode_stroke($_) } @{ $drawing->{strokes} || [] };
 
 	return {
 		envelope_hex => unpack("H*", $envelope),
 		inks         => \@inks,
 		strokes      => \@strokes,
+	};
+}
+
+# Decode one drawing::Stroke protobuf-message hash (as produced by
+# Google::ProtocolBuffers) into this script's own flat stroke hash,
+# recursing into Stroke.substrokes (field 11, proven real - readFrom calls
+# PB::PtrVector<drawing::Stroke>::emplace_back directly, see the .proto's
+# Stroke message comment) since it's the same message shape.
+sub decode_stroke {
+	my ($st) = @_;
+	my @points;
+	my $stride;
+	if (my $geom = $st->{stroke_data}) {
+		my $npts  = $geom->{npts};
+		my $pdata = $geom->{points};
+		my $flags = $geom->{point_flags} // 0;
+		if (defined $npts && defined $pdata && $npts > 0
+				&& length($pdata) % $npts == 0) {
+			$stride = length($pdata) / $npts;
+			for my $i (0 .. $npts - 1) {
+				my $off = $i * $stride;
+				my ($x, $y) = unpack("f<f<", substr($pdata, $off, 8));
+				my $cursor = $off + 8;
+				my %channels;
+				for my $idx (1 .. 10) {
+					next unless ($flags >> $idx) & 1;
+					my ($name, $size, $kind) = @{ $POINT_CHANNELS[$idx] };
+					my $raw = substr($pdata, $cursor, $size);
+					$channels{$name} = decode_channel($kind, $raw);
+					$cursor += $size;
+				}
+				push @points, { x => $x, y => $y, channels => \%channels };
+			}
+		}
+	}
+
+	# StrokeID-typed fields (sort_id/version/substrokes_version, Stroke
+	# fields 2/3/9) - real field names confirmed as sortID/version/
+	# substrokesVersion, type confirmed as StrokeID, all three of whose own
+	# fields are now named (clock/replicaIndex/subclock, see
+	# apple-notes-drawing-2.proto and notes/apple/com.apple.drawing.2/
+	# drawing.md Update 5). Each exposed here as [clock, replicaIndex,
+	# subclock], matching the real wire field order (1, 2, 3).
+	my $sort_id = $st->{sort_id};
+	my $version = $st->{version};
+	my $substrokes_version = $st->{substrokes_version};
+	my $bounds = $st->{bounds};
+
+	# Stroke.transform / Stroke.ink_transform (fields 7/15) - real
+	# drawing::Transform shape, confirmed 2026-09-20 via live disassembly
+	# of both readFrom() (field numbers 1-6 = a/b/c/d/tx/ty, no gaps) and
+	# the ObjC bridge that builds a runtime CGAffineTransform from it
+	# (see apple-notes-drawing-2.proto's Transform message comment and
+	# notes/apple/com.apple.drawing.2/point-decode-pipeline.md). Each of
+	# the 6 fields is independently optional/presence-tracked on the
+	# wire - undef here means "absent", NOT "identity"; PencilKit's own
+	# runtime default (falling back to an identity CGAffineTransform, or
+	# to a parent stroke's transform) is an in-memory behavior, not a
+	# wire-format fact, so this decoder reports raw presence as-is.
+	my $xf  = $st->{transform};
+	my $ixf = $st->{ink_transform};
+
+	return {
+	    stroke_uuid   => unpack("H*", $st->{stroke_uuid} || ""),
+	    sort_id       => $sort_id ? [ $sort_id->{clock}, $sort_id->{replica_index}, $sort_id->{subclock} ] : undef,
+	    version       => $version ? [ $version->{clock}, $version->{replica_index}, $version->{subclock} ] : undef,
+	    substrokes_version => $substrokes_version ? [ $substrokes_version->{clock}, $substrokes_version->{replica_index}, $substrokes_version->{subclock} ] : undef,
+	    # Stroke.ink_index (field 4) - real field name confirmed as
+	    # inkIndex, proven at disassembly level: index into Drawing.inks[]
+	    # (see apple-notes-drawing-2.proto). Without this, there is no way
+	    # to know which ink/color/tool a given stroke uses.
+	    ink_index     => $st->{ink_index},
+	    bounds        => $bounds ? [ $bounds->{origin_x}, $bounds->{origin_y}, $bounds->{width}, $bounds->{height} ] : undef,
+	    transform     => $xf  ? [ @{$xf}{qw(a b c d tx ty)} ]  : undef,
+	    ink_transform => $ixf ? [ @{$ixf}{qw(a b c d tx ty)} ] : undef,
+	    # Fields 8/10/12/13/14/16 below are empirical-only (or, for 16,
+	    # elimination-only) - see the .proto's Stroke message comment for
+	    # what's actually been checked for each. Exposed as raw values
+	    # since none of them have a confirmed decode formula beyond "here's
+	    # the scalar/blob PencilKit itself wrote".
+	    style_flags       => $st->{style_flags},
+	    shape_type        => $st->{shape_type},
+	    render_group_uuid => defined $st->{render_group_uuid} ? unpack("H*", $st->{render_group_uuid}) : undef,
+	    group_uuid        => defined $st->{group_uuid} ? unpack("H*", $st->{group_uuid}) : undef,
+	    centerline_slices => [ map { unpack("H*", $_) } @{ $st->{centerline_slices} || [] } ],
+	    mask_points       => [ @{ $st->{mask_points} || [] } ],
+	    point_stride  => $stride,
+	    points        => \@points,
+	    substrokes    => [ map { decode_stroke($_) } @{ $st->{substrokes} || [] } ],
 	};
 }
 
@@ -358,6 +392,14 @@ sub decode_channel {
 		return { kind => $kind, value => unpack("v", $raw) / AZIMUTH_DIVISOR + AZIMUTH_BIAS };
 	} elsif ($kind eq 'altitude') {
 		return { kind => $kind, value => ALTITUDE_BIAS - unpack("v", $raw) / ALTITUDE_DIVISOR };
+	} elsif ($kind eq 'aspect_ratio') {
+		return { kind => $kind, value => unpack("v", $raw) / ASPECT_RATIO_DIVISOR };
+	} elsif ($kind eq 'edge_width') {
+		return { kind => $kind, value => unpack("v", $raw) / EDGE_WIDTH_DIVISOR };
+	} elsif ($kind eq 'opacity') {
+		return { kind => $kind, value => unpack("v", $raw) / OPACITY_DIVISOR };
+	} elsif ($kind eq 'threshold') {
+		return { kind => $kind, value => unpack("v", $raw) / THRESHOLD_DIVISOR };
 	} else {
 		return { kind => 'hex', value => unpack("H*", $raw) };
 	}
@@ -393,7 +435,9 @@ sub format_channel {
 		return sprintf("%s(hex,unconfirmed)", $c->{value});
 	} elsif ($c->{kind} eq 'azimuth' || $c->{kind} eq 'altitude') {
 		return $c->{value}->bstr() . " π";  # exact rational, no decimal; raw UTF-8 bytes, no `use utf8`/-CS
-	} elsif ($c->{kind} eq 'force') {
+	} elsif ($c->{kind} eq 'force' || $c->{kind} eq 'aspect_ratio'
+			|| $c->{kind} eq 'edge_width' || $c->{kind} eq 'opacity'
+			|| $c->{kind} eq 'threshold') {
 		return $c->{value}->bstr();  # exact rational
 	} else {
 		return float_hex($c->{value});  # f32 kind (timestamp/radius/radius2) - exact IEEE754 hex, not lossy decimal
@@ -415,34 +459,68 @@ sub render_sexp {
 	}
 	push @out, "  )";
 	push @out, "  (strokes";
-	for my $st (@{ $d->{strokes} }) {
-		push @out, "    (stroke";
-		push @out, "      (uuid " . esc_str($st->{stroke_uuid}) . ")";
-		push @out, "      (sort-id " . ($st->{sort_id} ? join(" ", map { $_ // "nil" } @{ $st->{sort_id} }) : "nil") .
-		            ") ; clock replicaIndex subclock, see drawing.md";
-		if ($st->{bounds}) {
-		    push @out, "      (bounds " . format_float_list($st->{bounds}) . ") ; originX originY width height";
-		}
-		if ($st->{transform}) {
-		    push @out, "      (transform " . format_float_list($st->{transform}) . ") ; a b c d tx ty";
-		}
-		if ($st->{ink_transform}) {
-		    push @out, "      (ink-transform " . format_float_list($st->{ink_transform}) . ") ; a b c d tx ty";
-		}
-		push @out, "      (point-stride " . (defined $st->{point_stride} ? $st->{point_stride} : "nil") . ")";
-		push @out, "      (points";
-		for my $p (@{ $st->{points} }) {
-		    my $chans = $p->{channels} || {};
-		    my $chan_str = join(" ", map { "$_=" . format_channel($chans->{$_}) } sort keys %$chans);
-		    push @out, sprintf("        (%.6f %.6f) ; channels: %s",
-		        $p->{x}, $p->{y}, $chan_str);
-		}
-		push @out, "      )";
-		push @out, "    )";
-	}
+	push @out, render_stroke($_, "    ") for @{ $d->{strokes} };
 	push @out, "  )";
 	push @out, ")";
 	return join("\n", @out) . "\n";
+}
+
+# Render one decode_stroke() result as an s-expression, recursing into
+# Stroke.substrokes (field 11) at one deeper indent level. $prefix is the
+# leading whitespace for this stroke's own "(stroke" line.
+sub render_stroke {
+	my ($st, $prefix) = @_;
+	my @out;
+	push @out, "${prefix}(stroke";
+	push @out, "${prefix}  (uuid " . esc_str($st->{stroke_uuid}) . ")";
+	push @out, "${prefix}  (sort-id " . ($st->{sort_id} ? join(" ", map { $_ // "nil" } @{ $st->{sort_id} }) : "nil") .
+	            ") ; clock replicaIndex subclock, see drawing.md";
+	if ($st->{version}) {
+	    push @out, "${prefix}  (version " . join(" ", map { $_ // "nil" } @{ $st->{version} }) . ") ; clock replicaIndex subclock (StrokeID)";
+	}
+	if ($st->{substrokes_version}) {
+	    push @out, "${prefix}  (substrokes-version " . join(" ", map { $_ // "nil" } @{ $st->{substrokes_version} }) . ") ; clock replicaIndex subclock (StrokeID)";
+	}
+	push @out, "${prefix}  (ink-index " . (defined $st->{ink_index} ? $st->{ink_index} : "nil") . ") ; index into drawing's (inks ...) list, proven";
+	if ($st->{bounds}) {
+	    push @out, "${prefix}  (bounds " . format_float_list($st->{bounds}) . ") ; originX originY width height";
+	}
+	if ($st->{transform}) {
+	    push @out, "${prefix}  (transform " . format_float_list($st->{transform}) . ") ; a b c d tx ty";
+	}
+	if ($st->{ink_transform}) {
+	    push @out, "${prefix}  (ink-transform " . format_float_list($st->{ink_transform}) . ") ; a b c d tx ty";
+	}
+	push @out, "${prefix}  (style-flags " . (defined $st->{style_flags} ? $st->{style_flags} : "nil") . ") ; name/meaning empirical only, see drawing.md";
+	push @out, "${prefix}  (shape-type " . (defined $st->{shape_type} ? $st->{shape_type} : "nil") . ") ; name/meaning empirical only, see drawing.md";
+	if (defined $st->{render_group_uuid}) {
+	    push @out, "${prefix}  (render-group-uuid " . esc_str($st->{render_group_uuid}) . ") ; name empirical only, see drawing.md";
+	}
+	if (defined $st->{group_uuid}) {
+	    push @out, "${prefix}  (group-uuid " . esc_str($st->{group_uuid}) . ") ; name elimination-only, see drawing.md";
+	}
+	if (@{ $st->{centerline_slices} }) {
+	    push @out, "${prefix}  (centerline-slices " . join(" ", map { esc_str($_) } @{ $st->{centerline_slices} }) . ") ; name empirical only, see drawing.md";
+	}
+	if (@{ $st->{mask_points} }) {
+	    push @out, "${prefix}  (mask-points " . join(" ", map { float_hex($_) } @{ $st->{mask_points} }) . ") ; name empirical only, flat x,y pairs, see drawing.md";
+	}
+	push @out, "${prefix}  (point-stride " . (defined $st->{point_stride} ? $st->{point_stride} : "nil") . ")";
+	push @out, "${prefix}  (points";
+	for my $p (@{ $st->{points} }) {
+	    my $chans = $p->{channels} || {};
+	    my $chan_str = join(" ", map { "$_=" . format_channel($chans->{$_}) } sort keys %$chans);
+	    push @out, sprintf("${prefix}    (%s %s) ; channels: %s",
+	        float_hex($p->{x}), float_hex($p->{y}), $chan_str);
+	}
+	push @out, "${prefix}  )";
+	if (@{ $st->{substrokes} }) {
+	    push @out, "${prefix}  (substrokes";
+	    push @out, render_stroke($_, "${prefix}    ") for @{ $st->{substrokes} };
+	    push @out, "${prefix}  )";
+	}
+	push @out, "${prefix})";
+	return join("\n", @out);
 }
 
 # --- output: InkML (X/Y geometry only) ---------------------------------------
@@ -457,11 +535,10 @@ sub render_inkml {
 	push @out, '    <channel name="Y" type="decimal"/>';
 	push @out, '  </traceFormat>';
 
-	# A single shared context: there is no confirmed per-stroke ink-category
-	# signal to group by (the earlier "ink_category" guess was withdrawn -
-	# see apple-notes-drawing-2.proto and drawing.md - and the real
-	# ink-selection mechanism, Stroke.inkIndex, isn't decoded by this
-	# script at all yet).
+	# A single shared context: Stroke.ink_index (which ink/color/tool a
+	# stroke uses, see decode_stroke()) is decoded now, but this renderer
+	# doesn't emit per-ink InkML <brush>/<context> definitions from it yet -
+	# X/Y geometry only, per this function's own doc comment above.
 	push @out, '  <context xml:id="ctx0"/>';
 
 	my $trace_i = 0;

@@ -1091,3 +1091,61 @@ mode, no writes. `tools/apple-notes-drawing-2.proto`'s `Bounds` message and
 field names/order and to print all four components as exact IEEE754 hex
 (previously `%.6f`, matching this session's broader "no lossy decimal for
 raw floats" convention).
+
+## 12. Decoder wiring: closing the "confirmed but not exposed" gap (2026-09-21)
+
+Everything in this section is plumbing, not new reverse-engineering - every
+field touched here already had a confirmed (or at least empirical, per
+`drawing.md`) name/number/formula before this pass; `apple-notes-drawing-
+decode.pl` just wasn't reading it out into its own output structures yet.
+Three gaps closed:
+
+1. **Point `x`/`y` (channel 0, location)** - `render_sexp`'s point line was
+   still `sprintf("%.6f %.6f", ...)`, the one raw float32 in the whole
+   decoder that hadn't been switched to `Data::Float::float_hex()` yet, even
+   though `timestamp`/`radius`/`radius2`/`Transform`/`Bounds` all had been.
+   Now exact IEEE754 hex, same as everything else float32.
+2. **`aspectRatio`/`edgeWidth`/`opacity`/`threshold`** (per-point channels
+   3/4/8/10) - §9 already confirmed these are plain `uint16 / constant`
+   (1000.0 / 10.0 / 32767.5 / 32767.5 respectively, no bias), the same shape
+   as `force`. `decode_channel()` previously still filed all four under the
+   generic `'hex'` kind (opaque hex string, "no known decoding yet" per the
+   old comment) despite the formula being known since §9. Added
+   `ASPECT_RATIO_DIVISOR`/`EDGE_WIDTH_DIVISOR`/`OPACITY_DIVISOR`/
+   `THRESHOLD_DIVISOR` `Math::BigRat` constants (mirroring `FORCE_DIVISOR`'s
+   shape) and four new channel kinds; `format_channel()` prints them as
+   exact rationals via `->bstr()`, same as `force`.
+3. **Never-exposed `Stroke` fields** - `decode_drawing()`'s per-stroke loop
+   only ever extracted `stroke_uuid`/`sort_id`/`bounds`/`transform`/
+   `ink_transform`/points, silently dropping every other field the `.proto`
+   already maps, most importantly `ink_index` (field 4, **proven** at
+   disassembly level - see `drawing.md` - index into `Drawing.inks[]`,
+   i.e. which ink/color/tool a stroke uses). Without it the decoder's
+   output couldn't tell you what color any given stroke was drawn in at
+   all. Stroke decoding was refactored into its own `decode_stroke()` sub
+   (called recursively over `Stroke.substrokes`, field 11, since it's the
+   same message shape) that now also surfaces `version`/`substrokes_version`
+   (the other two `StrokeID`-typed fields, 3/9), `style_flags` (8),
+   `shape_type` (14), `render_group_uuid` (13), `group_uuid` (16),
+   `centerline_slices` (10), and `mask_points` (12) - the empirical/
+   elimination-confidence fields from `drawing.md`'s Update 2/3, printed
+   as their raw decoded values (ints/hex-encoded blobs/float lists) since
+   none of them have a confirmed *decode formula* beyond "here's the scalar
+   PencilKit itself wrote", only a name and, for most, a field number.
+   `render_sexp` grew a matching recursive `render_stroke()` so nested
+   `substrokes` print at one deeper indent under a `(substrokes ...)` list.
+
+Verified against the user's own archive (same `NoteStore.sqlite` used
+throughout this file) after each change: `Z_PK=15436`/`20040` spot-checked
+by hand (`ink-index`, `version`, `substrokes-version`, hex `x`/`y`, exact-
+rational `aspectRatio`/etc. all present and well-formed), plus a full sweep
+over every `com.apple.drawing.2` attachment in the archive with no parse
+errors beyond the pre-existing (unrelated to this change) "no
+ZMERGEABLEDATA1" case for attachments with a NULL blob column.
+
+Genuinely still not decodable at all, regardless of decoder wiring (would
+need more live disassembly, not just plumbing): `Drawing.bounds`/
+`boundsVersion`, most of `Ink`'s real fields beyond
+`color`/`identifier`/`weight` (`variant`/`version`/`azimuth`/the HDR color
+family/`requiredContentVersion`), `Geometry`/`StrokeData`'s `unk2`/`unk5`/
+`unk6`, and the envelope's reserved byte at offset 5.
