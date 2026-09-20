@@ -1,6 +1,6 @@
 #!perl
 #
-# xt/if.t - interface
+# t/if.t - interface
 
 use strict;
 use warnings;

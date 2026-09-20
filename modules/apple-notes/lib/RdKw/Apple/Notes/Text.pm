@@ -1,7 +1,7 @@
 package RdKw::Apple::Notes::Text;
 
-our $VERSION = '0.00_00';
-$VERSION = eval $VERSION;
+use RdKw::Apple::Notes ();
+our $VERSION = $RdKw::Apple::Notes::VERSION;
 
 use strict;
 use warnings;
