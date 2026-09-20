@@ -180,6 +180,34 @@ message Bounds {
   optional float f4 = 4; // observed as h
 }
 
+// Real name confirmed as `drawing::Transform` (2026-09-20 session, live SSH
+// disassembly of PencilKit on cooper.plug.rapidcow.net, same as
+// point-decode-pipeline.md's other live-disassembly sections - see that
+// file's Transform appendix for the full derivation). All six fields/field
+// numbers are directly confirmed two independent ways: `formatText`'s
+// string literals (in exactly this order: a, b, c, d, tx, ty - coincidentally
+// also alphabetical, same ambiguity drawing.md flagged for its own
+// formatText passes, but here independently resolved by (b) below) and, more
+// directly, `readFrom`'s field-number dispatch (field N -> the Nth field in
+// this exact order, no gaps, no reordering). Field names/order are an exact
+// match for Apple's public `CGAffineTransform` struct (`a,b,c,d,tx,ty`), and
+// the ObjC bridge that reads this message's raw bytes to build a stroke's
+// runtime `CGAffineTransform` (see Stroke.transform below) treats it that
+// way too - loading all six as one contiguous 6-float record and widening
+// straight into a `CGAffineTransform`-shaped 6-double record, no reordering.
+// Not confirmed: which mathematical convention `CGAffineTransform`-shaped
+// (a,b,c,d,tx,ty) implies here specifically (Apple's own public docs give
+// x'=a*x+c*y+tx, y'=b*x+d*y+ty, but that's inferred from the name match, not
+// re-derived from this framework's own matrix-multiply code).
+message Transform {
+  optional float a  = 1;
+  optional float b  = 2;
+  optional float c  = 3;
+  optional float d  = 4;
+  optional float tx = 5;
+  optional float ty = 6;
+}
+
 // drawing.md found no `drawing::Geometry` class at all in the real schema -
 // this message's payload is really part of Stroke's real `strokeData`
 // field (a confirmed real `drawing::StrokeData` class - see drawing.md).
@@ -239,7 +267,7 @@ message Stroke {
   optional int32 ink_index         = 4; // real field name: inkIndex - proven; index into Drawing.inks[]
   optional Geometry stroke_data    = 5; // real field name: strokeData - proven (absent for empty/zero-point strokes)
   optional Bounds bounds           = 6; // real field name: bounds - proven
-  optional bytes transform         = 7; // real field name: transform - proven to exist at this number; real drawing::Transform class, internal shape not reverse-engineered, kept as opaque bytes
+  optional Transform transform     = 7; // real field name: transform - proven to exist at this number; internal shape now reverse-engineered, see Transform above
   optional int32 style_flags       = 8; // real field name plausibly styleFlags - empirical (outlier values all share bit 37 set, a flags-field signature, not the small closed enum shapeType would need), see drawing.md
   optional StrokeID substrokes_version = 9; // real field name: substrokesVersion - proven, see StrokeID
   repeated bytes centerline_slices = 10; // real field name plausibly centerlineSlices - empirical (rare, always exactly 1 element in real samples), see drawing.md
@@ -247,7 +275,7 @@ message Stroke {
   repeated float mask_points       = 12; // real field name plausibly maskPoints - empirical (rare, always an even element count = flat x,y pairs in real samples), see drawing.md
   optional bytes render_group_uuid = 13; // real field name plausibly renderGroupUUID - empirical (16 bytes, rare, occurrence count exactly matches shape_type's), see drawing.md
   optional int32 shape_type        = 14; // real field name plausibly shapeType - empirical (small closed set of values in real samples: 1,2,3,6,7,10,12; co-occurs exactly with render_group_uuid), see drawing.md
-  optional bytes transform2        = 15; // real field name: inkTransform - proven to exist at this number; same caveat as field 7 (opaque bytes, internal shape unreversed)
+  optional Transform ink_transform  = 15; // real field name: inkTransform - proven to exist at this number; same Transform shape as field 7 above
   optional bytes group_uuid        = 16; // real field name plausibly groupUUID - elimination only, see drawing.md (never observed populated in ~774k real strokes sampled)
 }
 

@@ -827,3 +827,162 @@ resolves it fully and shows it bottoms out, for point data specifically, at
 `computeCachedValues()` - which itself defers the real per-point stride walk
 to a still-unidentified caller of `updateFromCachedValues()` or an on-demand
 accessor (see "Not concluded").
+
+## 10. `drawing::Transform` - the linear transformation, fully resolved
+
+Session date 2026-09-20, live SSH access to the same Mac
+(`cooper.plug.rapidcow.net`, macOS 26.6.2 build 25G83) as §8-§9, reusing the
+same `~/re-notes/PencilKit` extraction/`PencilKit.a2s` symbol cache - no
+re-extraction. This closes out `Stroke.transform`/`Stroke.inkTransform`
+(fields 7/15, per `drawing.md`'s Update section), previously kept as opaque
+`bytes` in `apple-notes-drawing-2.proto` with an explicit "internal shape
+not reverse-engineered" caveat.
+
+### (a) `drawing::Transform`'s own fields, from `formatText`
+
+`nm -U ~/re-notes/PencilKit | c++filt | grep 'drawing::Transform::'` turns
+up the usual `readFrom`/`writeTo`/`formatText`/`hash_value` quartet plus
+copy/move ctors and `operator==`. Disassembling `formatText`
+(`ipsw macho disass ~/re-notes/PencilKit -a 0x1ae69fbdc --demangle --force`)
+shows six presence-gated `float32` fields, each individually tested via
+`tbnz`/`tbz` against its own bit (`0`-`5`) of a one-byte flag field at
+`self+0x20`, at raw struct offsets `+0x8, +0xc, +0x10, +0x14, +0x18, +0x1c`
+in that order. Reading the six adjacent literal-string labels at that
+`adrp`/`add` string-table address directly off disk (`dd` against `__TEXT`
+file offset, same `vmaddr - 0x1ae60f000` technique as §6/§8) gives, in
+exact offset order: `a`, `b`, `c`, `d`, `tx`, `ty` - an exact, unambiguous
+match for Apple's own public `CGAffineTransform` struct field names/order
+(`struct CGAffineTransform { CGFloat a, b, c, d, tx, ty; }`).
+
+### (b) Field numbers, from `readFrom`'s dispatch (not just `formatText`'s alphabetical order)
+
+`drawing.md`'s Update section already flagged that `formatText` sorts its
+field-name literals alphabetically, so field order there can't be trusted
+for wire field *numbers* on its own - it happens to be moot here only
+because `a,b,c,d,tx,ty` is itself already alphabetical. Disassembling
+`readFrom` directly (`ipsw macho disass ~/re-notes/PencilKit -a
+0x1ae69fcdc --demangle --force`) removes the ambiguity: after varint tag
+decode, the field-number dispatch (`w1 = tag >> 3`) is a plain cascade of
+`cmp`/`b.eq` checks - field 1 sets the `+0x8` presence bit (`a`), field 2
+sets `+0xc` (`b`), field 3 (fallthrough after ruling out 1/2) sets `+0x10`
+(`c`), then a second cascade for field>3: field 4 sets `+0x14` (`d`), field
+5 sets `+0x18` (`tx`), field 6 (fallthrough) sets `+0x1c` (`ty`). So field
+numbers 1-6 map directly, in order, to `a,b,c,d,tx,ty` - no gaps, no
+reordering, independently confirming (a)'s offset order via a completely
+different mechanism (wire dispatch vs. string-table layout).
+
+### (c) The ObjC bridge: `Stroke.transform`'s raw bytes ARE a `drawing::Transform`-shaped record, and it's THREE float32 pairs, not two
+
+`point-fields.md`/`point-decode-pipeline.md §2b` originally described the
+`_setTransform:` bridge (in `-[_PKStrokeConcrete(...) initWithArchive:
+sortedUUIDs:inks:parent:isHidden:transientArchiveDictionary:]`, node K2)
+as reading "two float32 pairs" from `archive+0xa8` - that undercounted it.
+Re-disassembling K2 in full (`ipsw macho disass ~/re-notes/PencilKit -a
+0x1ae67ae24 --demangle --force`) and reading the `archive+0xa8` block
+(`0x1ae67b164`-`0x1ae67b1dc`) directly:
+
+- A fixed global 6-double identity-shaped constant (loaded from a global
+  pointer, 3 `ldp/ldr q` loads of 16 bytes each = 6 doubles) is always
+  staged first and passed to `_setTransform:` unconditionally
+  (`0x1ae67b140`-`0x1ae67b160`) - this is the "default identity transform"
+  §2b already described, now with its exact shape nailed down: 6
+  contiguous doubles, laid out `a,b,c,d,tx,ty` (three 16-byte `stp q`
+  stores to three consecutive stack slots, exactly matching a
+  `CGAffineTransform`'s in-memory layout).
+- If `archive+0xa8` (call it `t`) is non-null: `ldp d0,d1,[t,#0x8]` (two
+  `float32` pairs = `a,b` then `c,d`... precisely: `[t+0x8]` holds `a,b` as
+  one 8-byte pair, `[t+0x10]` holds `c,d` as a second 8-byte pair) **and a
+  third pair**, `ldr d4,[t,#0x18]` (`tx,ty`) - i.e. **all six**
+  `a,b,c,d,tx,ty` are read, at exactly `drawing::Transform`'s own struct
+  offsets from (a)/(b) above (`+0x8,+0xc,+0x10,+0x14,+0x18,+0x1c`, read as
+  three 8-byte `float32`-pair loads rather than six separate 4-byte loads,
+  but numerically identical). So `archive+0xa8` is, functionally, a direct
+  pointer to (or a byte-for-byte-compatible view of) the parsed
+  `drawing::Transform` object itself - not some separate 4-float
+  structure as previously guessed.
+- Each `float32` pair is widened to a `double` pair via `fcvtl`, then a
+  NaN-check (`fcmeq`/`umaxv` over the first four lanes, `fcmp`+`cset vs`
+  over one more lane) folds into a single combined flag, used via
+  `bsl`/`bif` to select, **as one all-or-nothing unit**, between the just-
+  read six-double record and the identity-constant six-double record
+  staged earlier - i.e. this pass reads the select as an aggregate "any
+  NaN anywhere in the six -> fall back to the *entire* identity default"
+  choice, not a genuinely independent per-field select the way §2b's
+  "NaN-checked per-component" phrasing implied. (This one detail is a
+  correction with slightly lower confidence than (a)-(c)'s structural
+  claims above - the vector-lane bookkeeping was read by hand from the
+  `mov v0.d[1],v1.d[0]` / `mov s1,v4.s[1]` shuffles rather than exhaustively
+  traced lane-by-lane; the *fields/offsets/field-numbers* findings (a)-(c)
+  are the solid, independently-cross-checked result of this session, this
+  fallback-granularity detail is offered with that caveat attached.)
+- If `archive+0xa8` is null but `parent` (the recursion argument, §2d) is
+  non-null: `parent`'s own `_transform` (already a resolved
+  `CGAffineTransform`) is fetched via a plain `_transform` message send and
+  copied wholesale, confirming §2b's "parent's own `_transform` is copied
+  instead" description exactly, now with the concrete instruction sequence
+  behind it.
+- `Stroke.inkTransform` (field 15, archive offset `+0x38` in the same K2
+  function) goes through the **exact same** sequence, byte-for-byte
+  identical codegen shape - confirming it's the same `Transform` message
+  type reused for a second field, exactly as `apple-notes-drawing-2.proto`
+  already modeled it, with no parent-fallback branch (matching §2b's
+  original note that `inkTransform` has no parent-inheritance path, unlike
+  `transform`).
+
+### (d) Empirical cross-check against real data
+
+Ran the now-updated `tools/apple-notes-drawing-decode.pl` (with
+`apple-notes-drawing-2.proto`'s `Transform` message replacing the old
+opaque-`bytes` field) against the user's own archived
+`NoteStore.sqlite` (`~/archive/backup/takeout/apple/notes/2024-03-29/main/data/NoteStore.sqlite`).
+Most sampled strokes have no `transform` field at all (absent, not
+identity - consistent with (c)'s finding that on-wire absence is a
+distinct state from an on-wire identity transform, both of which map to
+the *same* runtime default). One drawing (`Z_PK=20040`) has several
+strokes with a populated `transform`: `a=1, b=0, c=0, d=1, tx=-37.62...,
+ty=-3.24...` - i.e. a pure translation, zero rotation/scale/shear
+(`a,b,c,d` exactly the identity 2x2 sub-matrix) - a clean, physically
+sensible real-world confirmation of the field layout and of the
+`CGAffineTransform`-shaped interpretation from (a). No sample with a
+non-identity `a/b/c/d` (rotation or scale) was found in this pass, so the
+"`x'=a*x+c*y+tx, y'=b*x+d*y+ty`" convention noted in the `.proto`'s
+Transform message comment is inferred from the `CGAffineTransform` name
+match, not independently re-derived from a real rotated/scaled sample.
+
+### Not concluded
+
+- Exact mathematical convention (row- vs. column-vector, `a*x+c*y+tx` vs.
+  some other pairing) - inferred from the name match to Apple's public
+  `CGAffineTransform`, not re-derived from this framework's own
+  matrix-multiply code (no rotated/scaled real sample was found to check
+  against, see (d)).
+- The NaN-select granularity flagged in (c) (whole-transform vs.
+  per-component) - offered with lower confidence than the rest of this
+  section, not re-traced lane-by-lane to full certainty.
+- What actually populates a non-identity `transform` in practice (e.g.
+  whether it's substroke-local-to-parent coordinate mapping, a
+  paste/duplicate offset, or something else) - the one real sample found
+  (d) is a pure translation, consistent with several different plausible
+  causes, none distinguished from the data alone.
+
+### Provenance
+
+Live SSH access to `cooper.plug.rapidcow.net` (macOS 26.6.2 build 25G83,
+Apple Silicon T8103), reusing the `~/re-notes/PencilKit` extraction/
+`PencilKit.a2s` symbol cache already present from the 2026-09-11/09-12
+sessions - no re-extraction, no `ipsw dyld extract` invoked this pass.
+`nm -U ~/re-notes/PencilKit | c++filt | grep 'drawing::Transform::'` and
+`ipsw macho disass ~/re-notes/PencilKit -a <vaddr> --demangle --force`
+(both by address, not by demangled `-s` name, matching this directory's
+established fallback for names `ipsw`'s symbol lookup chokes on) were the
+only two commands needed against the live host; the six field-name string
+literals were read directly off disk via `dd` at the corresponding
+`__TEXT` file offset (`vmaddr - 0x1ae60f000`), same mechanical technique as
+§6/§8. All addresses/offsets/instruction mnemonics above are exact,
+verbatim results from that disassembly - not inferred or guessed.
+`tools/apple-notes-drawing-2.proto` and `tools/apple-notes-drawing-decode.pl`
+have been updated accordingly (Transform message added; Stroke fields 7/15
+retyped from opaque `bytes` to `Transform`; decoder prints all six
+components as exact IEEE754 hex via `Data::Float::float_hex`, `nil` for any
+individually-absent component, consistent with this repo's established
+"report wire presence, not runtime defaults" convention).

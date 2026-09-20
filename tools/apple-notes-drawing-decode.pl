@@ -289,12 +289,28 @@ sub decode_drawing {
 		my $sort_id = $st->{sort_id};
 		my $bounds = $st->{bounds};
 
+		# Stroke.transform / Stroke.ink_transform (fields 7/15) - real
+		# drawing::Transform shape, confirmed 2026-09-20 via live disassembly
+		# of both readFrom() (field numbers 1-6 = a/b/c/d/tx/ty, no gaps) and
+		# the ObjC bridge that builds a runtime CGAffineTransform from it
+		# (see apple-notes-drawing-2.proto's Transform message comment and
+		# notes/apple/com.apple.drawing.2/point-decode-pipeline.md). Each of
+		# the 6 fields is independently optional/presence-tracked on the
+		# wire - undef here means "absent", NOT "identity"; PencilKit's own
+		# runtime default (falling back to an identity CGAffineTransform, or
+		# to a parent stroke's transform) is an in-memory behavior, not a
+		# wire-format fact, so this decoder reports raw presence as-is.
+		my $xf  = $st->{transform};
+		my $ixf = $st->{ink_transform};
+
 		push @strokes, {
-		    stroke_uuid  => unpack("H*", $st->{stroke_uuid} || ""),
-		    sort_id      => $sort_id ? [ $sort_id->{clock}, $sort_id->{replica_index}, $sort_id->{subclock} ] : undef,
-		    bounds       => $bounds ? [ $bounds->{f1}, $bounds->{f2}, $bounds->{f3}, $bounds->{f4} ] : undef,
-		    point_stride => $stride,
-		    points       => \@points,
+		    stroke_uuid   => unpack("H*", $st->{stroke_uuid} || ""),
+		    sort_id       => $sort_id ? [ $sort_id->{clock}, $sort_id->{replica_index}, $sort_id->{subclock} ] : undef,
+		    bounds        => $bounds ? [ $bounds->{f1}, $bounds->{f2}, $bounds->{f3}, $bounds->{f4} ] : undef,
+		    transform     => $xf  ? [ @{$xf}{qw(a b c d tx ty)} ]  : undef,
+		    ink_transform => $ixf ? [ @{$ixf}{qw(a b c d tx ty)} ] : undef,
+		    point_stride  => $stride,
+		    points        => \@points,
 		};
 	}
 
@@ -347,6 +363,17 @@ sub decode_channel {
 	}
 }
 
+# Render a Stroke.transform/ink_transform result (see decode_drawing() -
+# [a, b, c, d, tx, ty], any element undef if that field was absent on the
+# wire - each of the 6 is independently optional, see the .proto's Transform
+# message comment). Each present component is a plain float32 (no
+# normalization, unlike the per-point channels), so printed the same
+# exact-IEEE-hex way as the f32 point channels rather than a lossy %.6f.
+sub format_transform {
+	my ($xf) = @_;
+	return join(" ", map { defined $_ ? float_hex($_) : "nil" } @$xf);
+}
+
 # --- output: s-expression ----------------------------------------------------
 
 sub esc_str {
@@ -394,6 +421,12 @@ sub render_sexp {
 		            ") ; clock replicaIndex subclock, see drawing.md";
 		if ($st->{bounds}) {
 		    push @out, sprintf("      (bounds %.6f %.6f %.6f %.6f) ; order unconfirmed", @{ $st->{bounds} });
+		}
+		if ($st->{transform}) {
+		    push @out, "      (transform " . format_transform($st->{transform}) . ") ; a b c d tx ty";
+		}
+		if ($st->{ink_transform}) {
+		    push @out, "      (ink-transform " . format_transform($st->{ink_transform}) . ") ; a b c d tx ty";
 		}
 		push @out, "      (point-stride " . (defined $st->{point_stride} ? $st->{point_stride} : "nil") . ")";
 		push @out, "      (points";
