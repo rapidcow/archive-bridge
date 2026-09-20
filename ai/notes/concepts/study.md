@@ -1,0 +1,528 @@
+# Concepts file format — research notes
+
+Scope: figure out enough of the `.concept` (iOS/macOS) and `.concepts`
+(Android/Windows) binary formats to hand-roll our own Perl decoders,
+independent of any existing library. This file is notes only — no code yet.
+
+Sources consulted (all cloned locally):
+
+- `~/net/github.com/romangarms/Concepts-File-Viewer` — TS/React viewer,
+  cleanest and most current parser code (`src/parsers/plistParser.ts`,
+  `src/parsers/messagePackParser.ts`, `src/parsers/shared/transformUtils.ts`).
+  Also ships **pre-converted JSON dumps** of a real file's plists under
+  `example files/Converted-PLISTS/*.json` — this was the single most useful
+  thing found, since it lets you `grep`/`python -m json.tool` a real object
+  graph without writing any parsing code first.
+- `~/net/github.com/maxliebscher/ConceptsAppiOSFileViewer` — older vanilla-JS
+  viewer + a standalone Python converter script
+  (`converter/conceptsapp_ios_to_json_v1_4_stable.py`). Useful as a second,
+  independently-written implementation to cross-check field offsets against.
+- `~/net/github.com/modulovalue/concepts_reader` — Flutter/Dart viewer with
+  its own from-scratch `bplist00` parser
+  (`lib/parsers/binary_plist_parser.dart`) — this is a complete, readable
+  spec of Apple's binary plist format with no dependencies, and is the best
+  reference for our own bplist decoder.
+- `~/my/art/export/{iPad,p9p}` — **our own real files**, both formats:
+  - `iPad/**/*.concept` — genuine iOS exports (some via git-annex there too)
+  - `p9p/Concepts{,-OLDER}/*.concepts` — genuine desktop (Android/Windows
+    codebase, "p9p" build) exports
+  - Confirmed by unzipping: `Strokes.plist` etc. really are `bplist00`
+    (`file` reports "Apple binary property list"); `.concepts` really
+    contains `tree.pack` starting with msgpack fixarray byte `0x92`.
+
+All three viewers agree closely on the low-level byte layouts below, which
+gives fairly high confidence in the parts marked "confirmed". Parts no
+existing viewer actually decodes are marked "open question" — that's
+where our own reverse-engineering adds value.
+
+---
+
+## 1. Container formats
+
+Both `.concept` and `.concepts` are **zip archives** (regular zip, not
+proprietary) — `unzip`/`Archive::Zip`/`IO::Uncompress::Unzip` all read them
+fine directly. So the only formats we actually need to hand-roll are the
+two *payload* formats inside: Apple's binary plist (NSKeyedArchiver) and
+MessagePack. Perl's `Compress::Raw::Zlib` / `IO::Uncompress::Unzip` are core
+and available in this environment — no need to reinvent DEFLATE or the zip
+central-directory format too.
+
+### 1a. `.concept` (iOS / macOS / iPadOS)
+
+```
+Drawing.concept  (zip)
+├── Strokes.plist        — bplist00, NSKeyedArchiver-ish; strokes/images/text
+├── Drawing.plist        — bplist00, archiver "THFormatObjCEncoder"; doc-level
+│                          transform, canvas/grid/paper settings, view state
+├── Resources.plist      — bplist00; maps imported-image UUID → file extension
+├── metadata.plist       — bplist00, archiver "NSKeyedArchiver"; creationDate,
+│                          majorMinorVersion, bundleIdentifier, placeholderColor
+├── Thumb.jpg            — optional, capital T
+└── ImportedImages/      — raw image/PDF files, named by UUID (+ext)
+    └── <uuid>.<ext>
+```
+
+Note the **two different `$archiver` values** seen across plists in the same
+file (`NSKeyedArchiver` for metadata.plist, `THFormatObjCEncoder` for
+Drawing.plist) — both use the identical bplist00 + `$objects`/`$top`/`$class`
+keyed-archive shape though, so one decoder handles both; the archiver name
+is basically just metadata, not a format switch.
+
+### 1b. `.concepts` (Android / Windows — the "p9p" codebase)
+
+```
+Drawing.concepts  (zip)
+├── tree.pack        — MessagePack; the actual drawing tree (layers/strokes)
+├── resource.pack     — MessagePack; image resource table (often tiny/empty)
+├── workspace.pack    — MessagePack wrapping a **UTF-8 JSON string** (!) —
+│                       saw `0x9e 0x0f da 01 d5 7b 22 ..` = fixarray, then a
+│                       str-16 (`0xda`) whose payload is literally
+│                       `{"color_palette":"Copic","layers":{...}}` JSON text.
+│                       So this one file mixes both encodings.
+├── metadata.json     — plain JSON (not msgpack, not plist!):
+│                       {backgroundSolidColor, creationTime, formatVersion,
+│                        identifier, modificationTime}
+├── thumb.jpg         — optional, lowercase t (vs. capital `Thumb.jpg` on iOS)
+└── (image resources, referenced from resource.pack)
+```
+
+`formatVersion` seen in a real file: `20250319` (looks like a YYYYMMDD build
+stamp, not a semantic version — don't assume small integers).
+
+---
+
+## 2. Apple binary plist (`bplist00`) — confirmed, full spec
+
+This is Apple's public format (used system-wide, not Concepts-specific), and
+`modulovalue`'s `binary_plist_parser.dart` is a clean, complete,
+dependency-free implementation of it we can port almost line-for-line to
+Perl. Layout:
+
+```
+[8 bytes]  magic "bplist00"
+[...]      object table (variable-length records, byte offsets given by
+           the offset table below)
+[N * offsetSize bytes]  offset table: N = numObjects, each entry is a
+                         big-endian uint of `offsetSize` bytes, giving the
+                         byte offset of object[i] in the file
+[32 bytes] trailer, at end of file:
+    bytes 0-5   unused
+    byte  6     offsetSize      (bytes per offset-table entry)
+    byte  7     objectRefSize   (bytes per object-reference, used inside
+                                 arrays/dicts/sets)
+    bytes 8-15  numObjects      (big-endian uint64)
+    bytes 16-23 topObject       (index of the root object)
+    bytes 24-31 offsetTableOffset (byte offset where the offset table starts)
+```
+
+To parse: read trailer → read offset table → look up `topObject`'s offset →
+recursively parse objects. Every object starts with a 1-byte marker:
+high nibble = type, low nibble = "objectInfo" (usually an inline small
+length, or `0xF` meaning "read a following int-object for the real length").
+
+| type nibble | meaning | payload |
+|---|---|---|
+| `0x0` | null/bool/fill | objectInfo `0x0`=null, `0x8`=false, `0x9`=true, `0xF`=fill |
+| `0x1` | int | `2^objectInfo` bytes, big-endian, two's-complement if ≥8 bytes |
+| `0x2` | real | 4 bytes → float32 BE, or 8 bytes → float64 BE |
+| `0x3` | date | 8-byte float64 BE = seconds since 2001-01-01T00:00:00Z |
+| `0x4` | data (raw bytes) | length = objectInfo, or extended (see below) |
+| `0x5` | ASCII string | length = objectInfo or extended; 1 byte/char |
+| `0x6` | UTF-16BE string | length = objectInfo or extended; 2 bytes/char |
+| `0x8` | UID (archiver ref) | `objectInfo + 1` bytes, big-endian uint |
+| `0xA` | array | length = objectInfo or extended; then that many `objectRefSize`-byte object-index refs |
+| `0xC` | set | identical layout to array |
+| `0xD` | dict | length = objectInfo or extended; then N key-refs **followed by** N value-refs (keys block, then values block — not interleaved) |
+
+**Extended length** (`objectInfo == 0xF`): immediately following the marker
+byte is *another* object marker that must be an int-type (`0x1_`), whose
+decoded integer value is the real length; the data starts right after that
+int object.
+
+**UID vs plain int**: the `0x8` type is exactly how `$objects`/`$top`/`$class`
+references are encoded — this is what makes it a "keyed archive" rather than
+a plain plist. Every `{"UID": N}` you see in the JSON dumps is really one of
+these — dereference by indexing into `$objects[N]`.
+
+Practical note: `bplist-parser` (npm) apparently returns UID objects as
+`{UID: n}`; the plist.ts types in romangarms's code also account for
+`{data: n}` shape from some other/older parser version. When we write our
+own, we control the representation, so this is a non-issue — just document
+it so future-us isn't confused when comparing against JS debug output.
+
+---
+
+## 3. NSKeyedArchiver object graph shape (confirmed against real files)
+
+Once bplist is decoded you get: `{$version, $archiver, $top: {root: UID},
+$objects: [...]}`. `$objects[0]` is always the string `"$null"`.
+
+Walking a real `Strokes.plist` (via the JSON dump), the shape is:
+
+```
+root  (class StrokeManager : DrawingItemGroup : DrawingItemLayer : DrawingItem)
+  .rootGroupLayers → NSMutableArray, NS.objects = [ <layer>, <layer>, ... ]
+
+each <layer>  (class DrawingItemGroup)
+  .name        → e.g. "Pen", "Marker", "Image", "Text"  (a real user/
+                 auto-assigned layer name — existing viewers throw this away
+                 when flattening to one big stroke list; worth keeping!)
+  .diIdentifier, .diTimeStamp, .groupTypeObject
+  .groupItems  → NSMutableArray/Set, NS.objects = [ <item>, <item>, ... ]
+
+each <item> is one of (distinguished by $class.$classname):
+  - Stroke              → see §4
+  - ImageItem           → see §5
+  - TiledPDFPage        → (not in our sample, but referenced by all 3 viewers;
+                           same shape as ImageItem plus `page`/`resourceIdentifier`)
+  - TextItem            → has `.text` (UID→string), `.properties`
+                           (brushColor/brushAlpha), `.diSavedTransform`
+  - DrawingItemGroup    → nested sub-groups are possible (didn't confirm
+                           depth > 1 in our sample, but the recursive
+                           "$classes" ancestry chain implies it's supported —
+                           treat groupItems as recursively walkable, not a
+                           fixed 2-level tree)
+  - MeasurementLayerItem → seen in class list, not decoded by anyone; open
+                           question, probably ruler/measurement-tool overlay
+```
+
+Every `$classname` seen in our one real sample file's `$objects`:
+`BrushProperties`, `DrawingItemGroup`, `ImageItem`, `ImageProperties`,
+`KeyPoint`, `MeasurementLayerItem`, `NSDate`, `NSMutableArray`,
+`NSMutableSet`, `Stroke`, `StrokeManager`, `TextItem`, `TextProperties`,
+`UIColor`. No `EllipseItem`/`RectItem`/shape-tool classes and no explicit
+eraser class showed up in this sample — the Python/Dart converters both
+*guess* at fields like `isEraser`, `mirrorX`/`mirrorY`, `blendMode` that we
+never actually observed in a real object. **Open question**: get a sample
+file that uses the eraser and an auto-shape tool, and check what class/keys
+actually show up, rather than trusting the guessed field names.
+
+---
+
+## 4. `Stroke` objects — confirmed fields + one open question
+
+```
+Stroke:
+  $class → Stroke : DrawingItem : NSObject
+  diIdentifier, diTimeStamp
+  brushProperties → BrushProperties (see below)
+  diSavedTransform  → 64-byte buffer, optional (only present if moved/rotated)
+  diInitialSavedTransform → 64-byte buffer (seen on ImageItem; may also
+                            appear on Stroke — not fully confirmed)
+  closed            → bool, present at least on some items (shape/polygon
+                      closure — exact semantics not pinned down since our
+                      sample doesn't have a closed stroke to inspect)
+  strokePointsNonOptionalAngles → UID → raw byte buffer, THE point data
+    (older/alternate field name seen in code: strokePoints45 — try both)
+  keyPoints         → UID → NSMutableArray of KeyPoint objects, each with
+                      a `glPosition` field (8-byte buffer = 2×float32 x,y).
+                      This looks like a decimated/simplified control-point
+                      version of the same stroke (used as a fallback by all
+                      3 viewers when the main point buffer is absent/short).
+  containsPressure, altitudeAngleAvailable, azimuthAngleAvailable → bool
+                      flags describing what's packed into each point record
+                      (see §4a — these flags are the reason we suspect the
+                      per-point buffer carries more than x/y, even though no
+                      existing viewer bothers to decode it)
+  initialAltitudeAngle → float, single value for the whole stroke
+  smoothing, smoothingAlgorithm, useSymmetricSmoothing,
+  useEndpointMidpointSmoothingZeroSmoothness/NonZeroSmoothness,
+  startTaper, endTaper, scale, version → stroke-shaping metadata, not
+                      needed for a basic renderer but easy wins if we want
+                      closer-to-original rendering later
+```
+
+`BrushProperties`:
+```
+brushToolNew   → int, tool-type id (16 in our pen sample; 10 showed up as
+                 the tool id embedded in an ImageItem's imageProperties —
+                 so this is a shared tool-id enum across item types, not
+                 stroke-only. No id→name table found anywhere; open question.)
+brushWidth     → float, in canvas units
+brushSmoothness→ float
+brushAlpha     → float 0-1 (separate from the color's own alpha!)
+brushColor     → UID → UIColor:
+    UIRed, UIGreen, UIBlue, UIAlpha → floats 0-1 (this is what every viewer
+        actually reads)
+    NSRGB     → a `Data` blob whose bytes are literally the **ASCII text**
+                of a decimal string like "0.957 0.369 0.345" — legacy/
+                redundant encoding of the same RGB, safe to ignore
+    NSColorSpace → int (seen value: 2)
+```
+
+### 4a. Per-point buffer encoding — confirmed x/y, open question on the rest
+
+`strokePointsNonOptionalAngles` decodes (in every viewer, and confirmed
+against the raw bytes ourselves) as **16 bytes per point**:
+
+```
+offset 0:  float32 LE   x
+offset 4:  float32 LE   y
+offset 8:  8 bytes       — NOT decoded by any of the 3 existing viewers.
+                           JS/Dart both just say "padding/angle data" in a
+                           comment and drop it; Python's struct format
+                           `<ffII` reads it as two uint32s and discards them.
+```
+
+We poked at those trailing 8 bytes ourselves on a real stroke (28 points,
+`containsPressure=true`, `altitudeAngleAvailable=true`,
+`azimuthAngleAvailable=true`) by treating them as 4× `uint16` LE:
+
+```
+byte  8- 9: varies 222..2605           → plausible raw pressure sample
+byte 10-11: varies ~32000..49600       → plausible altitude angle (raw,
+                                          pre-scaling)
+byte 12-13: CONSTANT 0xAAA9 across every point in the stroke  → unclear;
+                                          maybe a reserved/sentinel field,
+                                          maybe format-version dependent
+byte 14-15: varies ~63200..64300, and goes flat for the last several
+            points → plausible azimuth angle, flattening near pen-lift
+            (consistent with iOS sometimes freezing azimuth when pressure
+            drops toward 0)
+```
+
+This is a **hypothesis, not a confirmed decode** — half-float (`float16`)
+interpretations of the same bytes gave nonsense, so raw `uint16` samples
+(needing an unknown scale factor to turn into real pressure 0..1 / angle
+radians) is the current best guess. Before trusting this in a decoder we
+should: (a) find/produce a file with known extreme pressure (very light vs.
+very hard) and see which field tracks it monotonically, (b) same for a
+stroke drawn at a known tilt angle, (c) check whether the constant
+`0xAAA9` changes at all across *different* strokes/files (it might encode
+`brushToolNew` or a coordinate-space flag rather than being truly
+"reserved"). Low priority since x/y alone is enough to render — but if we
+want pressure-sensitive line width (nicer output than the existing
+viewers!), this is the thing to crack.
+
+`keyPoints` fallback buffer (`glPosition`) is simpler and fully confirmed:
+8 bytes = 2×float32 LE = (x, y), no pressure/angle at all.
+
+---
+
+## 5. Transform buffers — confirmed layout, watch the row/col-major framing
+
+Every `diSavedTransform` / `transform` field is a **64-byte buffer = a 4×4
+float32 matrix**, always with the same 2D-affine sub-structure. All three
+viewers agree on which 6 of the 16 floats matter, but describe the
+row/column-major framing differently — don't let that confuze you, the byte
+offsets agree:
+
+```
+float32 index (LE):  [0]=a  [1]=b  ...  [4]=c  [5]=d  ...  [12]=tx [13]=ty ...
+byte offset:           0     4            16    20            48     52
+```
+
+i.e. it's really a CGAffineTransform `(a, b, c, d, tx, ty)` padded out to a
+4×4 matrix (with 1s on the remaining diagonal, 0s elsewhere) so it round-trips
+through whatever generic 3D matrix type the app uses internally. Standard
+2D affine semantics: `x' = a*x + c*y + tx`, `y' = b*x + d*y + ty`. An
+identity-ish transform (a≈1,b≈0,c≈0,d≈1,tx≈0,ty≈0, within float epsilon) is
+typically treated as "no transform" by romangarms's code — worth doing the
+same so we don't clutter output with no-op transforms.
+
+Concepts uses a **bottom-left-origin coordinate system** (confirmed by
+romangarms's CLAUDE.md and consistent with the y-values we saw). Any
+renderer needs a global Y-flip; a bare decoder just needs to know this so it
+doesn't "fix" it by accident.
+
+---
+
+## 6. Images / PDFs
+
+`ImageItem`:
+```
+imageIdentifier → UID → string UUID; matches a file under ImportedImages/
+                  (iOS) by filename stem, extension looked up via
+                  Resources.plist's importedResourceMap (legacy-id → ext)
+size            → UID → string like "{397.5, 393}" (NOT a binary struct —
+                  parse with a regex: `\{([-\d.]+),\s*([-\d.]+)\}`)
+crop            → string like "{{0, 0}, {1, 1}}" (a CGRect-as-string,
+                  normalized 0..1 crop box) — nobody currently applies this
+diSavedTransform, diInitialSavedTransform → 64-byte transform buffers;
+                  position = (tx, ty) of diSavedTransform
+imageProperties → { brushAlpha, brushToolNew } (opacity essentially)
+```
+PDF pages (`TiledPDFPage`, per all 3 viewers' code even though absent from
+our one sample) look the same but with `resourceIdentifier` instead of
+`imageIdentifier`, plus a 1-indexed `page` field (subtract 1 for normal
+PDF-page-array indexing), and a `pdfProperties` blob with `brushAlpha`
+instead of `imageProperties`.
+
+`Resources.plist` maps `imageIdentifier` → real file extension:
+`root.importedResourceMap` is an NS.keys/NS.objects pair (dict-shaped, but
+stored the "keyed archiver dictionary" way — keys array + values array in
+parallel, not literally a `0xD` bplist dict) → each value has
+`resourceLegacyId` + `resourceExtension`.
+
+---
+
+## 7. Android/Windows `.concepts` — MessagePack payload (`tree.pack`)
+
+MessagePack itself is a public spec (unlike bplist it's not Apple-specific,
+but we're still hand-rolling the decoder rather than pulling in
+`Data::MessagePack`, since that's not installed and the point is to not
+depend on it). Need at minimum: fixarray/array16/array32, fixmap/map16/32,
+fixstr/str8/16/32, fixint/uint8/16/32/64, int8/16/32/64, float32/64, bin8/16/32,
+**ext types** (msgpack "extension" = 1 type-byte + N data bytes; Concepts
+uses these to smuggle in fixed-size binary blobs — color/transform — with a
+custom marker byte rather than plain `bin`).
+
+Observed root shape: `tree.pack` = msgpack array of 2 elements:
+`[formatVersion, rootData]`. `rootData[4]` = array of **layers**, each layer
+= `[layerType, layerInfo, items]` (items at index 2). Each item in a layer:
+
+```
+item = [4, [0, strokeData]]      -- outer wrapper, "4" = item-kind marker?
+strokeData[0]  == 6              -- "6" = stroke-kind marker (only kind
+                                    anyone has decoded so far; other markers
+                                    almost certainly exist for images/text/
+                                    shapes on this platform too — open
+                                    question, we don't have a sample)
+strokeData[1]  = brushInfo (deeply nested array; color/transform buried at
+                 brushInfo[1][1][1] — see below)
+strokeData[3]  = displayWidth (float, the actually-rendered stroke width)
+strokeData[5]  = closed (bool)
+strokeData[17] = pointsBuffer (msgpack bin, raw bytes — see below)
+```
+
+The magic-number indices (`4`, `6`, position `17` for points, etc.) were
+found by trial-and-error/fuzzing in romangarms's commit history, not derived
+from any spec — treat every numeric index here as "true for the one sample
+file someone tested against", not as guaranteed stable across app versions.
+**Open question**: get 2-3 more `.concepts` samples from different app
+versions/tool types and check the indices still hold; also `rootData[4]`
+being "the layers array" specifically (vs. some other rootData slot) is
+exactly the kind of thing that could shift between `formatVersion`s — we
+already know formatVersion `20250319` behaves this way, but our own sample
+files may be older/newer.
+
+Color buffer: extension type `4`, 16 bytes = 4×float32 LE = **RGBA** (order
+differs from iOS's `UIColor` which stores R/G/B/A as separate named dict
+keys rather than a packed buffer — same 4 values, different container
+shape). There's also a separate scalar "alpha multiplier" sibling field
+that gets multiplied into the buffer's alpha — so don't just trust the
+4th float in isolation.
+
+Transform buffer: extension type `7`, 64 bytes — **same 4×4-float32-with-
+2D-affine-in-the-corner layout as iOS** (§5), same byte offsets for a/b/c/d/
+tx/ty. Good: one transform decoder serves both platforms.
+
+Point buffer: also 16 bytes/point, but a **different layout than iOS**:
+```
+offset  0: float32 LE  x
+offset  4: float32 LE  y
+offset  8: uint16 LE   pressure_raw   (÷65535 per romangarms's code →
+                                        normalized 0..1 pressure; this one
+                                        IS decoded/confirmed, unlike iOS's
+                                        mystery bytes above)
+offset 10: (6 bytes unused/undecoded — presumably angle/tilt data, same
+            "nobody's decoded it yet" situation as iOS bytes 8-15, but
+            we have even less signal here since no one has poked at the
+            raw bytes on this platform the way we did for iOS in §4a)
+```
+
+`resource.pack` — same msgpack ext-type scheme presumably, for image
+resources; our real sample's `resource.pack` was only 3 bytes
+(`92 00 80` = `[0, {}]`) i.e. empty — need a file with actual embedded
+images to reverse-engineer this one.
+
+`workspace.pack` — msgpack wrapper around a **JSON string** (`layers`,
+`color_palette`, etc. — this is where Android/Windows layer *names* and
+*visibility* probably live, analogous to iOS's `DrawingItemGroup.name`).
+Worth fully dumping one of these since — unlike everything else in this
+document — it's just JSON once you peel one msgpack string wrapper off, no
+bit-twiddling required.
+
+---
+
+## 8. Practical differences to remember when writing one decoder vs two
+
+- Thumbnail filename case differs: `Thumb.jpg` (iOS, capital T) vs.
+  `thumb.jpg` (Android/Windows, lowercase) — case-sensitive on most
+  filesystems, don't assume one spelling.
+- iOS metadata lives in a bplist (`metadata.plist`); Android/Windows
+  metadata is plain JSON (`metadata.json`) — no binary parsing needed there
+  at all, nice.
+- Color as 4 named floats (iOS `UIColor` dict) vs. color as a 16-byte packed
+  buffer (Android ext type 4) — same semantic value, different container;
+  our internal `Color{r,g,b,a}` struct is fine as the unification point,
+  exactly like romangarms's `types/drawing.ts` already does in TS.
+  Same story for points/transforms — one internal `Stroke`/`Point`/
+  `Transform` shape, two format-specific decoders that both populate it.
+- Pressure is confirmed-decodable on Android (§7) but only
+  hypothesized/undecoded on iOS (§4a) — asymmetric confidence, don't assume
+  parity between platforms just because the byte-count-per-point matches.
+
+---
+
+## 9. Suggested Perl approach (still just notes, not committing to this yet)
+
+- Use `IO::Uncompress::Unzip` (core-ish, confirmed installed) for the zip
+  container — no reason to hand-roll DEFLATE.
+  `Data::MessagePack` and `Mac::PropertyList` are **not installed** here
+  (confirmed by `perl -M...` failing) — consistent with wanting to hand-roll
+  those two ourselves rather than reach for CPAN.
+- bplist00 decoder: direct, fairly mechanical port of the table in §2 —
+  read trailer → offset table → recursive `parse_object($index)` with a
+  memoization cache (objects can be referenced from multiple places via
+  UID, exactly like `modulovalue`'s `_objectCache`) to avoid re-parsing and
+  to correctly reproduce shared-object identity if that ever matters.
+- MessagePack decoder: only need the subset actually used (see §7's type
+  list) — a full spec-complete implementation is more than we need, but
+  ext-type support is *not* optional since Concepts leans on it for
+  color/transform blobs.
+- Keep the "make sense of $class UIDs → classname" step separate from the
+  raw bplist decode, mirroring how the object graph in §3 is really two
+  layers: (1) generic bplist/NSKeyedArchiver decode → nested
+  Perl data structure with `UID` markers, (2) a Concepts-specific walker
+  that knows about `StrokeManager`/`DrawingItemGroup`/`Stroke`/etc. and
+  dereferences UIDs as it goes. That separation is what let 3 independent
+  implementations agree on §2/§3 while disagreeing on details elsewhere —
+  worth preserving for our own maintainability.
+- Don't try to be clever about the open questions in §4a/§7 up front — get
+  x/y-only stroke rendering working end-to-end first (that alone matches
+  what every existing viewer does), *then* circle back to pressure/angle
+  once we have a way to visually compare against the iPad app's own
+  rendering.
+
+---
+
+## 10. Local real-file inventory for testing
+
+```
+~/my/art/export/iPad/Folder (actually real)/Drawing.concept
+~/my/art/export/iPad/Folder (actually real)/Drawing Copy.concept
+~/my/art/export/iPad/New Folder/New Drawing*.concept        (4 files)
+~/my/art/export/iPad/Welcome to Concepts/*.concept           (4 files, one
+                                                       is the sample decoded
+                                                       above via the JSON dump)
+~/my/art/export/p9p/Concepts/Drawing.concepts                (git-annex
+                                                       symlink, resolves fine)
+~/my/art/export/p9p/Concepts-OLDER/Drawing.concepts           (worth diffing
+                                                       against the non-OLDER
+                                                       one for format drift)
+```
+Plus the bundled samples in the three cloned repos (`example files/`,
+`samples/`, `assets/*.concept`) if we want more variety without touching our
+own art.
+
+## 11. Open questions worth resolving before/while coding
+
+1. What exactly is packed into iOS stroke-point bytes 8-15 (§4a)?
+2. What are the real semantics of `brushToolNew` values (tool-id enum)?
+   No id→name table found in any of the 3 repos.
+3. Does `closed` mean shape-tool closure, or can freehand strokes be closed
+   too? No closed-stroke sample inspected yet.
+4. Eraser strokes / auto-shape (rect/ellipse/polygon) tool items: what
+   `$classname`/fields do they actually use? All 3 viewers guess field names
+   for this without a confirmed sample.
+5. `.concepts` (Android/Win): are indices `4`/`6`/`17` (§7) stable across
+   `formatVersion`s, or specific to the one version romangarms tested
+   against? Do image/text/shape items use the same `[4,[0,[N,...]]]` outer
+   wrapper with a different `N`, or a totally different shape?
+6. `resource.pack` structure — need a sample with actual embedded images.
+7. `workspace.pack`'s embedded JSON — full schema (layer names/visibility/
+   order for the Android/Windows side, analogous to iOS's
+   `DrawingItemGroup.name`).
+8. Compare `p9p/Concepts` vs `p9p/Concepts-OLDER` byte-for-byte for any
+   structural drift — free signal about format evolution we haven't used yet.
