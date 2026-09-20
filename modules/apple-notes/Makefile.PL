@@ -20,7 +20,7 @@ my %WriteMakefileArgs = (
 	},
 	dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz' },
 	clean => { FILES => 'RdKw-Apple-Notes-*' },
-	test => { TESTS => 't/* xt/*' },
+	test => { TESTS => 't/*' },
 );
 
 # Compatibility with old versions of ExtUtils::MakeMaker
@@ -44,3 +44,15 @@ delete $WriteMakefileArgs{LICENSE}
     unless eval { ExtUtils::MakeMaker->VERSION('6.31'); 1 };
 
 WriteMakefile(%WriteMakefileArgs);
+
+package MY;
+
+sub postamble
+{
+	my $command = '$(FULLPERLRUN)';
+	<<'MAKE_FRAG' .
+EXTRA_TEST_FILES=	xt/*
+xtest :: subdirs-test_dynamic
+MAKE_FRAG
+	$_[0]->test_via_harness($command, '$(EXTRA_TEST_FILES)');
+}
