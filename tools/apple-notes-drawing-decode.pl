@@ -306,7 +306,7 @@ sub decode_drawing {
 		push @strokes, {
 		    stroke_uuid   => unpack("H*", $st->{stroke_uuid} || ""),
 		    sort_id       => $sort_id ? [ $sort_id->{clock}, $sort_id->{replica_index}, $sort_id->{subclock} ] : undef,
-		    bounds        => $bounds ? [ $bounds->{f1}, $bounds->{f2}, $bounds->{f3}, $bounds->{f4} ] : undef,
+		    bounds        => $bounds ? [ $bounds->{origin_x}, $bounds->{origin_y}, $bounds->{width}, $bounds->{height} ] : undef,
 		    transform     => $xf  ? [ @{$xf}{qw(a b c d tx ty)} ]  : undef,
 		    ink_transform => $ixf ? [ @{$ixf}{qw(a b c d tx ty)} ] : undef,
 		    point_stride  => $stride,
@@ -363,13 +363,14 @@ sub decode_channel {
 	}
 }
 
-# Render a Stroke.transform/ink_transform result (see decode_drawing() -
-# [a, b, c, d, tx, ty], any element undef if that field was absent on the
-# wire - each of the 6 is independently optional, see the .proto's Transform
-# message comment). Each present component is a plain float32 (no
-# normalization, unlike the per-point channels), so printed the same
-# exact-IEEE-hex way as the f32 point channels rather than a lossy %.6f.
-sub format_transform {
+# Render a list of optional plain float32 sub-fields (Stroke.transform/
+# ink_transform's [a,b,c,d,tx,ty], or Stroke.bounds's [originX,originY,
+# width,height]) - any element undef if that field was absent on the wire,
+# since each sub-field is independently optional (see the .proto's
+# Transform/Bounds message comments). None of these are normalized (unlike
+# the per-point channels), so printed the same exact-IEEE-hex way as the
+# f32 point channels rather than a lossy %.6f.
+sub format_float_list {
 	my ($xf) = @_;
 	return join(" ", map { defined $_ ? float_hex($_) : "nil" } @$xf);
 }
@@ -420,13 +421,13 @@ sub render_sexp {
 		push @out, "      (sort-id " . ($st->{sort_id} ? join(" ", map { $_ // "nil" } @{ $st->{sort_id} }) : "nil") .
 		            ") ; clock replicaIndex subclock, see drawing.md";
 		if ($st->{bounds}) {
-		    push @out, sprintf("      (bounds %.6f %.6f %.6f %.6f) ; order unconfirmed", @{ $st->{bounds} });
+		    push @out, "      (bounds " . format_float_list($st->{bounds}) . ") ; originX originY width height";
 		}
 		if ($st->{transform}) {
-		    push @out, "      (transform " . format_transform($st->{transform}) . ") ; a b c d tx ty";
+		    push @out, "      (transform " . format_float_list($st->{transform}) . ") ; a b c d tx ty";
 		}
 		if ($st->{ink_transform}) {
-		    push @out, "      (ink-transform " . format_transform($st->{ink_transform}) . ") ; a b c d tx ty";
+		    push @out, "      (ink-transform " . format_float_list($st->{ink_transform}) . ") ; a b c d tx ty";
 		}
 		push @out, "      (point-stride " . (defined $st->{point_stride} ? $st->{point_stride} : "nil") . ")";
 		push @out, "      (points";

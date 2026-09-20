@@ -171,13 +171,18 @@ message StrokeID {
   optional int32 subclock      = 3; // real field name: subclock - resolved via _PKStrokeIDCompare's comparator priority (final tiebreak, compared last), see drawing.md Update 5
 }
 
-// Real field name confirmed as `bounds` (drawing.md). Sub-field order
-// (which of f1-f4 is x/y/w/h) is still unconfirmed.
+// Real field name confirmed as `bounds` (drawing.md). Sub-field names AND
+// wire field numbers confirmed 2026-09-20 (live disassembly of
+// `drawing::Rectangle::formatText`/`readFrom` - real class name also
+// confirmed then, see point-decode-pipeline.md's Bounds appendix): field 1
+// = originX, field 2 = originY, field 3 = width, field 4 = height - i.e.
+// the original x/y/w/h guess (from real sample data alone) turned out to
+// be exactly right, now proven rather than just observed.
 message Bounds {
-  optional float f1 = 1; // observed as x in samples - order unconfirmed
-  optional float f2 = 2; // observed as y
-  optional float f3 = 3; // observed as w
-  optional float f4 = 4; // observed as h
+  optional float origin_x = 1;
+  optional float origin_y = 2;
+  optional float width    = 3;
+  optional float height   = 4;
 }
 
 // Real name confirmed as `drawing::Transform` (2026-09-20 session, live SSH

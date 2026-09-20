@@ -1008,3 +1008,86 @@ retyped from opaque `bytes` to `Transform`; decoder prints all six
 components as exact IEEE754 hex via `Data::Float::float_hex`, `nil` for any
 individually-absent component, consistent with this repo's established
 "report wire presence, not runtime defaults" convention).
+
+## 11. `Stroke.bounds` - field names/numbers confirmed, and what the extra margin is for
+
+Same 2026-09-20 session as §10, same live SSH access. Closes out the
+`.proto`'s `Bounds` message, previously `f1`-`f4` with an explicit
+"observed as x/y/w/h in samples - order unconfirmed" caveat (i.e. a guess
+from real sample *values* alone, never disassembly-checked).
+
+### (a) `drawing::Rectangle`, not `legacy_drawing::Rectangle`
+
+`nm -U ~/re-notes/PencilKit | c++filt | grep 'Rectangle::'` turns up two
+distinct classes with the readFrom/writeTo/formatText/hash_value quartet -
+`legacy_drawing::Rectangle` and `drawing::Rectangle`. Same naming split
+this directory has seen before (`legacy_drawing`/`drawing` - see
+`legacy_drawing.md`'s own unconfirmed-reachability caveat); this section
+only disassembles `drawing::Rectangle`, the one actually reachable from
+`Stroke.bounds` per §2b's already-confirmed `archive+0x20` ->
+`drawing::Rectangle::Rectangle(drawing::Rectangle const&)` copy-construct
+edge.
+
+### (b) Field names, from `formatText` (`0x1ae704214`)
+
+Four presence-gated `float32` fields at offsets `+0x8, +0xc, +0x10, +0x14`,
+gated by flag-byte bits `0`-`3` at `+0x18` (identical shape to §10's
+Transform). String literals read directly from the disassembly operands:
+`+0x8` = `"height"`, `+0xc` = `"originX"`, `+0x10` = `"originY"`, `+0x14` =
+`"width"` - again alphabetical (`height < originX < originY < width`),
+so (per `drawing.md`'s standing caveat about `formatText`'s sort order)
+this alone doesn't prove wire-field-number order; see (c).
+
+### (c) Field numbers, from `readFrom` (`0x1ae7042d8`)
+
+Same dispatch-cascade read as §10(b): field 1 -> `+0xc` (`originX`), field
+2 -> `+0x10` (`originY`), field 3 -> `+0x14` (`width`), field 4 -> `+0x8`
+(`height`). So the real order is **field 1 = originX, field 2 = originY,
+field 3 = width, field 4 = height** - i.e. the original `f1/f2/f3/f4`
+guess (x, y, w, h, in exactly that order) turns out to have been correct
+all along, now proven rather than merely observed.
+
+### (d) Empirical cross-check: bounds are NOT a tight bbox of the point path - they include margin
+
+Ran the updated decoder against real strokes from the user's own archive
+(`~/archive/backup/takeout/apple/notes/2024-03-29/main/data/NoteStore.sqlite`,
+`Z_PK=15436`) and compared each stroke's `bounds` against the actual
+min/max X/Y of that same stroke's own decoded points. Representative
+results (`bounds originX originY width height` vs. actual point
+X-range/Y-range):
+
+```
+bounds (60, 22, 6, 24)      points x:[62.15,64.23] y:[24.08,44.00]
+bounds (101, 24, 14, 4)     points x:[102.87,113.44] y:[26.06,26.49]
+bounds (176, 34, 5, 3)      points x:[178.13,179.17] y:[35.50,35.50]
+```
+
+In every case, `bounds` fully contains the point path's actual extent but
+with real margin on all sides - e.g. the third example has a single-point-
+height stroke (`y` is a single value, zero-height path) yet `bounds.height`
+is `3`, and `bounds.width` (`5`) is larger than the actual X-span
+(`179.17-178.13 = 1.04`). This margin is small but consistently present
+across every stroke checked, and consistently larger than the path's own
+extent, never smaller - i.e. `bounds` is not simply `{min, max}` of the
+raw point coordinates. This is consistent with `bounds` being a
+**rendering/hit-testing bounding box that pads for stroke thickness**
+(ink radius/edge width, per the per-point `radius`/`edgeWidth` channels
+`point-decode-pipeline.md` §6-§9 already decoded) rather than a pure
+geometric bbox of the path's centerline points - a stroke's visible ink
+extends `radius` beyond each point's raw (X,Y), so a hit-testing/redraw
+bbox would need exactly this kind of margin. **Not independently
+disassembly-confirmed** (no code computing `bounds` from points/radius was
+traced this pass) - offered as the natural reading of the empirical
+margin, not a proven mechanism.
+
+### Provenance
+
+Same live SSH access/toolchain as §10 (`cooper.plug.rapidcow.net`, `ipsw`
+`-a <vaddr> --demangle --force` against `~/re-notes/PencilKit`, string
+literals read directly as disassembly operands). Empirical cross-check (d)
+used the user's own real `NoteStore.sqlite` archive, immutable/read-only
+mode, no writes. `tools/apple-notes-drawing-2.proto`'s `Bounds` message and
+`tools/apple-notes-drawing-decode.pl` have been updated to use the real
+field names/order and to print all four components as exact IEEE754 hex
+(previously `%.6f`, matching this session's broader "no lossy decimal for
+raw floats" convention).
