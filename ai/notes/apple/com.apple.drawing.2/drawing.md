@@ -569,15 +569,147 @@ not pursued further.
   `point-fields.md`'s still-unconfirmed-reachable `initWithLegacyArchive:`
   subgraph, but that connection is a guess, not checked.
 
+## Update 4 (2026-09-21): `Drawing`'s remaining fields, and `StrokeData`'s `unk2`/`unk5`/`unk6`
+
+User request: close out the three items this file's "Not concluded" list
+still had (`Drawing.bounds`/`boundsVersion`'s field numbers, and
+`point-decode-pipeline.md`'s Geometry/StrokeData `unk2`/`unk5`/`unk6`).
+Both resolved completely, via the same live SSH/`ipsw` disassembly as
+Update 1-3, targeting two functions not touched before this pass:
+`drawing::Drawing::readFrom` (`0x1ae63efcc`) and
+`drawing::StrokeData::readFrom`/`formatText` (`0x1ae646cf8`/`0x1ae646b9c`).
+
+### `drawing::Drawing::readFrom` - a field-number cascade, not a jump table
+
+Unlike `Stroke`'s dispatch (a computed jump table over 16 slots), `Drawing`
+decodes its 7 fields with a plain `cmp`/`b.eq` cascade on the field number
+(`w26`, extracted from the wire tag the same way as Stroke's dispatch).
+Each branch was traced to the exact struct offset it writes, the same
+`makeXXX()`/offset cross-reference trick Update 1 used for `Stroke`:
+
+| field # | real name (from `formatText`) | what `readFrom` does at that offset |
+|---------|-------------------------------|--------------------------------------|
+| 2       | `replicaUUIDs`   | appends to `vector<PB::Data>` at `+0x38` |
+| 3       | `versionVector`  | `PB::PtrVector<drawing::StrokeID>::emplace_back<>()` at `+0x68` - **repeated `StrokeID`, not the invented 3-int32 `IndexEntry` shape this file used to guess** |
+| 4       | `inks`           | `PB::PtrVector<drawing::Ink>::emplace_back<>()` at `+0x18` |
+| 5       | `strokes`        | `PB::PtrVector<drawing::Stroke>::emplace_back<>()` at `+0x48` |
+| 6       | `bounds`         | constructs a `drawing::Rectangle` (vtable literal `"vtable for drawing::Rectangle"` read directly as a disassembly operand) at `+0x8` - same `Rectangle` class as `Stroke.bounds`, see Update-1-era Bounds section |
+| 7       | `boundsVersion`  | constructs a `drawing::StrokeID` (vtable literal `"vtable for drawing::StrokeID"`) at `+0x10` |
+| 8       | `uuid`           | builds a `PB::Data` at `+0x60` |
+
+Field 1 never appears in the cascade at all - either unused/reserved or a
+gap in this exact `readFrom` override; not investigated further.
+`versionVector` being `repeated StrokeID` (not `IndexEntry`) was confirmed
+empirically too: decoding a real drawing (`Z_PK=20040`) gives one
+`version_vector` entry per `replica_uuids` entry, and each entry's
+`replicaIndex` sub-field matches its own position in the `replica_uuids`
+array exactly (0,1,2,...,6 for a 7-replica drawing) - a CRDT version vector
+is exactly the shape you'd expect this correspondence from.
+
+`apple-notes-drawing-2.proto`'s `IndexEntry` message has been removed (kept
+only as a comment explaining why); `Drawing` now has real field numbers
+for all seven of its `formatText`-confirmed real fields.
+
+### `drawing::StrokeData::readFrom`/`formatText` - closes `unk2`/`unk5`/`unk6`, and finds 3 more fields nobody had guessed
+
+`StrokeData::formatText` (same alphabetical-string-literal method as
+everywhere else in this file) gives **10** real field names, not the 7 this
+file's `Geometry` message shape assumed:
+
+```
+createdWithFinger, immutablePointsCount, pointsConstantFlags,
+pointsConstantValues, pointsCount, pointsData, pointsFlags, startIndex,
+strokeDataUUID, timestamp
+```
+
+`StrokeData::readFrom` turns out to use the *same* jump-table dispatch
+shape as `Stroke::readFrom` (10 entries this time, `0x1ae611e5c`) - each
+entry read directly off disk and traced to its target struct offset,
+cross-referenced against the offset each `formatText` branch prints from:
+
+| field # | real name               | offset | wire shape |
+|---------|--------------------------|--------|------------|
+| 1       | `strokeDataUUID`         | `+0x40`| `PB::Data` (bytes) |
+| 2       | `timestamp`               | `+0x48`| fixed64/double, direct 8-byte read (matches this file's old "`unk2`, looked timestamp-ish" guess exactly) |
+| 3       | `pointsCount`             | `+0x20`| varint (confirms old `npts`) |
+| 4       | `pointsFlags`             | `+0x30`| varint (confirms old `point_flags`) |
+| 5       | `pointsConstantFlags`     | `+0x10`| varint (was this file's `unk5`) |
+| 6       | `pointsConstantValues`    | `+0x18`| `PB::Data` (bytes) (was this file's `unk6`) |
+| 7       | `pointsData`              | `+0x28`| `PB::Data` (bytes) (confirms old `points`) |
+| 8       | `createdWithFinger`       | `+0x50`| single raw byte, bool |
+| 9       | `immutablePointsCount`    | `+0x08`| varint |
+| 10      | `startIndex`              | `+0x38`| varint |
+
+Fields 8-10 are genuinely new - no prior pass (empirical or disassembly)
+had even suspected they existed, since real sample data apparently never
+populates them (or this decoder never looked). `pointsConstantValues`'s
+previously-unexplained byte pattern ("every sample starts with `e8 03 00
+00` / uint32 1000 and ends with `ff 7f` / uint16 32767") lines up
+suspiciously well with the per-point channel divisors confirmed in
+`point-decode-pipeline.md` §7-§9 (`force`/`aspectRatio` divide by 1000,
+`opacity`/`threshold` divide by 65535/2 ≈ 32767.5) - read as a plausible
+"default/sentinel constant-value table, one slot per channel" story, but
+that reading is not traced in code, only pattern-matched; flagged as such
+in the `.proto`.
+
+`apple-notes-drawing-2.proto`'s `Geometry` message has been renamed to
+`StrokeData` (its real class name - see this file's earlier "No
+`drawing::Geometry` class exists" section) with all real field names/
+numbers above, including the 3 newly-discovered fields.
+`tools/apple-notes-drawing-decode.pl` was updated to match (renamed
+`$geom->{npts}`/`{points}`/`{point_flags}` accesses, and now exposes all
+10 fields, plus the matching `Drawing`-level `bounds`/`boundsVersion`/
+`uuid`/`versionVector` fields that were previously decoded by
+`Google::ProtocolBuffers` but silently dropped by this script).
+
+## Not concluded
+
+- Field 16's identity as `groupUUID` rests on elimination only (see Update
+  2) - would benefit from finding even one real sample where it's actually
+  populated.
+- `Ink.azimuth`, `Ink`'s six HDR/multi-channel color fields,
+  `Ink.requiredContentVersion`, and `legacy_drawing::Drawing` remain
+  untouched - see the original "Not concluded" items above (still true,
+  not superseded by any update, including Update 4 which only closed the
+  `Drawing`/`StrokeData` items from this list).
+- `centerlineSlices`/`maskPoints` (`Stroke`) and all six HDR/multi-channel
+  color fields plus `requiredContentVersion` (`Ink`) are confirmed-real
+  names with no investigation into their actual wire content at all this
+  pass (`Drawing.bounds`/`boundsVersion` - the other two items originally
+  listed here - were resolved by Update 4 above).
+- Whether `Ink.azimuth` has any numeric relationship to the per-point
+  `azimuth` channel's encoding (`point-decode-pipeline.md` §8) - e.g.
+  same `uint16`/`65535` convention reused - is unknown; flagged only as a
+  naming collision to watch for, not investigated.
+- `legacy_drawing::Drawing` (a distinct, `legacy_drawing::`-namespaced
+  class, confirmed to exist via its own `formatText`/`readFrom`/`writeTo`
+  trio, fields `timestamp`/`unrotatedBounds` seen via its own `make*`
+  methods) was noticed in passing during the `nm`/`c++filt` search that
+  found `drawing::Ink` above, but not investigated - possibly related to
+  `point-fields.md`'s still-unconfirmed-reachable `initWithLegacyArchive:`
+  subgraph, but that connection is a guess, not checked.
+- `StrokeData.pointsConstantFlags`/`pointsConstantValues`'s actual
+  per-channel semantics (Update 4's "constant-value override table"
+  reading) - pattern-matched from one coincidental byte-value overlap with
+  known channel divisors, not traced in code. `createdWithFinger`/
+  `immutablePointsCount`/`startIndex` (Update 4's 3 newly-found fields)
+  also have no empirical survey yet - unknown how often/when real samples
+  populate them.
+
 ## Provenance
 
 Same Mac/toolchain as `point-decode-pipeline.md` §8-§9 (macOS 26.6.2 build
 25G83, `ipsw` v3.1.714, `~/re-notes/PencilKit` extraction and
 `PencilKit.a2s` cache already present from the 2026-09-11 session, not
-re-extracted). All class/method/field names quoted above are exact,
-verbatim symbol names or string-literal contents read directly from
-`PencilKit.framework`'s symbol table and disassembly (`nm -U`, `c++filt`,
-`ipsw macho disass -a <vaddr> --demangle --force`, piped through `grep -oE
-'"[^"]+"'` to pull literal string operands) - no raw bytes, hex dump, or
-extracted binary content reproduced here, consistent with this directory's
-convention.
+re-extracted; still true as of Update 4, 2026-09-21). All class/method/
+field names quoted above are exact, verbatim symbol names or string-literal
+contents read directly from `PencilKit.framework`'s symbol table and
+disassembly (`nm -U`, `c++filt`, `ipsw macho disass -a <vaddr> --demangle
+--force`, piped through `grep -oE '"[^"]+"'` to pull literal string
+operands, or read directly as disassembly comment operands for vtable
+literals) - no raw bytes, hex dump, or extracted binary content reproduced
+here, consistent with this directory's convention. Update 4's jump-table
+words (`drawing::StrokeData::readFrom`'s 10-entry table at `0x1ae611e5c`)
+were read directly off disk via a small Python struct-unpack script over
+SSH, the same `file_offset = vmaddr - 0x1ae60f000` convention as
+`point-decode-pipeline.md`'s `dd`-based reads.

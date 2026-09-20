@@ -259,10 +259,25 @@ sub decode_drawing {
 
 	my @strokes = map { decode_stroke($_) } @{ $drawing->{strokes} || [] };
 
+	# Drawing-level bounds/bounds_version/uuid/version_vector (fields 6/7/8/3)
+	# - all confirmed 2026-09-21 via live disassembly of
+	# drawing::Drawing::readFrom (see apple-notes-drawing-2.proto's Drawing
+	# message comment and notes/apple/com.apple.drawing.2/drawing.md's latest
+	# Update). version_vector is repeated StrokeID (NOT the old guessed
+	# 3-int32 IndexEntry shape), so it's exposed the same [clock,
+	# replicaIndex, subclock] way sort_id/version/substrokes_version are.
+	my $bounds = $drawing->{bounds};
+	my $bounds_version = $drawing->{bounds_version};
+
 	return {
-		envelope_hex => unpack("H*", $envelope),
-		inks         => \@inks,
-		strokes      => \@strokes,
+		envelope_hex   => unpack("H*", $envelope),
+		uuid           => defined $drawing->{uuid} ? unpack("H*", $drawing->{uuid}) : undef,
+		replica_uuids  => [ map { unpack("H*", $_) } @{ $drawing->{replica_uuids} || [] } ],
+		version_vector => [ map { [ $_->{clock}, $_->{replica_index}, $_->{subclock} ] } @{ $drawing->{version_vector} || [] } ],
+		bounds         => $bounds ? [ $bounds->{origin_x}, $bounds->{origin_y}, $bounds->{width}, $bounds->{height} ] : undef,
+		bounds_version => $bounds_version ? [ $bounds_version->{clock}, $bounds_version->{replica_index}, $bounds_version->{subclock} ] : undef,
+		inks           => \@inks,
+		strokes        => \@strokes,
 	};
 }
 
@@ -275,10 +290,27 @@ sub decode_stroke {
 	my ($st) = @_;
 	my @points;
 	my $stride;
+	# StrokeData's own non-point fields (stroke_data_uuid/timestamp/
+	# points_constant_flags/points_constant_values/created_with_finger/
+	# immutable_points_count/start_index) - all confirmed 2026-09-21 via
+	# live disassembly of drawing::StrokeData::readFrom/formatText (see
+	# apple-notes-drawing-2.proto's StrokeData message comment). Exposed
+	# raw (no decode formula beyond what the .proto comment already notes)
+	# since none of them have been empirically surveyed yet.
+	my ($stroke_data_uuid, $timestamp, $points_constant_flags,
+	    $points_constant_values, $created_with_finger,
+	    $immutable_points_count, $start_index);
 	if (my $geom = $st->{stroke_data}) {
-		my $npts  = $geom->{npts};
-		my $pdata = $geom->{points};
-		my $flags = $geom->{point_flags} // 0;
+		my $npts  = $geom->{points_count};
+		my $pdata = $geom->{points_data};
+		my $flags = $geom->{points_flags} // 0;
+		$stroke_data_uuid = defined $geom->{stroke_data_uuid} ? unpack("H*", $geom->{stroke_data_uuid}) : undef;
+		$timestamp = $geom->{timestamp};
+		$points_constant_flags = $geom->{points_constant_flags};
+		$points_constant_values = defined $geom->{points_constant_values} ? unpack("H*", $geom->{points_constant_values}) : undef;
+		$created_with_finger = $geom->{created_with_finger};
+		$immutable_points_count = $geom->{immutable_points_count};
+		$start_index = $geom->{start_index};
 		if (defined $npts && defined $pdata && $npts > 0
 				&& length($pdata) % $npts == 0) {
 			$stride = length($pdata) / $npts;
@@ -349,6 +381,13 @@ sub decode_stroke {
 	    group_uuid        => defined $st->{group_uuid} ? unpack("H*", $st->{group_uuid}) : undef,
 	    centerline_slices => [ map { unpack("H*", $_) } @{ $st->{centerline_slices} || [] } ],
 	    mask_points       => [ @{ $st->{mask_points} || [] } ],
+	    stroke_data_uuid        => $stroke_data_uuid,
+	    timestamp               => $timestamp,
+	    points_constant_flags   => $points_constant_flags,
+	    points_constant_values  => $points_constant_values,
+	    created_with_finger     => $created_with_finger,
+	    immutable_points_count  => $immutable_points_count,
+	    start_index             => $start_index,
 	    point_stride  => $stride,
 	    points        => \@points,
 	    substrokes    => [ map { decode_stroke($_) } @{ $st->{substrokes} || [] } ],
@@ -449,6 +488,19 @@ sub render_sexp {
 	my @out;
 	push @out, "(drawing";
 	push @out, "  (envelope-hex " . esc_str($d->{envelope_hex}) . ")";
+	push @out, "  (uuid " . (defined $d->{uuid} ? esc_str($d->{uuid}) : "nil") . ")";
+	if (@{ $d->{replica_uuids} }) {
+	    push @out, "  (replica-uuids " . join(" ", map { esc_str($_) } @{ $d->{replica_uuids} }) . ")";
+	}
+	if (@{ $d->{version_vector} }) {
+	    push @out, "  (version-vector " . join(" ", map { "(" . join(" ", map { $_ // "nil" } @$_) . ")" } @{ $d->{version_vector} }) . ") ; each (clock replicaIndex subclock), see drawing.md";
+	}
+	if ($d->{bounds}) {
+	    push @out, "  (bounds " . format_float_list($d->{bounds}) . ") ; originX originY width height";
+	}
+	if ($d->{bounds_version}) {
+	    push @out, "  (bounds-version " . join(" ", map { $_ // "nil" } @{ $d->{bounds_version} }) . ") ; clock replicaIndex subclock (StrokeID)";
+	}
 	push @out, "  (inks";
 	for my $ink (@{ $d->{inks} }) {
 		push @out, sprintf(
@@ -490,6 +542,27 @@ sub render_stroke {
 	}
 	if ($st->{ink_transform}) {
 	    push @out, "${prefix}  (ink-transform " . format_float_list($st->{ink_transform}) . ") ; a b c d tx ty";
+	}
+	if (defined $st->{stroke_data_uuid}) {
+	    push @out, "${prefix}  (stroke-data-uuid " . esc_str($st->{stroke_data_uuid}) . ") ; different UUID concept from (uuid ...) above, see drawing.md Update 3";
+	}
+	if (defined $st->{timestamp}) {
+	    push @out, "${prefix}  (stroke-data-timestamp " . float_hex($st->{timestamp}) . ")";
+	}
+	if (defined $st->{points_constant_flags}) {
+	    push @out, "${prefix}  (points-constant-flags " . $st->{points_constant_flags} . ") ; name confirmed, mechanism inferred only, see apple-notes-drawing-2.proto's StrokeData comment";
+	}
+	if (defined $st->{points_constant_values}) {
+	    push @out, "${prefix}  (points-constant-values " . esc_str($st->{points_constant_values}) . ") ; name confirmed, mechanism inferred only, see apple-notes-drawing-2.proto's StrokeData comment";
+	}
+	if (defined $st->{created_with_finger}) {
+	    push @out, "${prefix}  (created-with-finger " . ($st->{created_with_finger} ? "t" : "nil") . ")";
+	}
+	if (defined $st->{immutable_points_count}) {
+	    push @out, "${prefix}  (immutable-points-count " . $st->{immutable_points_count} . ")";
+	}
+	if (defined $st->{start_index}) {
+	    push @out, "${prefix}  (start-index " . $st->{start_index} . ")";
 	}
 	push @out, "${prefix}  (style-flags " . (defined $st->{style_flags} ? $st->{style_flags} : "nil") . ") ; name/meaning empirical only, see drawing.md";
 	push @out, "${prefix}  (shape-type " . (defined $st->{shape_type} ? $st->{shape_type} : "nil") . ") ; name/meaning empirical only, see drawing.md";
