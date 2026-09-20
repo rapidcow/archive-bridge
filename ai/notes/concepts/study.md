@@ -526,3 +526,165 @@ own art.
    `DrawingItemGroup.name`).
 8. Compare `p9p/Concepts` vs `p9p/Concepts-OLDER` byte-for-byte for any
    structural drift — free signal about format evolution we haven't used yet.
+
+## 12. Cross-comparison with Apple Notes drawings (`com.apple.drawing.2`)
+
+Source: `~/my/project/apple-notes/ai/tools/apple-notes-drawing-2.proto`, its
+companion notes (`ai/notes/apple/com.apple.drawing.2/{drawing,
+point-decode-pipeline,legacy_drawing}.md`), and the existing decoder
+(`ai/tools/apple-notes-drawing-decode.pl`). That project reverse-engineered
+Apple Notes' own PencilKit-based stroke format to a *much* higher confidence
+level than we have for Concepts — live arm64e disassembly of
+`PencilKit.framework`, not just cross-checking independently-written
+guesses. Worth mining both for direct parity (same underlying Apple Pencil
+hardware/APIs) and for methodology.
+
+### Layers: Notes has none
+
+Confirmed (grepped all three `.md` files for "layer" — zero hits). Apple
+Notes' `Drawing` message is completely flat: `strokes[]`, `inks[]`,
+`replica_uuids[]`, `version_vector[]`, no grouping/layer container at all in
+the persisted format. The closest things to "layers" are two unrelated
+per-stroke fields — `group_uuid` (field 16, the single weakest-confidence
+field in the whole schema, elimination-only: arbitrary multi-stroke
+*selection* grouping) and `render_group_uuid` (field 13: shape-recognition
+grouping, which strokes got merged into one auto-recognized shape). Neither
+is an ordered, named, nested structure the way Concepts' `DrawingItemGroup`
+(§3) is — `drawing.md` even traced the real underlying ObjC concept
+(`groupID`/`_setGroupID:`, used by `PKGroupQuery`/handwriting-transcription/
+math-recognition) and found it looks more like an ephemeral/recomputed tag
+than a persisted layer stack.
+
+**Takeaway: "how are layers stored" doesn't transfer between these two
+formats at all.** Concepts genuinely has a layers feature (named, ordered
+`DrawingItemGroup`s under `rootGroupLayers`, §3); Apple Notes' drawing
+format has no equivalent whatsoever. Don't expect to reuse any
+layer-decoding logic between the two decoders — this part of our Concepts
+work is unprecedented relative to the Notes project, not a port of it.
+
+### Stroke-level structure: same concepts, different encoding choices
+
+| concept | Concepts (`.concept`, iOS) | Apple Notes (`com.apple.drawing.2`) |
+|---|---|---|
+| stroke identity | `diIdentifier` (UID→string) + `diTimeStamp` (wall-clock) | `stroke_uuid` (16 raw bytes) + `StrokeID` logical clock (`sort_id`/`version`/`substrokes_version`, each `{clock, replica_index, subclock}`) — a real CRDT vector-clock, since Notes syncs multi-writer via CloudKit; no such machinery seen in our Concepts sample (Concepts files are standalone zips) |
+| brush/tool | `brushProperties` UID → `{brushToolNew: int, brushWidth, brushColor: UIColor{r,g,b,a}, brushAlpha}`, **inlined per-stroke** | `ink_index: int`, an index into document-level `Drawing.inks[]` (deduplicated) → `Ink{color: RGBA, identifier: string e.g. "com.apple.ink.pen", weight: int}` |
+| transform | `diSavedTransform`: 64-byte buffer, 4×4 float32 matrix, affine part at fixed byte offsets (§5) | `Transform` message: 6 *separately optional* protobuf float32 fields `a,b,c,d,tx,ty` — same `CGAffineTransform` semantics, field order confirmed via live disassembly, but plain protobuf rather than a padded 4×4 buffer |
+| bounding box | not observed in our sample's `Stroke` key list (§4) — likely computed on demand by viewers, not persisted | `Bounds{origin_x, origin_y, width, height}`, persisted per-stroke (field 6, proven) |
+| shape recognition | not confirmed at all yet (§11 Q4) | `shape_type` (small closed enum: 1,2,3,6,7,10,12) + `render_group_uuid`, both empirically well-characterized |
+
+The **tool-identity** row is the most actionable parity point for our own
+open question #2 (§11: "no id→name table found for `brushToolNew`"):
+Apple's equivalent field is a **human-readable string**
+(`"com.apple.ink.pen"`), not an opaque int. That doesn't hand us Concepts'
+actual tool names, but it's a reason to keep looking for a string
+identifier somewhere in the Concepts object graph (maybe on
+`BrushProperties` itself, under a key we haven't printed yet, or in a
+different plist) before assuming `brushToolNew`'s int enum is undocumented
+forever.
+
+### Per-point auxiliary channels — the most useful find for §4a
+
+Apple Notes' point format (confirmed via **static disassembly**, not
+guesswork) is: first 8 bytes of every point = unconditional float32 x,
+float32 y (identical to every Concepts point format we found, iOS *and*
+Android); remaining bytes = a **presence-bitmask-gated, tightly-packed (no
+padding for absent channels), increasing-index-order** sequence of named
+channels, where `point_flags` (a per-stroke int) has one bit per channel and
+`stride = 8 + sum(size of each present channel)`.
+
+That is *exactly* the structural pattern we guessed at for Concepts' iOS
+stroke points in §4a — three boolean flags
+(`containsPressure`/`altitudeAngleAvailable`/`azimuthAngleAvailable`)
+sitting right next to the point buffer field, presumably gating which of
+the trailing 8 bytes mean what — except Apple's version is now *proven*
+rather than hypothesized. That's a real structural cross-check that we're
+reading Concepts' analogous flags correctly in spirit, even without
+disassembling Concepts itself.
+
+Better still, Apple's confirmed formulas let us re-test our raw-`uint16`
+hypothesis numerically:
+
+```
+force (pressure):  raw_uint16 / 1000.0                       — no bias
+azimuth:           raw_uint16 * (2π/65535) − π                — range: −π..+π
+altitude:          π/2 − raw_uint16 * (π/2/65535)              — range: 0 (flat) .. π/2 (upright)
+```
+
+Plugging these into the exact same real Concepts stroke hand-inspected in
+§4a (28-point stroke, all three `*Available` flags true):
+
+- bytes 10-11 ("altitude?"), raw=44341 for the first several points →
+  `π/2 − 44341×(π/2/65535)` ≈ **0.508 rad ≈ 29°** — a physically plausible
+  pencil-tilt angle for ordinary handwriting/sketching
+- bytes 14-15 ("azimuth?"), raw=64275 for point 0 →
+  `64275×(2π/65535) − π` ≈ **3.02 rad ≈ 173°** — close to Apple's own
+  azimuth convention's "pointing left" direction (per the decode script's
+  comment: 0 = +x/right, ±π = −x/left) — plausible for a right-handed grip
+
+Both land in sane, physically-meaningful ranges using **Apple's exact
+published constants** — much stronger evidence than the original "seems
+plausible" hand-wave in §4a. **Confidence upgrade**: it's now a
+well-motivated hypothesis (not proof — different vendor, could coincidentally
+converge, or differ in scale/bias) that Concepts' iOS point format reuses
+this same `uint16` fixed-point convention for pressure/altitude/azimuth,
+most likely in that channel order (6 of the 8 mystery bytes).
+
+That still leaves 2 bytes unexplained — the previously-flagged "CONSTANT
+`0xAAA9` across the entire stroke" field (§4a bytes 12-13). Apple's channel
+table has 10 possible channels total, only 3 of which we have a matching
+Concepts boolean flag for; a channel that's legitimately **constant across
+an entire stroke** — e.g. Apple's `aspectRatio`/`edgeWidth` (brush-tip-shape
+properties that don't change mid-stroke) — is a much better-fitting
+explanation now than "reserved/sentinel," given we have a real precedent
+for "per-point channel that happens not to vary within one stroke." We
+don't have a matching Concepts flag for this 4th channel (only 3
+`*Available` booleans were found in our one sample's object dump) — worth
+specifically grepping a Concepts `Stroke` object for anything like
+`aspectRatioAvailable`/`edgeWidthAvailable`/`opacityAvailable` before
+concluding it's truly unconditional the way channel 0 (location) is.
+
+**Revised recommendation for §9/§11**: when decoding Concepts' iOS point
+channels for real, try Apple's exact per-channel scale/bias table first
+(same divisors — /1000 for force; /65535 scaled to 2π with −π bias for
+azimuth; /65535 scaled to π/2 with π/2 bias for altitude) rather than
+deriving our own from scratch, and validate the same way
+`point-decode-pipeline.md` did: check `sum(channel sizes for the
+Concepts-equivalent set flags) == stride − 8` exactly, across several
+distinct flag combinations pulled from our own real sample files, before
+trusting any field order.
+
+### Perl implementation notes (methodology, not format)
+
+`apple-notes-drawing-decode.pl` is a good template for our own decoder's
+*shape*, even though the wire format differs entirely (protobuf vs.
+bplist/msgpack):
+
+- clean separation between "decode the envelope/container" and "walk the
+  decoded message tree" — matches our own §9 plan to keep bplist-decode and
+  Concepts-object-graph-walk as separate layers.
+- per-channel decode table as a flat data structure (`@POINT_CHANNELS`,
+  name/size/kind triples) driving one generic loop, instead of hand-writing
+  ~10 near-identical decode branches — directly reusable pattern for our own
+  iOS point-channel decoder once §4a's byte assignments are confirmed.
+- uses `Math::BigRat` to keep angle/pressure values as exact rationals
+  instead of lossy floats, and `Data::Float::float_hex()` to print float32
+  values as exact IEEE754 hex rather than rounded decimal — worth
+  considering if we ever want to bit-for-bit diff against a reference
+  decode, though probably overkill for a first pass.
+- uses real CPAN modules throughout (`Google::ProtocolBuffers`,
+  `DBI`/`DBD::SQLite`) rather than hand-rolling protobuf — i.e. that
+  project's own rule is "hand-roll only the formats with no existing
+  module," same rule §1/§9 set for us (bplist00, MessagePack — confirmed
+  not installed; zip — a solved problem, don't reinvent it).
+
+**Open question raised by this comparison, not resolved by it**: since
+writing §9, `Mac::PropertyList`, `Data::MessagePack`, and `Archive::Zip`
+have all been installed locally (visible under `perl5/` in this repo now).
+That's a genuine fork in plan worth deciding explicitly before writing any
+code: are these meant as (a) the actual implementation, superseding the
+original "hand-roll bplist/msgpack ourselves" plan, or (b) a reference
+oracle to diff our still-hand-rolled decoder's output against (mirroring
+how the Apple Notes project leans on real modules for solved problems but
+still hand-rolled the genuinely novel per-point channel decode)? The two
+plans want different code structure from the very first line, so worth
+pinning down before starting.
