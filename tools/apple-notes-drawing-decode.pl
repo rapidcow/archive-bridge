@@ -408,9 +408,9 @@ sub render_sexp {
 	push @out, "  (inks";
 	for my $ink (@{ $d->{inks} }) {
 		push @out, sprintf(
-		    "    (ink (identifier %s) (color %.6f %.6f %.6f %.6f) (weight %s))",
+		    "    (ink (identifier %s) (color %s) (weight %s))",
 		    esc_str($ink->{identifier}),
-		    @{ $ink->{color} },
+		    format_float_list($ink->{color}),
 		    defined $ink->{weight} ? $ink->{weight} : "nil");
 	}
 	push @out, "  )";
