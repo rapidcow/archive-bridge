@@ -65,10 +65,9 @@ use DBI;
 use Google::ProtocolBuffers;
 # https://metacpan.org/dist/URI
 use URI::file;
+# https://metacpan.org/pod/Math::BigRat
+use Math::BigRat;
 
-use constant M_PI2 => 2*atan2(1,1);  # π/2
-use constant M_PI  => 4*atan2(1,1);  # π
-use constant M_TAU => 8*atan2(1,1);  # 2π
 # Confirmed from arm64e disassembly of PencilKit's own parser - see the
 # envelope comment at the top of apple-notes-drawing.proto.
 use constant ENVELOPE_MAGIC => 0xF0647277;
@@ -85,20 +84,34 @@ use constant ENVELOPE_MAGIC => 0xF0647277;
 #   force - little-endian uint16, decoded value = raw / 1000.0 - confirmed
 #           via disassembly (ucvtf, not fcvt - i.e. NOT float16 - then fdiv
 #           by an exact 1000.0 double read out of PencilKit's __TEXT), see
-#           notes/apple/com.apple.drawing.2/point-decode-pipeline.md §8
-#   azimuth  - little-endian uint16, decoded value = raw*(2*PI/65535) - PI
-#              (radians) - confirmed the same way as force, §8
-#   altitude - little-endian uint16, decoded value =
-#              PI/2 - raw*(PI/2/65535) (radians) - confirmed the same way,
-#              §8; note the bias is subtracted from, not added to
+#           notes/apple/com.apple.drawing.2/point-decode-pipeline.md §8.
+#           Kept as an exact Math::BigRat (raw/1000), no double involved.
+#   azimuth  - little-endian uint16; raw*(2*PI/65535) - PI (radians) per §8,
+#              but since the PI factor is common to both the divisor and
+#              the bias, this is exactly (2*raw - 65535)/65535 *turns of PI*
+#              - kept as an exact Math::BigRat fraction of PI, in (-1, 1],
+#              matching PencilKit's own on-screen direction convention:
+#              0 = +x (right), 1/2 = +y (down), 1 or -1 = -x (left),
+#              -1/2 = -y (up) - i.e. a positive rotation has torque in +z.
+#   altitude - little-endian uint16; PI/2 - raw*(PI/2/65535) (radians) per
+#              §8 - exactly (65535 - raw)/131070 *turns of PI* - kept as an
+#              exact Math::BigRat fraction of PI, in [0, 1/2] (flat pen = 0,
+#              upright pen = 1/2)
 #   hex   - raw bytes, hex-encoded, no known decoding yet (aspectRatio/
 #           edgeWidth/opacity/threshold - presumed uint16 fixed-point by
 #           analogy to force/azimuth/altitude, per §8's "Not concluded",
 #           but not individually confirmed)
-use constant AZIMUTH_DIVISOR  => 65535 / M_TAU;
-use constant AZIMUTH_BIAS     => (- M_PI);
-use constant ALTITUDE_DIVISOR => 65535 / M_PI2;
-use constant ALTITUDE_BIAS    => M_PI2;
+#
+# force/azimuth/altitude's divisor/bias are exact Math::BigRat constants
+# (azimuth/altitude in units of "turns of PI", per the comment above), so
+# decode_channel()'s raw*(1/DIVISOR)+BIAS arithmetic below stays exact -
+# same expression shape the old floating-point version used, just with
+# BigRat operands instead of Perl doubles.
+use constant FORCE_DIVISOR    => Math::BigRat->new(1000);
+use constant AZIMUTH_DIVISOR  => Math::BigRat->new("65535/2");
+use constant AZIMUTH_BIAS     => Math::BigRat->new(-1);
+use constant ALTITUDE_DIVISOR => Math::BigRat->new(131070);
+use constant ALTITUDE_BIAS    => Math::BigRat->new("1/2");
 my @POINT_CHANNELS = (
 	undef,                        # index 0: location, handled separately
 	[ timestamp   => 4, 'f32'      ],
@@ -311,16 +324,18 @@ sub sort_strokes_by_sort_id {
 }
 
 # Decode one channel's raw bytes per its 'kind' (see @POINT_CHANNELS above).
-# Returns { kind => ..., value => ... } - 'value' is a number for confirmed
-# kinds (f32/force/azimuth/altitude), a hex string for 'hex' (unconfirmed).
+# Returns { kind => ..., value => ... } - 'value' is a Math::BigRat (exact
+# rational; a fraction of PI for azimuth/altitude) for force/azimuth/
+# altitude, a plain number for 'f32', or a hex string for 'hex'
+# (unconfirmed).
 sub decode_channel {
 	my ($kind, $raw) = @_;
 	if ($kind eq 'f32') {
 		return { kind => $kind, value => unpack("f<", $raw) };
 	} elsif ($kind eq 'force') {
-		return { kind => $kind, value => unpack("v", $raw) / 1000.0 };
+		return { kind => $kind, value => unpack("v", $raw) / FORCE_DIVISOR };
 	} elsif ($kind eq 'azimuth') {
-		return { kind => $kind, value => unpack("v", $raw) * (1 / AZIMUTH_DIVISOR) + AZIMUTH_BIAS };
+		return { kind => $kind, value => unpack("v", $raw) / AZIMUTH_DIVISOR + AZIMUTH_BIAS };
 	} elsif ($kind eq 'altitude') {
 		return { kind => $kind, value => ALTITUDE_BIAS - unpack("v", $raw) / ALTITUDE_DIVISOR };
 	} else {
@@ -345,7 +360,9 @@ sub format_channel {
 	if ($c->{kind} eq 'hex') {
 		return sprintf("%s(hex,unconfirmed)", $c->{value});
 	} elsif ($c->{kind} eq 'azimuth' || $c->{kind} eq 'altitude') {
-		return sprintf("%.6frad", $c->{value});
+		return $c->{value}->bstr() . " π";  # exact rational, no decimal; raw UTF-8 bytes, no `use utf8`/-CS
+	} elsif ($c->{kind} eq 'force') {
+		return $c->{value}->bstr();  # exact rational
 	} else {
 		return sprintf("%.6f", $c->{value});
 	}
