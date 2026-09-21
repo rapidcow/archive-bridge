@@ -2,6 +2,7 @@ use 5.006;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
+use File::ShareDir::Install qw(install_share);
 
 my %WriteMakefileArgs = (
 	NAME             => 'RdKw::Apple::Notes::Schema',
@@ -12,6 +13,7 @@ my %WriteMakefileArgs = (
 	MIN_PERL_VERSION => '5.006',
 	CONFIGURE_REQUIRES => {
 		'ExtUtils::MakeMaker' => '0',
+		'File::ShareDir'      => '0',
 	},
 	TEST_REQUIRES => {
 		'Test::More' => '0',
@@ -43,14 +45,17 @@ delete @WriteMakefileArgs{qw(META_ADD META_MERGE)}
 delete $WriteMakefileArgs{LICENSE}
     unless eval { ExtUtils::MakeMaker->VERSION('6.31'); 1 };
 
+install_share('share');
 WriteMakefile(%WriteMakefileArgs);
 
 package MY;
 
 sub postamble
 {
+	my ($Me) = @_;
 	my $command = '$(FULLPERLRUN)';
-	<<'MAKE_FRAG' .
+
+	join "\n", File::ShareDir::Install::postamble($Me), <<'MAKE_FRAG' .
 EXTRA_TEST_FILES=	xt/*
 xtest :: subdirs-test_dynamic
 MAKE_FRAG

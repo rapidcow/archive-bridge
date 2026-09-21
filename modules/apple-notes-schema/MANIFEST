@@ -2,6 +2,7 @@ Changes                 Change log
 MANIFEST                This list of files
 Makefile.PL             Makefile generator
 lib/RdKw/Apple/Notes/Schema.pm
+share/proto/StrokeData.proto
 t/00-load.t             Test - basic load
 xt/changes.t            Test - change log format check
 xt/pod.t                Test - POD syntax check
