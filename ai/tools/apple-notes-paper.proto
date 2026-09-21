@@ -227,21 +227,25 @@ message Counter {  // assumed
 }
 
 message CustomCRDT {  // validated struct SHAPE (field 1 = repeated Sibling)
-                       // via CRDT.custom_crdt(10), which is real and common
-                       // (drawing/rich-content rows land here) - but see
-                       // proto-schema.md: Sibling's own field 2 is typed
-                       // `Proto_Version` in Swift, and DOES decode validly
-                       // as one on ~46% of real customCrdt rows sampled,
-                       // but NOT on the rest (a hard "invalid varint" parse
-                       // failure against Version, not just a semantic
-                       // guess) - those look like raw embedded-format
-                       // (drawing?) payloads landing in the same slot.
-                       // Kept as `bytes` here so this .proto never fails to
-                       // parse real data; re-decode as Version by hand when
-                       // it's the right shape.
+                       // via CRDT.custom_crdt(10). Confirmed (proto-schema.md,
+                       // "custom_crdt embeds drawing::StrokeData verbatim"):
+                       // Sibling.version_or_payload's real content, when it's
+                       // not a genuine Proto_Version (Swift's own static
+                       // type for that field), is Apple's own pre-Coherence
+                       // com.apple.drawing.2 `StrokeData` protobuf message
+                       // (../tools/apple-notes-drawing-2.proto), byte-for-
+                       // byte unchanged - point count/flags/stride/channel
+                       // data all reusable as-is with that file's own
+                       // decoder. Kept `bytes` here (rather than importing
+                       // that message type) so this .proto never fails to
+                       // parse real data and stays independent of that
+                       // file; decode as StrokeData by hand/separately when
+                       // the shape looks right.
   message Sibling {
-    bytes data = 1;               // validated
-    bytes version_or_payload = 2;  // partially validated - see above
+    bytes data = 1;               // validated (shape); semantics unknown -
+                                   // possibly a per-sibling/branch tag, see
+                                   // proto-schema.md
+    bytes version_or_payload = 2;  // validated - see above
   }
   repeated Sibling siblings = 1;  // validated
 }

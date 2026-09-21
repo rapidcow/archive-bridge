@@ -265,6 +265,62 @@ marked uncertain, not a new gap.
   further — worth checking whether it correlates with `RetainCount`, row
   age, or something about the write path that produced them.
 
+## `custom_crdt` embeds `drawing::StrokeData` verbatim
+
+Follow-up to the `custom_crdt`(10) investigation above, confirmed by
+manually walking the raw protobuf bytes of one real sample (field-by-field,
+bypassing `decode_raw`'s guesswork) rather than just eyeballing shapes.
+Sample: a `"default"`-keyed row (bundle `0125AD5D-....bundle`) whose
+payload is `CRDT.custom_crdt(10)` → `CustomCRDT.siblings[0]` →
+`Sibling.version_or_payload`(field 2, 2,865 bytes). Parsing *that* by hand
+as a flat set of protobuf fields gives:
+
+| field # | value                                       | matches `drawing::StrokeData` field... |
+|---------|----------------------------------------------|------------------------------------------|
+| 1       | 16 bytes                                      | `strokeDataUUID` (1, `bytes`, 16B) |
+| 2       | 8-byte fixed64                                | `timestamp` (2, `double`, direct 8-byte) |
+| 3       | `156`                                          | `pointsCount` (3, varint) |
+| 4       | `39` (`0x27` = bits 0,1,2,5)                     | `pointsFlags` (4, varint bitmask) |
+| 5       | `984`                                          | `pointsConstantFlags` (5, varint) |
+| 6       | 14 bytes, `e8 03 00 00 ... ff 7f ... 00 00 80 3f` | `pointsConstantValues` (6, `bytes`) |
+| 7       | 2,808 bytes                                    | `pointsData` (7, `bytes`) |
+| 9       | `154`                                          | `immutablePointsCount` (9, varint) |
+
+Every field number, wire type, AND semantic value lines up with
+`../../tools/apple-notes-drawing-2.proto`'s `StrokeData` message
+(`com.apple.drawing.2`'s own point-path container) - not just structurally,
+byte-for-byte: field 6 starts with the exact same `e8 03 00 00` (1000) and
+`ff 7f` (32767) sentinel bytes that file's own comment already documented
+as showing up in *every* `com.apple.drawing.2` sample. And it isn't a loose
+coincidence-of-shape check either - it self-verifies numerically:
+`pointsFlags = 0x27` sets channel bits 1 (timestamp, 4 bytes), 2 (radius, 4
+bytes), 5 (force, 2 bytes) per the channel table in that same `.proto`'s
+header comment, giving a predicted per-point stride of `8 + 4 + 4 + 2 = 18`
+bytes; `2808 bytes / 156 points = 18.0` exactly, no remainder. That
+agreement had no reason to hold if this were merely StrokeData-*shaped*
+rather than *literally* a `drawing::StrokeData` message.
+
+**Conclusion: Coherence's `custom_crdt` escape hatch stores Apple's own
+pre-Coherence `drawing::StrokeData` protobuf message unchanged** - same
+field numbers, same wire encoding, same per-point channel layout
+(`point-decode-pipeline.md`'s 11-channel table applies without
+modification). `com.apple.drawing.2`'s existing `StrokeData`
+decoder/channel-unpacker can be reused as-is for Paper drawings; no new
+point-geometry parser is needed, only new code to locate the bytes (walk
+`Document` → `CRDT.custom_crdt` → `CustomCRDT.siblings[].version_or_payload`
+→ raw `StrokeData` bytes, cross-`Reference`-row rather than
+cross-`Stroke`-field the way `com.apple.drawing.2` nests it).
+
+Not yet checked: what `Sibling`'s *first* field (`data`, 1) holds when it's
+not the small Version-shaped blob seen in this one sample (`CustomCRDT`
+being named "siblings" suggests concurrent/conflicting versions under a
+CRDT merge - plausibly `data` distinguishes which sibling/branch this is);
+whether `Stroke`-level metadata (`bounds`, `transform`, `inkIndex`,
+`sortID`) is reused the same verbatim way or gets rebuilt as ordinary
+`Struct` properties instead (nothing in this session's samples confirms
+either way - see the open question this raises for `Ink`/`Transform`/
+`Color`/`StrokeID` below).
+
 ## Not yet done / open questions
 
 - `OrderedSet`/`Set`/`Sequence`/`Subsequence`'s real internal field numbers
@@ -275,12 +331,8 @@ marked uncertain, not a new gap.
   structure `envelope.md` found from raw bytes alone, now attached to a
   real type name (`Proto_OrderedSet` → `Proto_Set`) but not a confirmed
   field-by-field mapping.
-- `custom_crdt`(10)'s `Sibling.version_or_payload` — when it doesn't decode
-  as `Version`, what is it? Point-data-shaped bytes were seen in one
-  example (`0125AD5D-....bundle`, a `.5MB`-ish row) — worth cross-checking
-  against `com.apple.drawing.2`'s known point-channel layout
-  (`../com.apple.drawing.2/point-decode-pipeline.md`) to see if it's the
-  same encoding reused, or something new.
+- ~~`custom_crdt`(10)'s `Sibling.version_or_payload`~~ **resolved, see
+  "`custom_crdt` embeds `drawing::StrokeData` verbatim" below.**
 - `Proto_Version`/`Proto_RLE`'s own field numbers don't cleanly fit
   declaration order either: one root-row sample's `Document.version(5)`
   decoded as `{1: "\000", 2: {2: "\000\344\007"}}` — the outer `Version`
