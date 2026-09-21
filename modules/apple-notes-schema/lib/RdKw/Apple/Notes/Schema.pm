@@ -4,11 +4,11 @@ our $VERSION = '0.00_00';
 $VERSION = eval $VERSION;
 
 # XXX: This is not standard (I don't know how CPAN does it...???)
-(our $DISTNAME = __PACKAGE__) =~ s/::/-/g;
+our $DISTNAME = 'apple-notes-schema';
 
 =head1 NAME
 
-Apple::Notes::Schema - apple notes ProtoBuf schemas
+Apple::Notes::Schema - Apple notes ProtoBuf schema
 
 =cut
 

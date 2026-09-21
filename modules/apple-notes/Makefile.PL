@@ -4,10 +4,10 @@ use warnings;
 use ExtUtils::MakeMaker;
 
 my %WriteMakefileArgs = (
-	NAME             => 'RdKw::Apple::Notes',
+	NAME             => 'apple-notes',
 	AUTHOR           => q{Ethan Meng <ethan@rapidcow.org>},
 	VERSION_FROM     => 'lib/RdKw/Apple/Notes.pm',
-	ABSTRACT_FROM    => 'lib/RdKw/Apple/Notes.pm',
+	ABSTRACT         => q{Apple notes decoder},
 	LICENSE          => 'artistic_2',
 	MIN_PERL_VERSION => '5.006',
 	CONFIGURE_REQUIRES => {

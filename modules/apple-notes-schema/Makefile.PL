@@ -5,10 +5,10 @@ use ExtUtils::MakeMaker;
 use File::ShareDir::Install qw(install_share);
 
 my %WriteMakefileArgs = (
-	NAME             => 'RdKw::Apple::Notes::Schema',
+	NAME             => 'apple-notes-schema',
 	AUTHOR           => q{Ethan Meng <ethan@rapidcow.org>},
 	VERSION_FROM     => 'lib/RdKw/Apple/Notes/Schema.pm',
-	ABSTRACT_FROM    => 'lib/RdKw/Apple/Notes/Schema.pm',
+	ABSTRACT         => q{Apple notes ProtoBuf schema},
 	LICENSE          => 'artistic_2',
 	MIN_PERL_VERSION => '5.006',
 	CONFIGURE_REQUIRES => {

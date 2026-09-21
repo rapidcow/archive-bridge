@@ -5,7 +5,7 @@ $VERSION = eval $VERSION;
 
 =head1 NAME
 
-Apple::Notes::Drawing - apple notes drawing decoder
+Apple::Notes::Drawing - Apple notes drawing decoder
 
 =cut
 

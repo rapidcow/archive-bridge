@@ -15,5 +15,5 @@ inc/
 nytprof.out
 pod2htm*.tmp
 pm_to_blib
-RdKw-Apple-Notes-Schema-*
-RdKw-Apple-Notes-Schema-*.tar.gz
+apple-notes-schema-*
+apple-notes-schema-*.tar.gz

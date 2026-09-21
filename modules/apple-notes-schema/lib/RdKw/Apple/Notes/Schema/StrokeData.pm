@@ -5,7 +5,7 @@ our $VERSION = $RdKw::Apple::Notes::Schema::VERSION;
 
 =head1 NAME
 
-Apple::Notes::Schema::StrokeData - StrokeData protobuf message
+Apple::Notes::Schema::StrokeData - StrokeData ProtoBuf message
 
 =cut
 

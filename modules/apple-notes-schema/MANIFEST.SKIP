@@ -9,7 +9,7 @@
 ^MANIFEST\.SKIP$        This MANIFEST exclude ruleset
 ^MYMETA\.json$          Makefile.PL artifact
 ^MYMETA\.yml$           Makefile.PL artifact
-^RdKw-Apple-Notes-Schema    This distribution
+^apple-notes-schema-    This distribution
 ^bench/                 Benchmark?
 ^blib/                  Build lib
 ^cpanfile$              CPAN dependencies
