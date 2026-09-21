@@ -4,9 +4,12 @@
 # CRDT+protobuf wire format documented in
 # notes/apple/com.apple.paper/envelope.md.
 #
-# This is a raw-inspection tool, not a decoder: it does not know the
-# .proto schema (none has been written yet for this format - see the note
-# above for what's confirmed vs. not). It decodes the Id encoding and
+# This is a raw-inspection tool, not a decoder: it does not itself know any
+# .proto schema. A schema now exists - apple-notes-paper.proto, in this same
+# directory, validated against real data (see notes/apple/com.apple.paper/
+# proto-schema.md) - pipe this script's --id/--out bytes into
+# `protoc --proto_path=. --decode=Document apple-notes-paper.proto` to
+# actually decode a row. It decodes the Id encoding and
 # strips the 8-byte "crdt"+u32-version prefix found on most Data blobs
 # (again, see envelope.md), and otherwise just dumps bytes for you to feed
 # to `protoc --decode_raw` or similar.

@@ -1,0 +1,355 @@
+// Reverse-engineered schema for the newer ("Coherence") Apple Notes Paper
+// bundle format, found in `*.bundle/Database/data.sqlite3` under
+// `Accounts/<uuid>/Paper/Bundles/` (the `Reference`/`Assets` tables - see
+// notes/apple/com.apple.paper/envelope.md for the on-disk envelope, i.e.
+// the `crdt`+u32-version prefix and Id encoding that sit *outside* this
+// schema; strip that before decoding with this file).
+//
+// Unlike apple-notes-drawing-2.proto (whose field numbers came purely from
+// `protoc --decode_raw` byte-level inspection), most of the message/field
+// NAMES and TYPES here are hard fact: read directly out of Coherence
+// .framework's own Swift protobuf-message metadata via
+// `ipsw swift-dump <dyld_shared_cache> <path-to-Coherence-dylib-inside-it>
+// --type 'Proto_.*' --demangle`
+// (the standalone `ipsw dyld extract`ed Mach-O is NOT enough - swift-dump
+// needs the full shared cache to resolve cross-image field-descriptor
+// pointers, e.g. into InternalSwiftProtobuf.framework; run against just the
+// extracted binary and it fails with "not within any segment's address
+// range"). See notes/apple/com.apple.paper/coherence-framework.md for the
+// methodology and notes/apple/com.apple.paper/proto-schema.md for the full
+// captured type dump and the field-NUMBER evidence below.
+//
+// `protoc --decode=Document` against this file cleanly parses 45,092 of
+// 45,130 crdt-prefixed rows across all 21 sampled bundles (99.92%) - the 38
+// failures are all manifest-adjacent rows whose payload touches
+// CRDT.orderedSet(9), which is exactly the part of this schema marked
+// least-confident below. See proto-schema.md for the full sweep writeup.
+//
+// Field NUMBERS are a mix of two confidence levels, marked per-field:
+//   - "// validated": empirically confirmed by decoding real bytes from 21
+//     real bundles (45,170 Reference rows) - see proto-schema.md for the
+//     exact chains. Declaration order (the order Swift's generated `var`s
+//     appear in, which SwiftProtobuf codegen always mirrors 1:1 from the
+//     source .proto) turned out to equal field number for every message
+//     below EXCEPT Document itself.
+//   - "// assumed": declaration order carried over as a guess, not yet seen
+//     in a real decoded sample. Could be wrong, particularly for any
+//     message with optional/oneof fields added or removed over time (see
+//     Document below, whose own field numbers are NOT sequential - the one
+//     message this pattern demonstrably breaks for, most likely because as
+//     the root/manifest envelope it's the most schema-edited message here).
+//
+// Message names below keep Apple's real `Proto_` prefix (a hard fact, not
+// invented) but drop the module qualifier (`Coherence.`).
+
+syntax = "proto3";
+
+// --- Leaf/value types -------------------------------------------------
+
+message Timestamp {  // validated (CRDT > Register.timestamp)
+  uint64 uuid = 1;     // validated - replica id
+  int64 counter = 2;   // validated - logical clock
+}
+
+message Version {  // field NUMBER 5 (as Document.version) validated on all
+                    // 21 sampled root rows; this message's OWN field
+                    // numbers below are a mix - see per-field notes
+  repeated uint64 uuids = 1;  // validated - decodes as a real scalar value
+                               // on every root row (not just "doesn't crash")
+  repeated RLE index_sets = 2;  // assumed - decodes without crashing, but
+                                 // its own inner content doesn't parse as
+                                 // RLE below (see runs), so this name/type
+                                 // pairing isn't confirmed either
+}
+
+message RLE {  // CONFIRMED WRONG, not just unconfirmed: every sampled
+                // root row's Version.index_sets payload puts its content
+                // at raw field tag 2, and protoc's decoder reports it as
+                // an unmapped/unknown field against `runs = 1` below - a
+                // clean, reproducible mismatch across all 21 samples, not
+                // a one-off. Field number left as the declaration-order
+                // guess since no better candidate is known yet.
+  repeated int64 runs = 1;
+}
+
+message KeyPath {  // validated (Reference.keyPath)
+  repeated Value components = 1;  // assumed
+  bytes data = 2;                 // validated - raw CRKeyPath bytes, i.e.
+                                   // this IS the sqlite `Reference.Id`
+                                   // encoding documented in envelope.md
+}
+
+message Constants {  // validated (top-level field 6 of the crdt-prefixed
+                      // envelope around every "default"/uuid row) - this is
+                      // envelope.md's "field 6 ... literal string table"
+  bytes uuids = 1;           // validated - shape fits; semantics unconfirmed
+  repeated string strings = 2;  // validated - "bounds"/"frame"/"drawing" etc
+  repeated bytes datas = 3;     // assumed
+}
+
+message RepeatedValue {  // assumed
+  repeated Value values = 1;
+}
+
+message Asset {  // assumed
+  uint64 type = 1;
+  bytes digest = 2;
+  bytes data = 3;
+}
+
+message CustomCRValue {  // assumed
+  repeated uint64 tag = 1;
+  repeated Value value = 2;
+}
+
+// Proto_Value: a self-describing tagged union - almost every leaf in the
+// tree is one of these. Field numbers below (the oneof case tags) are
+// validated end-to-end via a real 7-level nested decode:
+// CRDT.register(1) -> Register.value(2) -> Value.optional(9) ->
+// Optional.wrapped(1) -> Value.reference(8) -> Reference.keyPath(5) ->
+// KeyPath.data(2) == the literal bytes "\x01default" (a weak/optional
+// reference to another row's Id). See proto-schema.md for the full trace.
+message Value {
+  oneof tagged {
+    uint64 uint = 1;               // validated (position in the chain)
+    double double = 2;              // assumed
+    uint64 string = 3;               // assumed - index into a Constants.strings table?
+    bytes data = 4;                  // validated - seen as 4x float64 CGRect payload
+    int64 sint = 5;                  // assumed
+    uint64 uuid = 6;                 // assumed
+    Version version = 7;             // assumed
+    Reference reference = 8;         // validated
+    Optional optional = 9;           // validated
+    Timestamp timestamp = 10;        // assumed
+    RepeatedValue repeated_value = 11; // assumed
+    TaggedValue tagged_value = 12;   // assumed
+    Asset asset = 13;                // assumed
+    CustomCRValue custom = 14;       // assumed
+    float float = 15;                // assumed
+    uint64 weak_reference = 16;      // assumed
+    uint64 strong_reference = 17;    // assumed
+  }
+}
+
+message Optional {  // validated (see Value chain above)
+  Value wrapped = 1;  // validated
+}
+
+message TaggedValue {  // assumed
+  int64 tag = 1;
+  Value wrapped = 2;
+}
+
+// --- CRDT container types ----------------------------------------------
+
+message Register {  // validated (top field-1 payload of most content rows)
+  Timestamp timestamp = 1;  // validated
+  Value value = 2;           // validated
+  CRDT crdt = 3;              // assumed
+  CRDT partial_crdt = 4;      // assumed
+}
+
+message Struct {  // validated (Proto_Struct - the self-describing
+                   // "bounds"/"frame"/"drawing" property dictionary)
+  repeated uint64 keys = 1;     // validated - packed varint indices into
+                                 // the enclosing record's Constants.strings
+  repeated CRDT values = 2;     // validated
+  repeated uint64 int_keys = 3;  // assumed
+}
+
+message Set {  // assumed
+  message Element {
+    Value key = 1;
+    CRDT value = 2;
+    Version added_by = 3;
+    CRDT partial_value = 4;
+  }
+  uint64 uuid = 1;
+  repeated Element insertions = 2;
+  repeated Element removed = 3;
+  Version version = 4;
+  Timestamp timestamp = 5;
+  Version min_version = 6;
+}
+
+message Sequence {  // assumed - rich-text / ordered-element runs
+  message AttributeRun {
+    message Attribute {
+      uint32 key = 1;
+      Value value = 2;
+    }
+    uint32 length = 1;
+    repeated Attribute attributes = 2;
+    Timestamp timestamp = 3;
+  }
+  string string = 1;
+  repeated Value elements = 2;
+  repeated Subsequence subsequence = 3;
+  repeated AttributeRun attribute_runs = 4;
+  Version version = 5;
+  Version added_by_version = 6;
+  Version from_version = 7;
+  Version from_added_by_version = 8;
+}
+
+message Subsequence {  // assumed - RGA/Fugue-style ordered-list run, see
+                        // envelope.md "Possible ordered-sequence CRDT
+                        // structure" for the byte-level shape this likely
+                        // explains (position-pair + monotonic tie-break tag)
+  enum ContentOptions {
+    DEFAULT = 0;      // validated name (Swift enum, raw value unconfirmed)
+    HAS_CONTENT = 1;
+    NO_CONTENT = 2;
+  }
+  uint32 length = 1;
+  repeated Timestamp added_by = 2;
+  repeated uint32 child = 3;
+  repeated Timestamp removed_added_by = 4;
+  ContentOptions content_options = 5;
+  Timestamp sequence_start_id = 6;
+}
+
+message OrderedSet {  // validated struct shape; assumed field numbers
+  enum TypeEnum {
+    ORDERED_SET = 0;         // validated name
+    ORDERED_DICTIONARY = 1;
+  }
+  Set set = 1;
+  Sequence sequence = 2;
+  repeated Timestamp timestamps = 3;
+  TypeEnum type = 4;
+}
+
+message Counter {  // assumed
+  uint64 uuid = 1;
+  Version positive = 2;
+  Version negative = 3;
+}
+
+message CustomCRDT {  // validated struct SHAPE (field 1 = repeated Sibling)
+                       // via CRDT.custom_crdt(10), which is real and common
+                       // (drawing/rich-content rows land here) - but see
+                       // proto-schema.md: Sibling's own field 2 is typed
+                       // `Proto_Version` in Swift, and DOES decode validly
+                       // as one on ~46% of real customCrdt rows sampled,
+                       // but NOT on the rest (a hard "invalid varint" parse
+                       // failure against Version, not just a semantic
+                       // guess) - those look like raw embedded-format
+                       // (drawing?) payloads landing in the same slot.
+                       // Kept as `bytes` here so this .proto never fails to
+                       // parse real data; re-decode as Version by hand when
+                       // it's the right shape.
+  message Sibling {
+    bytes data = 1;               // validated
+    bytes version_or_payload = 2;  // partially validated - see above
+  }
+  repeated Sibling siblings = 1;  // validated
+}
+
+// Proto_CRDT: the top-level "what kind of CRDT lives here" tagged union.
+// Case tags validated via the same Register.value(2)->... chain used for
+// Value, and independently via Struct(field 4 = "composite") observed
+// directly under the Document.root(crdt-case) envelope of ordinary rows.
+message CRDT {
+  // Case numbers 1 and 4 are validated by the deep-nesting trace, AND by a
+  // 2,247-row sample decode (100% success on both). 10 (customCrdt) is also
+  // real/common in the sample (drawing/rich-content rows land there) but
+  // its payload only partially matches the Sibling shape below - see
+  // CustomCRDT. Cases 2/3/5/6/7/8/9 never appeared in the 45,170-row
+  // sample at all (Assets table was empty too - envelope.md), so their
+  // field numbers are unconfirmed declaration-order guesses.
+  oneof tagged {
+    Register register = 1;        // validated
+    Set set = 2;                   // assumed, unobserved
+    Set dictionary = 3;            // assumed, unobserved (same type as set)
+    Struct composite = 4;          // validated
+    Sequence string = 5;           // assumed, unobserved
+    Sequence sequence = 6;         // assumed, unobserved
+    OrderedSet array = 7;          // assumed, unobserved
+    Counter counter = 8;           // assumed, unobserved
+    OrderedSet ordered_set = 9;    // assumed, unobserved
+    CustomCRDT custom_crdt = 10;   // validated (shape only, see above)
+  }
+}
+
+// --- Reference / top-level envelope -------------------------------------
+
+message Reference {  // validated - this is the sqlite `Reference` table's
+                      // `Data` column payload shape (matches
+                      // RetainCount/ChildRetainCounts naming from
+                      // envelope.md too, via the sibling RetainCounts msg)
+  enum TypeEnum {
+    SHARED = 0;  // validated name
+    WEAK = 1;
+  }
+  uint64 uuid = 1;        // assumed
+  TypeEnum type = 2;       // assumed
+  Version version = 3;      // assumed
+  CRDT crdt = 4;             // assumed
+  KeyPath key_path = 5;      // validated
+}
+
+message RetainCounts {  // assumed - matches sqlite RetainCount/
+                         // ChildRetainCounts columns from envelope.md
+  repeated KeyPath reference_keys = 1;
+  repeated int64 reference_retain_counts = 2;
+  bytes asset_digests = 3;
+  repeated int64 asset_retain_counts = 4;
+  repeated KeyPath subcapsule_keys = 5;
+  repeated int64 subcapsule_retain_counts = 6;
+  Constants constants = 7;
+}
+
+message Selection {  // assumed - not yet seen in sample data
+  message Range {
+    Timestamp from_char = 1;
+    Timestamp to_char = 2;
+  }
+  enum Affinity {  // Swift shows a synthetic UNRECOGNIZED case too - that's
+                    // SwiftProtobuf's generic "unknown raw value" case, not
+                    // a real wire value, so it's omitted here.
+    BACKWARD = 0;
+    FORWARD = 1;
+  }
+  repeated bytes replica_uuid = 1;
+  repeated Range range = 2;
+  Affinity affinity = 3;
+}
+
+// Proto_Document: the outer envelope. This is the ONE message where
+// declaration order does NOT equal field number - see proto-schema.md.
+// Field numbers below for `root`/version/constants/version_uuid ARE
+// validated (seen directly, repeatedly, in real bundle data); every other
+// field's number is unobserved/unknown (never appeared in the 45,170-row
+// sample) and is commented out rather than guessed.
+message Document {
+  oneof root {
+    CRDT crdt = 1;          // validated - the payload of ordinary content rows
+    Value value = 2;         // assumed (never observed, but 3rd case = 3 is
+                              // validated, and cases are contiguous, so
+                              // this middle one almost has to be 2)
+    Reference reference = 3;  // validated - the 0xFF root/manifest row's
+                               // pointer at the "default"-named row
+  }
+  // consumeReferences: not a protobuf field - Swift metadata shows this as
+  // some kind of closure/function-typed stored property, not a `var` the
+  // decoder would visit. Left out entirely.
+  // repeated Reference references = ?;      // unobserved field number
+  // repeated Asset assets = ?;               // unobserved field number
+  Version version = 5;         // field NUMBER validated (seen on every
+                                // 0xFF root row); the `Version` NAME/TYPE
+                                // is not - its own nested RLE payload
+                                // didn't decode cleanly either (see
+                                // proto-schema.md), so this is "a message
+                                // lives at tag 5" more than "this message"
+  Constants constants = 6;     // validated - seen on every content row,
+                                // and its own fields (uuids/strings) match
+                                // the real "bounds"/"frame"/"drawing" data
+  // repeated Reference delta_references = ?; // unobserved field number
+  bytes version_uuid = 8;      // field NUMBER validated (seen on every
+                                // 0xFF root row, always a bare scalar);
+                                // NAME is a guess - a 16-byte scalar here
+                                // is consistent with several Document
+                                // fields, not confirmed to be this one
+  // Version min_version = ?;                 // unobserved field number
+}

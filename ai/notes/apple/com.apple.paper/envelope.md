@@ -213,20 +213,44 @@ up once more records are decoded.
    session — this is meant to be a jumping-off point for that, not a
    finished decoder.
 
+## Update (later session): field names, numbers, and a real `.proto`
+
+See `proto-schema.md` for the full story and
+`../../tools/apple-notes-paper.proto` for the schema itself - both new this
+session. Highlights, resolving several items below:
+
+- **Field-name resolution: answered.** `ipsw swift-dump` against the live
+  dyld shared cache (not the standalone extract) reads real field
+  names/types straight out of Swift's own metadata for every `Proto_*`
+  type, no disassembly needed. The `crdt`-wrapped messages' outer envelope
+  is `Proto_Document`; the string table seen at field 6 is
+  `Proto_Constants`.
+- **"Is there a global name table per bundle, per record, or inline every
+  time?": answered — per record.** `Proto_Struct.keys` are indices into
+  that same record's `Document.constants.strings`, confirmed index-for-
+  index on the `"default"` row's sample (3 keys ↔ 3 strings).
+- **The 19 bare-protobuf-but-UUID-keyed outlier rows: answered.** Ordinary
+  `Proto_Document` blobs, just missing the 8-byte `crdt`+u32-version
+  prefix — not a different type.
+- **A `.proto` file now exists**: `../../tools/apple-notes-paper.proto`,
+  field-numbered and checked with `protoc --decode` against real rows
+  across all 21 bundles (partial failures localized to `CRDT.custom_crdt`
+  rows — see `proto-schema.md`, likely where drawing/rich content actually
+  lives in this format).
+- The two opaque byte strings (16-byte and 29-byte) are now understood
+  structurally: the 16-byte one is `Document.version_uuid` (root rows) or a
+  `KeyPath.data` (a referenced row's Id); the 29-byte one is
+  `Constants.uuids`, whose exact semantics (hash? concatenated uuids of a
+  different count?) are still unconfirmed.
+
 ## Not yet done / open questions
 
 - What `Assets` holds (empty in every sample so far).
-- Field-name resolution for the `crdt`-wrapped messages beyond the 3 names
-  incidentally seen in one string table (`bounds`, `frame`, `drawing`) — is
-  there a global name table per bundle, per record, or is it inline every
-  time?
-- What the 19 bare-protobuf-but-UUID-keyed outlier rows are.
-- The un-decoded 16-byte and 29-byte opaque byte strings in the samples
-  above (uuid-shaped and hash-shaped respectively, but not confirmed as
-  either).
-- No `.proto` file exists yet for this format (compare
-  `../../tools/apple-notes-drawing-2.proto`); writing one, and a decoder
-  script, is the natural next step once more field names are pinned down.
+- What `CustomCRDT.Sibling`'s second field actually is on the ~half of
+  sampled rows where it doesn't parse as `Proto_Version` — likely where
+  drawing/PaperKit content lives; see `proto-schema.md`.
+- `Proto_Version`/`Proto_RLE`'s exact field numbers (one sample's nested RLE
+  entry didn't match declaration-order expectations - see `proto-schema.md`).
 - The UTI string for this format has not actually been read off any
   `ZICCLOUDSYNCINGOBJECT` row yet — `com.apple.paper` is this repo's working
   name for the notes directory, not a confirmed constant.

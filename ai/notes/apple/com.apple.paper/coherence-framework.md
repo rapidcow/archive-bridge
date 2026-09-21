@@ -51,7 +51,25 @@ non-empty) and each carries `SwiftProtobuf.Message`-family protocol
 conformance markers (`_associated conformance ... InternalSwiftProtobuf7Message`
 entries for each type). That's a hard fact, not inference.
 
-**Not confirmed:** field numbers, field names, or even the exact mapping in
+**Update (later session, see `proto-schema.md`):** field names/types ARE
+now confirmed, without needing any disassembly - `ipsw swift-dump` run
+against the *live dyld shared cache* (not the standalone extract used for
+this file's own methodology; that fails on cross-image field-descriptor
+pointers) walks Swift's field metadata directly and prints every `Proto_*`
+type's real stored-property names and types. Field *numbers* are now also
+confirmed for the parts of the schema that actually appear in real Paper
+bundle data (validated via a 7-level nested `protoc --decode_raw` trace,
+then hardened into a working `.proto` and checked against tens of thousands
+of real rows) - see `proto-schema.md` and `../../tools/apple-notes-paper.proto`
+for the full picture, including what's still `// assumed` (mostly
+`Proto_Document`'s own numbering past what was observed, and several
+`Proto_CRDT` oneof cases that never showed up in the 21-bundle sample used).
+The disassembly approach outlined below was never attempted and, for the
+common-path messages at least, turned out not to be necessary - kept here
+for what it's worth if the remaining `// assumed` fields ever need pinning
+down for real.
+
+**Originally not confirmed:** field numbers, field names, or even the exact mapping in
 the table above beyond "these names strongly suggest this role." No
 `_protobuf_nameMap` static properties were found as exported/named symbols
 for any of these types (checked via `nm` grep across the whole symbol
@@ -80,9 +98,9 @@ build). Locating them would require either:
   individually named, which could let you find call sites by imported-symbol
   cross-reference instead of by conformance-record walking).
 
-Neither of those was attempted yet this session - this file stops at "the
-schema-shaped types exist and roughly what they're each probably for,"
-not "here are the field numbers."
+Neither of those was attempted this session (they weren't needed - see the
+update above), but the reasoning is left as-is for whatever `// assumed`
+fields remain unresolved.
 
 ## Methodology
 
