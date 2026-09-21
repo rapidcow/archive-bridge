@@ -1006,3 +1006,86 @@ symbol as a call target - not inferred from names alone. No sample
 `NoteStore.sqlite` data was used this update (pure disassembly, no need
 for empirical cross-check here). No `.proto`/decoder changes - this was a
 semantics-only investigation, no new wire-level fact was established.
+
+## Update 8 (2026-09-21): does a `substrokes` fragment actually own its own geometry?
+
+Follow-up to Update 7, prompted by the user reading a real decoded excerpt
+(`Z_PK=20335`, the "E" note, a 2020 handwriting sample with heavy eraser
+use) and asking directly: when an erase "splits" a stroke, does each
+resulting piece actually get its own independent path data, or is
+something else going on? This update checks that empirically against the
+user's own archive - no new disassembly, just decoding real bytes and
+counting.
+
+### The excerpt in question
+
+One erased stroke from `Z_PK=20335` (60 raw points, `ink-index 0`,
+`bounds` 84×60 local size):
+
+- Its `(points ...)` list is the full, ordinary 60-sample path - same
+  shape as any un-erased stroke (location + azimuth/force/opacity/
+  timestamp per point, all already-confirmed channels).
+- `centerline-slices` holds **one 89-point polyline** - more points than
+  the stroke's own 60.
+- `mask-points` holds **one point**, `(0, 59)` - and the stroke's own
+  local bounds height is 60, so this spans almost the stroke's entire
+  height.
+
+### The 60-vs-89 point-count mismatch means `centerlineSlices` isn't a subsequence of the original path
+
+If erasing just remembered "keep points 12 through 40" of the original
+path, the slice could never have *more* points than the original 60.
+Instead this is freshly computed geometry - consistent with Update 7's
+disassembly-confirmed mechanism (`-generateMask` builds a stroke's inked
+*outline* polygon, both edges of the ink ribbon, from its path + per-point
+width; erasing runs `ClipperLib` polygon differencing between that outline
+and the eraser gesture's own outline). Clipping two polygons against each
+other introduces new vertices at every edge intersection, so the surviving
+boundary naturally has a different point count than the source centerline
+- not a strict subset of it. **This part is inference from the arithmetic
+mismatch, not a re-disassembly of the exact reconstruction step** - Update
+7 confirmed `generateMask`/`ClipperLib::SimplifyPolygons` are real call
+targets, but didn't trace the specific code path that turns a clipped
+polygon back into a `centerlineSlices`-shaped point list.
+
+### Empirically, `substrokes` fragments never carry their own points - full-corpus check
+
+Decoded every `com.apple.drawing.2` attachment in the archive (1278
+drawings) and walked the full recursive stroke tree (`Stroke.substrokes`,
+up to 12 levels deep - see Update 6):
+
+- **0 of 3780** substroke fragments, anywhere in the archive, have their
+  own `stroke_data`/points. Every single one is empty on that field.
+- Of 3332 stroke records that have `substrokes` at all, only 127 (3.8%)
+  carry `centerlineSlices`/`maskPoints` on themselves directly - the rest
+  push that data onto the children instead, while the children push the
+  points responsibility back up to the (points-carrying) ancestor.
+
+**Reading, offered carefully**: there is exactly one drawn path per
+original stroke, ever - `substrokes` are not literal duplicate strokes
+with their own geometry, they're lightweight per-fragment *descriptions*
+("this piece of the parent's ink is still visible, clipped this way")
+layered on top of a single shared point array. Rendering a masked stroke
+therefore requires re-deriving each fragment's visible ink from the
+ancestor's original points at draw/read time, using that fragment's own
+`centerlineSlices`/`maskPoints`. **This is the weakest claim in this
+update** - it's the only reading consistent with "0/3780 fragments have
+points," but no disassembled render-path function was found this pass
+that actually performs this reconstruction; it's inferred from what's
+absent on the wire, not observed in code. The user was right to be
+skeptical of "splitting effectively splits" as a literal description -
+the data backs up that skepticism: nothing about the original stroke is
+actually duplicated or physically split, only annotated.
+
+### Provenance
+
+Purely empirical - decoding real `Stroke`/`StrokeData` bytes from the
+user's own archive (same fields Updates 4-6 already confirmed the wire
+format of), no new SSH/disassembly this pass. Full-corpus counts (not
+content) were needed to state "0 of 3780" and "127 of 3332" correctly, per
+this session's established convention (Update 6) of preferring full-corpus
+counts over samples when a prevalence claim is being made. The `Z_PK=20335`
+excerpt itself is the one already shown to the user directly in
+conversation (see `render_stroke()`'s `(centerline-slices ...)`/`(mask-
+points ...)` output, unchanged since Update 6's decoder wiring). No
+`.proto`/decoder changes this update.
