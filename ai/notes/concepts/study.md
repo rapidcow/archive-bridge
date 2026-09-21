@@ -688,3 +688,101 @@ how the Apple Notes project leans on real modules for solved problems but
 still hand-rolled the genuinely novel per-point channel decode)? The two
 plans want different code structure from the very first line, so worth
 pinning down before starting.
+
+**Resolved** (decided in conversation): use the modules. `ai/tools/
+concepts-drawing-decode.pl` is built on `Mac::PropertyList`/`Archive::Zip`
+directly, not a hand-rolled bplist/zip reader.
+
+## 13. `ai/tools/concepts-drawing-decode.pl` - findings from actually building it
+
+First working decoder, modeled on `apple-notes-drawing-decode.pl`'s shape
+(container decode / graph walk / s-expression or InkML render, split into
+separate layers) but outputting the full named/nested layer tree (§3)
+instead of a flat stroke list - see the script's own header comment for
+the full rationale on each point below; this section is the durable
+record of what testing it against our real sample corpus (§10) turned up
+that §1-§12 didn't already know.
+
+**A real, confirmed bug in the installed `Mac::PropertyList` (worked
+around, not patched in place)**: its binary-plist array/dict readers
+unpack object-reference bytes with `_object_ref_size == 1 ? "C*" : "n*"` -
+only 1-byte refs are handled correctly; anything needing 4-byte refs
+(any archive with >65535 low-level bplist objects total - not a contrived
+case, a few thousand strokes gets there easily given how many sub-objects
+each one has) gets silently misparsed. Symptom looked exactly like a
+self-referencing object (bplist index 0 appearing to reference itself),
+recursing until the process was killed - confirmed via `Carp::cluck` that
+it's `unpack("n*", ...)` misreading 4-byte big-endian refs as 2-byte ones,
+not a real cycle in the data. Reproduced against a real file in our own
+corpus: `~/my/art/export/iPad/New Folder/New Drawing 2 Copy.concept`
+(trailer decodes to `ref_size=4, num_objects=92039`). Since the buggy
+closures are private to a `BEGIN` block in `ReadBinary.pm` and unreachable
+from outside, the script replaces `_read_object`/`_read_object_at_offset`
+wholesale (typeglob assignment) with a corrected reimplementation that
+also adds memoization by object index (the original has none - harmless
+for small files, wasteful for large ones with heavily-shared objects like
+every stroke's `$class`). Fixed, this file now parses in well under a
+second. Worth reporting upstream at some point; not done yet.
+
+**Zip member names aren't always spelled the way you'd expect**: one real
+file (`~/my/art/export/iPad/Welcome to Concepts/Section 1/Untitled
+1.concept`, dated 2020 - an older export) stores its entries with a
+leading `/` (`/Strokes.plist`, not `Strokes.plist`), which
+`Archive::Zip`'s exact-match `memberNamed()` then can't find at all. The
+script now matches by exact name, leading-`/`-stripped name, or `/`-suffix
+rather than one fixed spelling (`find_member()`). Before this fix, the
+script wrongly reported "no Strokes.plist" for a file that in fact had
+one - worth remembering if any other tool in this repo ever reaches for
+`memberNamed()` directly.
+
+**A stroke's `$classname` is not reliably "Stroke" - it can be a per-tool
+subclass, and this resolves part of §11 Q2**: a real file
+(`.../Welcome to Concepts/Section 1/Untitled 2.concept`) has strokes whose
+leaf class is `BallpointPen`, not `Stroke` - confirmed its `$classes`
+ancestry is `[BallpointPen, Stroke, DrawingItem, NSObject]`, i.e. a real
+subclass, not a naming coincidence. This means classifying items by exact
+`$classname eq 'Stroke'` (as this script originally did, and as you'd
+naturally write from the one Converted-PLISTS reference sample) silently
+drops any stroke drawn with whatever tool produces that subclass - the
+script now dispatches by ancestry (`is_a($objects, $item, 'Stroke')`,
+checking the full `$classes` list) instead, and reports the leaf class
+name alongside `brushToolNew` in its output specifically so this kind of
+per-tool subclass stays visible rather than silently collapsing to
+"Stroke" as every 3rd-party viewer's code currently does.
+
+Cross-referencing `$classname` against `brushToolNew` across our whole
+real-file corpus (17 files) gives a first, partial, empirical answer to
+§11 Q2 ("no id→name table found for `brushToolNew`"):
+
+```
+BallpointPen  tool=1   (1539 strokes, 100% of BallpointPen-classed strokes)
+Stroke        tool=1   (6437 strokes)
+Stroke        tool=2   (4 strokes)
+Stroke        tool=11  (24 strokes)
+Stroke        tool=14  (3 strokes)
+Stroke        tool=16  (24 strokes)
+```
+
+Reading: `brushToolNew=1` is very likely "ballpoint pen" (every
+`BallpointPen`-classed stroke has it, with high confidence given the
+sample size) - but the same id also appears on plain `Stroke`-classed
+objects in other (newer-looking) files, suggesting Concepts *used to*
+encode tool identity via a per-tool subclass (`BallpointPen`, and
+presumably siblings for Marker/Fineliner/Pencil/etc., none seen yet in
+our corpus) and at some point switched to a single generic `Stroke` class
+plus this numeric field instead - i.e. `$classname` and `brushToolNew`
+are two eras of the same "which tool drew this" fact, not two independent
+signals. Tool ids 2/11/14/16 remain unmatched to any name - would need
+either a subclass-tagged sample for each (none in our corpus) or the
+strings-in-the-binary approach `apple-notes`'s `drawing.md` used for
+`Ink.identifier`-style names, applied to the Concepts app binary itself
+(out of scope for a file-format-only decoder, but worth remembering as an
+option).
+
+**Not yet exercised**: no PDF page (`TiledPDFPage`) or embedded-image
+sample in our corpus reached the script's image/PDF decode path at all
+(§10's inventory has no file with an actual imported image or PDF) - that
+code is written straight from the plist shape in §6, not checked against
+a real file the way the stroke path now has been. Treat it with the same
+confidence level as an un-cross-checked viewer-code guess until a real
+sample turns up.
