@@ -6,6 +6,7 @@ use warnings;
 use Config;
 use File::Basename;
 use File::Spec;
+use FindBin;
 use Getopt::Long;
 
 my @modules = qw(
@@ -40,8 +41,8 @@ unless (exists $shellstyle{$shell}) {
 print $shellstyle{$shell}->(
 	prepend_path(
 		PERL5LIB => map { (
-			File::Spec->rel2abs(File::Spec->catfile($_, "blib")),
-			File::Spec->rel2abs(File::Spec->catfile($_, "lib")),
+			File::Spec->rel2abs(File::Spec->catdir($_, "blib", "lib"), $FindBin::Bin),
+			File::Spec->rel2abs(File::Spec->catfile($_, "lib"), $FindBin::Bin),
 		) } @modules,
 	),
 );
