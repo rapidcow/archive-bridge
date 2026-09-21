@@ -662,25 +662,126 @@ numbers above, including the 3 newly-discovered fields.
 `uuid`/`versionVector` fields that were previously decoded by
 `Google::ProtocolBuffers` but silently dropped by this script).
 
+## Update 5 (2026-09-21): `Ink`'s HDR/multi-channel fields, and what `centerlineSlices`/`maskPoints` are for
+
+User request: close out two more "Not concluded" items - `Ink`'s six HDR/
+multi-channel color fields plus `requiredContentVersion` (no field numbers
+at all before this), and the actual meaning of `Stroke.centerlineSlices`/
+`maskPoints` (real names/field numbers already reasonably solid from
+Update 2's empirical elimination, but never investigated semantically).
+
+### `drawing::Ink::readFrom` - all 13 real fields now have numbers and shapes
+
+Same jump-table dispatch shape as `Stroke`/`StrokeData` (13 entries this
+time, table at `0x1ae611f24`), traced the same way - each case's target
+struct offset cross-referenced against `drawing::Ink::formatText`'s own
+offset table:
+
+| field # | real name                 | wire shape |
+|---------|---------------------------|------------|
+| 1       | `color`                   | `Color` submessage (see below) |
+| 2       | `identifier`              | string |
+| 3       | `version`                 | varint int32 |
+| 4       | `variant`                 | string |
+| 5       | `sixChannelAddColor`      | `Color` submessage |
+| 6       | `sixChannelMultiplyColor` | `Color` submessage |
+| 7       | `requiredContentVersion`  | varint int32 |
+| 8       | `weight`                  | **double** - corrects this file's old field-3 `int32 weight` guess, which was actually reading `version` (field 3) the whole time |
+| 9       | `hdrHeadroom`             | double |
+| 10      | `hdrColor`                | `Color` submessage |
+| 11      | `hdrAddColor`             | `Color` submessage |
+| 12      | `hdrMultiplyColor`        | `Color` submessage |
+| 13      | `azimuth`                 | double - Ink-level, unrelated to the per-point azimuth channel |
+
+`azimuth`/`hdrHeadroom`/`weight` are all direct 8-byte reads (doubles), the
+same disassembly pattern as `StrokeData.timestamp` in Update 4 - not
+varints, not floats. The submessage type all five color-ish fields
+construct is a real class too: `"vtable for drawing::Color"` appears as a
+disassembly operand at every one of `color`/`sixChannelAddColor`/
+`sixChannelMultiplyColor`/`hdrColor`/`hdrAddColor`/`hdrMultiplyColor`'s
+construction sites - so this file's old `RGBA` message (used only for
+`Ink.color`) is renamed `Color`, and the "HDR"/"six channel" fields turn
+out to be the exact same 4-field r/g/b/a shape as plain `color`, not a
+distinct wire format. Their semantic purpose (why an ink needs 6 color
+variants) was not investigated - purely a wire-shape/field-number pass.
+
+Real weight - previously this decoder printed field 3's `int32` value as
+"weight" (a guess from the original `decode_raw` pass); it was actually
+`version` the whole time (confirmed via a real sample: `Z_PK=20040`'s
+first ink shows `version=3`, `weight=nil`, where the old decoder would
+have shown "weight 3"). The real `weight` field (8) was not seen populated
+in any real sample checked (~60 random drawings) this pass - unknown how
+often it's actually used.
+
+### `centerlineSlices`/`maskPoints` - what they're for, semantically
+
+No `drawing::CenterlineSlice`/`drawing::Mask`-namespaced class exists at
+all (`nm -U ~/re-notes/PencilKit | c++filt | grep -i 'drawing::.*[Mm]ask\|drawing::.*[Cc]enterline'`
+returns nothing) - confirming `centerlineSlices`/`maskPoints` really are
+plain scalar/blob fields directly on `drawing::Stroke` (matching Update
+2's finding: `PB::Data`-typed field 10, `vector<float>`-typed field 12),
+not their own nested protobuf message.
+
+The consumer is `PKStrokeMask` (an ObjC class, ivars `_maskPaths`/
+`_centerlineSlices`, methods `-initWithMaskPaths:centerlineSlices:`/
+`-initWithArchive:`/`-calculateCenterlineSlices:`/`-bezierPath`/
+`-saveToArchive:`), reachable from a stroke via `-[PKStroke _strokeMask]`/
+`-[PKStroke _setStrokeMask:]`. Disassembling `-[PKStrokeMask
+initWithArchive:]` (`0x1ae734aac`) shows it builds:
+- `maskPaths` as `std::vector<std::vector<ClipperLib::IntPoint>>` - i.e.
+  **[Clipper](https://en.wikipedia.org/wiki/Clipper_(library))**, the
+  well-known polygon boolean-operations library (union/intersect/
+  difference on closed paths) - strongly consistent with erasing/lasso-
+  select cutting a stroke's ink region, not shape recognition.
+- `centerlineSlices` as `std::vector<ClipperLib::DoublePoint>`, built via
+  `-[PKStrokeMask calculateCenterlineSlices:]` which sorts a list of
+  `_PKFloatRange` values (seen in the symbol table as a local type of that
+  method) - consistent with "slices" being ranges along the stroke's
+  centerline, plausibly marking which segments of the original stroke
+  remain visible after an intersecting cut/erase.
+
+This resolves the *semantic* question (masking/erasing machinery, backed
+by a real polygon-clipping library) but does not re-derive `Stroke`'s
+field 10/12 numbers to Update-4-level rigor: `-initWithArchive:`'s
+`archive` parameter (`x2`) is read at offset `+0x40` for what looks like a
+flat point-pair vector matching `maskPoints`'s already-known shape (even-
+count flat floats), but this archive object's own type was not traced
+back to confirm it's literally `drawing::Stroke` at that exact offset -
+Update 2's empirical field numbers (10/12) are left as-is, now with a
+positive semantic story instead of just elimination logic.
+
+`apple-notes-drawing-2.proto`'s `Ink` message has been rewritten with all
+13 real field numbers/names above (`RGBA` renamed to `Color`);
+`tools/apple-notes-drawing-decode.pl`'s ink-decoding block was updated to
+expose all 13 fields (a new `decode_color()` helper for the five newly-
+exposed `Color`-typed fields, matching the existing undef-per-component
+presence convention `Transform`/`Bounds` already use). `centerlineSlices`/
+`maskPoints` were NOT touched in the `.proto`/decoder this pass - no new
+wire-level fact was established for them, only semantic context.
+
 ## Not concluded
 
 - Field 16's identity as `groupUUID` rests on elimination only (see Update
   2) - would benefit from finding even one real sample where it's actually
   populated.
-- `Ink.azimuth`, `Ink`'s six HDR/multi-channel color fields,
-  `Ink.requiredContentVersion`, and `legacy_drawing::Drawing` remain
-  untouched - see the original "Not concluded" items above (still true,
-  not superseded by any update, including Update 4 which only closed the
-  `Drawing`/`StrokeData` items from this list).
-- `centerlineSlices`/`maskPoints` (`Stroke`) and all six HDR/multi-channel
-  color fields plus `requiredContentVersion` (`Ink`) are confirmed-real
-  names with no investigation into their actual wire content at all this
-  pass (`Drawing.bounds`/`boundsVersion` - the other two items originally
-  listed here - were resolved by Update 4 above).
+- `legacy_drawing::Drawing` remains untouched - see the original "Not
+  concluded" items above (still true, not superseded by any update).
+- `Stroke.centerlineSlices`/`maskPoints`'s field NUMBERS (10/12) are still
+  Update-2-level (empirical elimination), not Update-4/5-level disassembly
+  proof - Update 5 only established what they're semantically for
+  (PKStrokeMask erasing/masking, backed by the Clipper polygon library),
+  not a struct-offset-level proof they're really `Stroke`'s own fields at
+  those exact numbers.
 - Whether `Ink.azimuth` has any numeric relationship to the per-point
-  `azimuth` channel's encoding (`point-decode-pipeline.md` §8) - e.g.
-  same `uint16`/`65535` convention reused - is unknown; flagged only as a
-  naming collision to watch for, not investigated.
+  `azimuth` channel's encoding (`point-decode-pipeline.md` §8) - e.g. same
+  `uint16`/`65535` convention reused - is unknown; flagged only as a
+  naming collision to watch for, not investigated (Update 5 confirmed
+  `Ink.azimuth` is a `double`, which already rules out a literal shared
+  `uint16` encoding, but the numeric *range*/convention relationship is
+  still unchecked).
+- `Ink`'s HDR/multi-channel fields' semantic purpose (why 6 color
+  variants) is unresolved - Update 5 only nailed down wire shape/field
+  numbers, not what they're used for.
 - `legacy_drawing::Drawing` (a distinct, `legacy_drawing::`-namespaced
   class, confirmed to exist via its own `formatText`/`readFrom`/`writeTo`
   trio, fields `timestamp`/`unrotatedBounds` seen via its own `make*`
@@ -695,21 +796,30 @@ numbers above, including the 3 newly-discovered fields.
   `immutablePointsCount`/`startIndex` (Update 4's 3 newly-found fields)
   also have no empirical survey yet - unknown how often/when real samples
   populate them.
+- `Ink.weight` (field 8, now confirmed `double`) was not seen populated in
+  ~60 randomly-sampled real drawings this pass - unknown how often it's
+  actually used, or what a populated value looks like.
 
 ## Provenance
 
 Same Mac/toolchain as `point-decode-pipeline.md` §8-§9 (macOS 26.6.2 build
 25G83, `ipsw` v3.1.714, `~/re-notes/PencilKit` extraction and
 `PencilKit.a2s` cache already present from the 2026-09-11 session, not
-re-extracted; still true as of Update 4, 2026-09-21). All class/method/
-field names quoted above are exact, verbatim symbol names or string-literal
-contents read directly from `PencilKit.framework`'s symbol table and
-disassembly (`nm -U`, `c++filt`, `ipsw macho disass -a <vaddr> --demangle
---force`, piped through `grep -oE '"[^"]+"'` to pull literal string
-operands, or read directly as disassembly comment operands for vtable
-literals) - no raw bytes, hex dump, or extracted binary content reproduced
-here, consistent with this directory's convention. Update 4's jump-table
-words (`drawing::StrokeData::readFrom`'s 10-entry table at `0x1ae611e5c`)
-were read directly off disk via a small Python struct-unpack script over
-SSH, the same `file_offset = vmaddr - 0x1ae60f000` convention as
-`point-decode-pipeline.md`'s `dd`-based reads.
+re-extracted; still true as of Update 5, 2026-09-21, same session as
+Update 4). All class/method/field names quoted above are exact, verbatim
+symbol names or string-literal contents read directly from
+`PencilKit.framework`'s symbol table and disassembly (`nm -U`, `c++filt`,
+`ipsw macho disass -a <vaddr> --demangle --force`, piped through `grep
+-oE '"[^"]+"'` to pull literal string operands, or read directly as
+disassembly comment operands for vtable literals) - no raw bytes, hex
+dump, or extracted binary content reproduced here, consistent with this
+directory's convention. Update 4/5's jump-table words
+(`drawing::StrokeData::readFrom`'s 10-entry table at `0x1ae611e5c`,
+`drawing::Ink::readFrom`'s 13-entry table at `0x1ae611f24`) were read
+directly off disk via a small Python struct-unpack script over SSH, the
+same `file_offset = vmaddr - 0x1ae60f000` convention as
+`point-decode-pipeline.md`'s `dd`-based reads. Update 5's sanity checks
+after `.proto`/decoder changes used a random 20-drawing sample
+(`--immutable`, real `NoteStore.sqlite`), not a full-corpus sweep - a full
+1278-drawing sweep was intentionally avoided this session at the user's
+request (their personal drawings aren't shareable/reproducible test data).

@@ -105,26 +105,68 @@
 
 syntax = "proto2";
 
-message RGBA {
+// Real class name confirmed as `drawing::Color` (2026-09-21, live
+// disassembly of `drawing::Ink::readFrom` - see the `Ink` message comment
+// below - the vtable literal `"vtable for drawing::Color"` was read
+// directly as a disassembly operand while tracing several of `Ink`'s
+// fields). Field numbers not independently re-derived (this message's
+// r/g/b/a shape and field order were never in doubt - only its name was
+// unconfirmed before now), kept as this file's original guessed numbers.
+message Color {
   optional float r = 1;
   optional float g = 2;
   optional float b = 3;
   optional float a = 4;
 }
 
-// Real name confirmed as `drawing::Ink` (drawing.md), with real fields
-// `identifier`/`color`/`weight`/`variant`/`version`/`azimuth`/`hdrColor`/
-// `hdrAddColor`/`hdrMultiplyColor`/`hdrHeadroom`/`sixChannelAddColor`/
-// `sixChannelMultiplyColor`/`requiredContentVersion`. Only the three below
-// are mapped to a specific wire field number here (from the original
-// decode_raw pass); the rest of the real field list exists but has not
-// been mapped to a field number yet. NOTE: `Ink.azimuth` is a real but
-// entirely different field from the per-point `azimuth` channel in the
-// table above - do not conflate the two, see drawing.md.
+// Real name confirmed as `drawing::Ink` (drawing.md). ALL 13 real fields
+// (from `drawing::Ink::formatText`, `0x1ae6b5f84`) now have confirmed
+// field numbers AND wire shapes, from live disassembly of
+// `drawing::Ink::readFrom` (`0x1ae6b61a4`) - a 13-entry jump table
+// (`0x1ae611f24`), same dispatch shape as `Stroke`/`StrokeData`, each case
+// traced to its target struct offset and cross-referenced against
+// `formatText`'s own offset table (2026-09-21 session, same methodology as
+// `drawing.md`'s Update 4):
+//
+// | field # | real name                 | wire shape |
+// |---------|---------------------------|------------|
+// | 1       | `color`                   | `Color` submessage |
+// | 2       | `identifier`              | string |
+// | 3       | `version`                 | varint int32 |
+// | 4       | `variant`                 | string |
+// | 5       | `sixChannelAddColor`      | `Color` submessage |
+// | 6       | `sixChannelMultiplyColor` | `Color` submessage |
+// | 7       | `requiredContentVersion`  | varint int32 |
+// | 8       | `weight`                  | **double**, direct 8-byte read - NOT int32 as this file used to guess; tool weight/width class, units still unconfirmed |
+// | 9       | `hdrHeadroom`             | double, direct 8-byte read |
+// | 10      | `hdrColor`                | `Color` submessage |
+// | 11      | `hdrAddColor`             | `Color` submessage |
+// | 12      | `hdrMultiplyColor`        | `Color` submessage |
+// | 13      | `azimuth`                 | double, direct 8-byte read - **a real but entirely different field from the per-point `azimuth` channel** in this file's header-comment channel table; do not conflate the two, see `drawing.md` |
+//
+// `sixChannelAddColor`/`sixChannelMultiplyColor`/`hdrColor`/`hdrAddColor`/
+// `hdrMultiplyColor` all reuse the exact same 4-field `Color` submessage as
+// `color` itself (confirmed via the identical `"vtable for drawing::Color"`
+// operand at every one of those five call sites) - i.e. whatever the "six
+// channel"/"HDR" naming implies semantically, it isn't a different wire
+// shape; still just r/g/b/a on the wire. Semantic meaning of all the
+// HDR/multi-channel fields (why an ink needs 6 different color variants)
+// not investigated - out of scope for this pass, which only resolved wire
+// shape/field numbers.
 message Ink {
-  optional RGBA color   = 1;  // real field name: color
-  optional string identifier = 2;  // real field name: identifier, e.g. "com.apple.ink.pen"
-  optional int32 weight = 3;  // real field name: weight; tool weight/width class, units unconfirmed
+  optional Color color                    = 1; // real field name: color
+  optional string identifier              = 2; // real field name: identifier, e.g. "com.apple.ink.pen"
+  optional int32 version                  = 3; // real field name: version
+  optional string variant                 = 4; // real field name: variant
+  optional Color six_channel_add_color    = 5; // real field name: sixChannelAddColor
+  optional Color six_channel_multiply_color = 6; // real field name: sixChannelMultiplyColor
+  optional int32 required_content_version = 7; // real field name: requiredContentVersion
+  optional double weight                  = 8; // real field name: weight; tool weight/width class, units unconfirmed
+  optional double hdr_headroom            = 9; // real field name: hdrHeadroom
+  optional Color hdr_color                = 10; // real field name: hdrColor
+  optional Color hdr_add_color            = 11; // real field name: hdrAddColor
+  optional Color hdr_multiply_color       = 12; // real field name: hdrMultiplyColor
+  optional double azimuth                 = 13; // real field name: azimuth - Ink-level, NOT the per-point azimuth channel, see comment above
 }
 
 // REMOVED (2026-09-21): this message no longer exists here. It was

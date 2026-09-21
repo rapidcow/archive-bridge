@@ -224,6 +224,17 @@ sub connect_db {
 
 # --- drawing decode ----------------------------------------------------------
 
+# Decode a drawing::Color submessage (real class name, confirmed 2026-09-21 -
+# see apple-notes-drawing-2.proto's Color message comment) into a 4-element
+# [r,g,b,a] list, each component undef if absent on the wire (independently
+# optional, same presence convention as Transform/Bounds). Returns undef if
+# the submessage itself is absent.
+sub decode_color {
+	my ($c) = @_;
+	return undef unless $c;
+	return [ $c->{r}, $c->{g}, $c->{b}, $c->{a} ];
+}
+
 sub decode_drawing {
 	my ($blob) = @_;
 	die "blob too short for envelope\n" if length($blob) < 8;
@@ -247,13 +258,31 @@ sub decode_drawing {
 
 	my $drawing = Drawing->decode($body);
 
+	# Ink's 13 real fields (color/identifier/version/variant/
+	# sixChannelAddColor/sixChannelMultiplyColor/requiredContentVersion/
+	# weight/hdrHeadroom/hdrColor/hdrAddColor/hdrMultiplyColor/azimuth) all
+	# confirmed 2026-09-21 via live disassembly of drawing::Ink::readFrom
+	# (see apple-notes-drawing-2.proto's Ink message comment and
+	# notes/apple/com.apple.drawing.2/drawing.md's latest Update). weight/
+	# hdrHeadroom/azimuth are doubles (NOT int32 as this decoder used to
+	# assume for weight) - Ink.azimuth is unrelated to the per-point
+	# azimuth channel, see the same comments.
 	my @inks;
 	for my $ink (@{ $drawing->{inks} || [] }) {
-		my $color = $ink->{color} || {};
 		push @inks, {
-			color      => [ $color->{r} || 0, $color->{g} || 0, $color->{b} || 0, $color->{a} || 0 ],
-			identifier => $ink->{identifier} || "",
-			weight     => $ink->{weight},
+			identifier                 => $ink->{identifier},
+			color                      => decode_color($ink->{color}),
+			weight                     => $ink->{weight},
+			version                    => $ink->{version},
+			variant                    => $ink->{variant},
+			required_content_version   => $ink->{required_content_version},
+			hdr_headroom               => $ink->{hdr_headroom},
+			hdr_color                  => decode_color($ink->{hdr_color}),
+			hdr_add_color              => decode_color($ink->{hdr_add_color}),
+			hdr_multiply_color         => decode_color($ink->{hdr_multiply_color}),
+			six_channel_add_color      => decode_color($ink->{six_channel_add_color}),
+			six_channel_multiply_color => decode_color($ink->{six_channel_multiply_color}),
+			azimuth                    => $ink->{azimuth},
 		};
 	}
 
@@ -503,11 +532,33 @@ sub render_sexp {
 	}
 	push @out, "  (inks";
 	for my $ink (@{ $d->{inks} }) {
-		push @out, sprintf(
-		    "    (ink (identifier %s) (color %s) (weight %s))",
-		    esc_str($ink->{identifier}),
-		    format_float_list($ink->{color}),
-		    defined $ink->{weight} ? $ink->{weight} : "nil");
+		push @out, "    (ink";
+		push @out, "      (identifier " . esc_str($ink->{identifier} // "") . ")";
+		push @out, "      (color " . format_float_list($ink->{color}) . ") ; r g b a";
+		push @out, "      (weight " . (defined $ink->{weight} ? float_hex($ink->{weight}) : "nil") . ")";
+		push @out, "      (version " . (defined $ink->{version} ? $ink->{version} : "nil") . ")";
+		push @out, "      (variant " . (defined $ink->{variant} ? esc_str($ink->{variant}) : "nil") . ")";
+		push @out, "      (required-content-version " . (defined $ink->{required_content_version} ? $ink->{required_content_version} : "nil") . ")";
+		push @out, "      (azimuth " . (defined $ink->{azimuth} ? float_hex($ink->{azimuth}) : "nil") . ") ; Ink-level azimuth, unrelated to the per-point azimuth channel";
+		if ($ink->{hdr_headroom}) {
+		    push @out, "      (hdr-headroom " . float_hex($ink->{hdr_headroom}) . ")";
+		}
+		if ($ink->{hdr_color}) {
+		    push @out, "      (hdr-color " . format_float_list($ink->{hdr_color}) . ") ; r g b a";
+		}
+		if ($ink->{hdr_add_color}) {
+		    push @out, "      (hdr-add-color " . format_float_list($ink->{hdr_add_color}) . ") ; r g b a";
+		}
+		if ($ink->{hdr_multiply_color}) {
+		    push @out, "      (hdr-multiply-color " . format_float_list($ink->{hdr_multiply_color}) . ") ; r g b a";
+		}
+		if ($ink->{six_channel_add_color}) {
+		    push @out, "      (six-channel-add-color " . format_float_list($ink->{six_channel_add_color}) . ") ; r g b a, same Color shape as color above";
+		}
+		if ($ink->{six_channel_multiply_color}) {
+		    push @out, "      (six-channel-multiply-color " . format_float_list($ink->{six_channel_multiply_color}) . ") ; r g b a, same Color shape as color above";
+		}
+		push @out, "    )";
 	}
 	push @out, "  )";
 	push @out, "  (strokes";
