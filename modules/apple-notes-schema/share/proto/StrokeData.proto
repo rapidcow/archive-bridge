@@ -1,8 +1,11 @@
-/*
- * StrokeData.proto - common Apple Notes ink markup stroke data
- *
- * Distilled version of `ai/tools/apple-notes-drawing-2.proto'.
- */
+//;;
+//;; StrokeData.proto - common Apple Notes ink markup stroke data
+//;;
+//;; Distilled version of `ai/tools/apple-notes-drawing-2.proto'.
+//;;
+
+package rd_kw.apple.notes.schema;
+
 syntax = "proto2";
 
 message StrokeData {
