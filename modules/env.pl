@@ -42,7 +42,7 @@ print $shellstyle{$shell}->(
 	prepend_path(
 		PERL5LIB => map { (
 			File::Spec->rel2abs(File::Spec->catdir($_, "blib", "lib"), $FindBin::Bin),
-			File::Spec->rel2abs(File::Spec->catfile($_, "lib"), $FindBin::Bin),
+#			File::Spec->rel2abs(File::Spec->catfile($_, "lib"), $FindBin::Bin),
 		) } @modules,
 	),
 );
