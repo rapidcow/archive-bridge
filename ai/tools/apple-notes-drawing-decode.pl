@@ -408,7 +408,13 @@ sub decode_stroke {
 	    shape_type        => $st->{shape_type},
 	    render_group_uuid => defined $st->{render_group_uuid} ? unpack("H*", $st->{render_group_uuid}) : undef,
 	    group_uuid        => defined $st->{group_uuid} ? unpack("H*", $st->{group_uuid}) : undef,
-	    centerline_slices => [ map { unpack("H*", $_) } @{ $st->{centerline_slices} || [] } ],
+	    # centerline_slices (field 10) - empirically (2026-09-21, full
+	    # sweep of the user's own archive) every one of 3026 real blobs has
+	    # a length that's a multiple of 8, and unpacking as flat little-
+	    # endian float32 (x,y) pairs gives smooth, bounds-scale point
+	    # sequences (not noise or an unrelated encoding) - see drawing.md's
+	    # latest Update. Decoded as such here rather than left as opaque hex.
+	    centerline_slices => [ map { decode_float_pairs($_) } @{ $st->{centerline_slices} || [] } ],
 	    mask_points       => [ @{ $st->{mask_points} || [] } ],
 	    stroke_data_uuid        => $stroke_data_uuid,
 	    timestamp               => $timestamp,
@@ -443,6 +449,22 @@ sub sort_strokes_by_sort_id {
 		$ka->[0] <=> $kb->[0] || $ka->[1] <=> $kb->[1]
 		|| $ka->[2] <=> $kb->[2] || $ka->[3] <=> $kb->[3]
 	} @{ $drawing->{strokes} };
+}
+
+# Unpack a raw byte string as flat little-endian float32 (x,y) pairs -
+# Stroke.centerline_slices' per-element wire content (see drawing.md's
+# latest Update: empirically confirmed divisible by 8 in every sample
+# checked, decoding to smooth/bounds-scale point sequences). Returns an
+# arrayref of [x,y] pairs; empty if the input isn't a clean multiple of 8
+# bytes (shouldn't happen on real data, but don't die on malformed input).
+sub decode_float_pairs {
+	my ($bytes) = @_;
+	return [] if length($bytes) % 8 != 0;
+	my @pairs;
+	for (my $off = 0; $off < length($bytes); $off += 8) {
+		push @pairs, [ unpack("f<f<", substr($bytes, $off, 8)) ];
+	}
+	return \@pairs;
 }
 
 # Decode one channel's raw bytes per its 'kind' (see @POINT_CHANNELS above).
@@ -624,7 +646,9 @@ sub render_stroke {
 	    push @out, "${prefix}  (group-uuid " . esc_str($st->{group_uuid}) . ") ; name elimination-only, see drawing.md";
 	}
 	if (@{ $st->{centerline_slices} }) {
-	    push @out, "${prefix}  (centerline-slices " . join(" ", map { esc_str($_) } @{ $st->{centerline_slices} }) . ") ; name empirical only, see drawing.md";
+	    push @out, "${prefix}  (centerline-slices " . join(" ", map {
+	            "(" . join(" ", map { "(" . float_hex($_->[0]) . " " . float_hex($_->[1]) . ")" } @$_) . ")"
+	        } @{ $st->{centerline_slices} }) . ") ; each slice: a flat polyline of (x y) points, field number empirical only, see drawing.md";
 	}
 	if (@{ $st->{mask_points} }) {
 	    push @out, "${prefix}  (mask-points " . join(" ", map { float_hex($_) } @{ $st->{mask_points} }) . ") ; name empirical only, flat x,y pairs, see drawing.md";

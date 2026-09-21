@@ -823,3 +823,269 @@ after `.proto`/decoder changes used a random 20-drawing sample
 (`--immutable`, real `NoteStore.sqlite`), not a full-corpus sweep - a full
 1278-drawing sweep was intentionally avoided this session at the user's
 request (their personal drawings aren't shareable/reproducible test data).
+
+## Update 6 (2026-09-21): `centerlineSlices`/`maskPoints`' actual wire content, and how common they really are
+
+Follow-up to Update 5, which established the *semantic* story (Clipper-
+library erase/mask machinery) but left the two fields' actual byte content
+undecoded. This update decodes the bytes themselves, purely empirically
+(counting/unpacking real sample data - no new disassembly), against the
+user's own local archive (1278 drawings, 777,490 top-level strokes).
+
+**Correction to an initial miscount**: a first pass of this update
+iterated only `Drawing.strokes` directly and concluded these fields were
+present in just 2 drawings. That was wrong - it forgot `Stroke` is
+recursive (`substrokes`, field 11, confirmed real since Update 1) and a
+non-trivial number of real `centerlineSlices`/`maskPoints` occurrences live
+on *substrokes*, not top-level strokes (real substroke nesting in this
+archive goes up to 12 levels deep). Re-run recursively over the full
+stroke tree, the real numbers are: **156 of 1278 drawings** (12.2%) have at
+least one stroke (at any nesting depth) with `centerlineSlices` set, and
+**151 of 1278** (11.8%) have `maskPoints` set - not rare at all, just
+concentrated below the top level in some drawings. (`probe-marginal-
+fields.pl`'s own `walk_strokes` helper, from the previous session's
+"are these fields ever set" pass, already recursed correctly - its
+777,490-stroke/1802-mask_points/2803-centerline_slices *counts* were fine;
+only this update's follow-up "which drawings" queries had the bug,
+now fixed.)
+
+**`centerlineSlices`'s inner bytes are flat float32 `(x,y)` pairs.** Each
+`centerlineSlices` element is itself a length-delimited blob (already known
+- `PB::Data`, per Update 2); unpacking that blob as little-endian float32
+pairs gives smooth, monotonic point sequences whose coordinates sit in the
+same numeric range as the parent stroke's own points/bounds - i.e. a
+**polyline in the drawing's normal coordinate space**, consistent with
+Update 5's "slice of the stroke's centerline, as a sequence of points"
+reading, now with an actual decode instead of just a semantic guess. Over
+the full corpus: 3026 total `centerlineSlices` elements, **100% have a
+byte length that's an exact multiple of 8** (i.e. cleanly divides into
+float32 pairs, no remainder ever). One real slice sampled by hand: 89
+points, x running ~536→563 and y ~68→81 over the first 15 points, strictly
+increasing in both - a real polyline, not noise.
+
+**`maskPoints` is always an even-length flat float list**, confirmed
+across all 1802 real occurrences (element counts observed: 2, 4, 6, 8, 10,
+12, 14, 16, 20, 26, 42 - i.e. 1-21 `(x,y)` pairs, most commonly just 1 pair
+(1561/1802) or 2 pairs (162/1802), with a long tail). The "first value is
+always exactly 0" pattern noticed in an initial small hand-sample (from
+just one drawing) does **not** hold at full-corpus scale - only 1112/1802
+(62%) have a first value of exactly `0`. Downgraded from "worth re-
+checking" to explicitly **not a real pattern**, just a coincidence of the
+small sample it was first noticed in.
+
+`tools/apple-notes-drawing-decode.pl` now decodes `centerlineSlices`
+elements into `[x,y]` pairs (new `decode_float_pairs()` helper) instead of
+leaving them as opaque hex; `render_sexp`/`render_stroke` print each slice
+as a nested list of `(x y)` pairs. `maskPoints` was left as-is (already
+decoded as a flat float list since the original wiring pass). No `.proto`
+field-number changes this update - purely a decode-the-bytes pass on top
+of Update 2/5's existing field numbers/semantics.
+
+### Provenance
+
+Purely empirical this update - no new SSH/disassembly, just decoding real
+sample bytes from the user's own archive with the already-confirmed
+`Google::ProtocolBuffers`-parsed `Stroke.centerline_slices`/`mask_points`
+fields, via throwaway scripts recursing `Stroke.substrokes` (the bug in
+this update's first pass - see above - was exactly forgetting that
+recursion). Counts (not content) were gathered over the full local corpus
+- necessary to state prevalence/byte-length-divisibility facts correctly,
+since a random sample would both undercount a feature this unevenly
+distributed and couldn't support a "100% of N" claim. No drawing content
+beyond structural counts and the one hand-inspected polyline sample above
+is reproduced in this file.
+
+## Update 7 (2026-09-21): what actually constructs a `PKStrokeMask` - the eraser, not lasso select
+
+(Numbering note: this file already has an unrelated `## Update 7:
+groupUUID...` section above, from the original 2026-09-12 session's own
+numbering sequence - this section continues the *dated* `(2026-09-21)`
+series started at Update 4, not that one. Kept as-is rather than
+renumbering the whole file, to avoid breaking any existing cross-
+references to the older Update 7.)
+
+Follow-up to Update 5/6, which established *what* `centerlineSlices`/
+`maskPoints` decode to and that they're consumed by `PKStrokeMask`, but
+never traced *which real user gesture* actually constructs one - Update 5
+guessed "erasing/lasso-cutting" from the class name and Clipper-library
+choice alone. The user, who has used this app extensively, pushed back on
+both halves of that guess: Apple's area eraser is usually described as
+ink/pixel painting rather than vector re-clipping, and lasso-select-and-
+move "should" just reassign whole strokes rather than surgically splitting
+one. This update traces the actual call sites to settle it.
+
+### The real caller: `-[PKDrawing(Slicing) sliceWithEraseStroke:]`
+
+`nm -U ~/re-notes/PencilKit | c++filt | grep -iE 'Slicing|slice|StrokeMask'`
+turns up an entire `Slicing` category (on both `PKStroke` and `PKDrawing`)
+that was invisible to the earlier, narrower `StrokeMask`-only search:
+`+[PKStroke sliceWithEraser:toClip:]`, `+[PKStroke
+sliceWithEraser:toClip:clipType:]`, `-[PKStroke sliceWithEraser:]`,
+`-[PKStroke sliceWithMask:]`, `-[PKDrawing sliceWithEraseStroke:]`, and a
+dedicated undo-stack command class, `PKSliceStrokesCommand`
+(`-initWithDrawingUUID:actionName:substrokes:strokesHidden:hiding:` -
+note it takes `substrokes` as a direct constructor argument, i.e. slicing
+strokes is itself a first-class undoable user action, not an internal
+detail).
+
+Disassembling `-[PKDrawing(Slicing) sliceWithEraseStroke:]`
+(`0x1ae72d868`) shows real logic, not just a name match: it calls
+`-newOutlinePaths` on the passed-in erase stroke (turning the eraser
+gesture's own path - which, like any stroke, has its own `radius`/
+`edgeWidth` per §7-9 of `point-decode-pipeline.md` - into a closed
+polygon), reads that stroke's `-_bounds`, then enumerates `-strokes` on
+the drawing (`_objc_msgSend$strokes`) to find which existing strokes it
+intersects. This is the eraser gesture's own inked shape being turned into
+a clip region and tested/applied against every stroke it overlaps -
+exactly the "erase" reading, now backed by actual logic rather than a
+class-name guess.
+
+Separately, `-[PKStroke(Slicing) generateMask]` (`0x1ae72c008`) - called
+on an arbitrary stroke, not specific to erasing - calls
+`_consumeRenderVertexes:ink:inkTransform:strokePath:` (building *that
+stroke's own* inked-outline polygon from its path/ink/transform, i.e. its
+visible rendered shape, width included) then
+`ClipperLib::SimplifyPolygons(...)` on the result. So the mechanism is:
+every stroke can produce its own "inked outline" Clipper polygon
+on demand (`generateMask`); the eraser gesture is itself just a stroke, so
+its outline is computed the same way; erasing = Clipper-differencing the
+erased-through stroke's own outline against the eraser stroke's outline,
+storing the surviving polygon fragments as `maskPaths`/`centerlineSlices`
+(Update 5/6) and the surviving ink pieces as `substrokes` (per
+`PKSliceStrokesCommand`'s constructor). This directly explains why it's
+vector geometry, not pixel painting, despite "erasing ink" being the
+user-facing description: PencilKit's ink is always vector (a path + a
+per-point radius/width), so "erase part of this ink's visible shape" is
+naturally a polygon-clip operation on that vector outline, not a bitmap
+operation - there's no pixel raster anywhere in this representation to
+paint over in the first place.
+
+### Lasso select: real, but a completely separate mechanism - not the cause
+
+`PKLassoTool`/`PKStrokeSelection`/`_PKInkIdentifierLasso` all exist for
+real (lasso selection is implemented by drawing the lasso boundary itself
+as a special-identifier ink stroke, then building a `PKStrokeSelection`
+object that holds the selected `strokes` plus that `lassoStroke`) - but
+**none of these symbols reference `PKStrokeMask`, the `Slicing` category,
+or `substrokes` anywhere** in the full symbol table. `PKStrokeSelection`
+groups whole strokes by intersection/containment with the lasso boundary;
+it does not appear to surgically split any of them. The user's skepticism
+here was correct: lasso select is unrelated to this mechanism.
+
+### Conclusion
+
+**Confirmed** (disassembly-traced logic, not just naming): the eraser
+tool - specifically, differencing the eraser gesture's own inked outline
+against an intersecting stroke's inked outline via `ClipperLib` - is what
+produces `substrokes`/`centerlineSlices`/`maskPoints`. This corrects
+Update 5's hedged "erasing/lasso-cutting" guess down to just "erasing,"
+and explains the "vector clip, not pixel paint" mechanism the user found
+surprising: because PencilKit ink has no raster representation at all
+(everything is vector path + per-point width), there's nothing else *to*
+paint over - clipping the vector outline is the only way to remove part of
+a stroke's visible ink. **Not fully closed**: this pass didn't confirm
+there's only one eraser mode that goes through this path (Apple Notes has
+historically offered more than one eraser behavior - e.g. a coarser
+"delete whole object you touch" mode vs. this finer ink-level one - and
+`+[PKStroke sliceWithEraser:toClip:clipType:]`'s `clipType:` parameter
+hints at more than one variant existing at this layer) - which specific
+eraser mode(s) route through `sliceWithEraseStroke:` vs. some other path
+entirely was not traced.
+
+### Provenance
+
+Same SSH/`ipsw` access as every other update in this file
+(`cooper.plug.rapidcow.net`, `~/re-notes/PencilKit`). All class/method
+names above are exact `nm -U | c++filt` output; the "real logic, not just
+naming" claims for `sliceWithEraseStroke:`/`generateMask` come from
+reading their actual disassembled instruction sequences (`ipsw macho
+disass -a <vaddr> --demangle --force`), specifically the sequence of
+Objective-C message sends (`_objc_msgSend$<selector>` stub calls, readable
+directly as call targets) and the literal `ClipperLib::SimplifyPolygons`
+symbol as a call target - not inferred from names alone. No sample
+`NoteStore.sqlite` data was used this update (pure disassembly, no need
+for empirical cross-check here). No `.proto`/decoder changes - this was a
+semantics-only investigation, no new wire-level fact was established.
+
+## Update 8 (2026-09-21): does a `substrokes` fragment actually own its own geometry?
+
+Follow-up to Update 7, prompted by the user reading a real decoded excerpt
+(`Z_PK=20335`, the "E" note, a 2020 handwriting sample with heavy eraser
+use) and asking directly: when an erase "splits" a stroke, does each
+resulting piece actually get its own independent path data, or is
+something else going on? This update checks that empirically against the
+user's own archive - no new disassembly, just decoding real bytes and
+counting.
+
+### The excerpt in question
+
+One erased stroke from `Z_PK=20335` (60 raw points, `ink-index 0`,
+`bounds` 84×60 local size):
+
+- Its `(points ...)` list is the full, ordinary 60-sample path - same
+  shape as any un-erased stroke (location + azimuth/force/opacity/
+  timestamp per point, all already-confirmed channels).
+- `centerline-slices` holds **one 89-point polyline** - more points than
+  the stroke's own 60.
+- `mask-points` holds **one point**, `(0, 59)` - and the stroke's own
+  local bounds height is 60, so this spans almost the stroke's entire
+  height.
+
+### The 60-vs-89 point-count mismatch means `centerlineSlices` isn't a subsequence of the original path
+
+If erasing just remembered "keep points 12 through 40" of the original
+path, the slice could never have *more* points than the original 60.
+Instead this is freshly computed geometry - consistent with Update 7's
+disassembly-confirmed mechanism (`-generateMask` builds a stroke's inked
+*outline* polygon, both edges of the ink ribbon, from its path + per-point
+width; erasing runs `ClipperLib` polygon differencing between that outline
+and the eraser gesture's own outline). Clipping two polygons against each
+other introduces new vertices at every edge intersection, so the surviving
+boundary naturally has a different point count than the source centerline
+- not a strict subset of it. **This part is inference from the arithmetic
+mismatch, not a re-disassembly of the exact reconstruction step** - Update
+7 confirmed `generateMask`/`ClipperLib::SimplifyPolygons` are real call
+targets, but didn't trace the specific code path that turns a clipped
+polygon back into a `centerlineSlices`-shaped point list.
+
+### Empirically, `substrokes` fragments never carry their own points - full-corpus check
+
+Decoded every `com.apple.drawing.2` attachment in the archive (1278
+drawings) and walked the full recursive stroke tree (`Stroke.substrokes`,
+up to 12 levels deep - see Update 6):
+
+- **0 of 3780** substroke fragments, anywhere in the archive, have their
+  own `stroke_data`/points. Every single one is empty on that field.
+- Of 3332 stroke records that have `substrokes` at all, only 127 (3.8%)
+  carry `centerlineSlices`/`maskPoints` on themselves directly - the rest
+  push that data onto the children instead, while the children push the
+  points responsibility back up to the (points-carrying) ancestor.
+
+**Reading, offered carefully**: there is exactly one drawn path per
+original stroke, ever - `substrokes` are not literal duplicate strokes
+with their own geometry, they're lightweight per-fragment *descriptions*
+("this piece of the parent's ink is still visible, clipped this way")
+layered on top of a single shared point array. Rendering a masked stroke
+therefore requires re-deriving each fragment's visible ink from the
+ancestor's original points at draw/read time, using that fragment's own
+`centerlineSlices`/`maskPoints`. **This is the weakest claim in this
+update** - it's the only reading consistent with "0/3780 fragments have
+points," but no disassembled render-path function was found this pass
+that actually performs this reconstruction; it's inferred from what's
+absent on the wire, not observed in code. The user was right to be
+skeptical of "splitting effectively splits" as a literal description -
+the data backs up that skepticism: nothing about the original stroke is
+actually duplicated or physically split, only annotated.
+
+### Provenance
+
+Purely empirical - decoding real `Stroke`/`StrokeData` bytes from the
+user's own archive (same fields Updates 4-6 already confirmed the wire
+format of), no new SSH/disassembly this pass. Full-corpus counts (not
+content) were needed to state "0 of 3780" and "127 of 3332" correctly, per
+this session's established convention (Update 6) of preferring full-corpus
+counts over samples when a prevalence claim is being made. The `Z_PK=20335`
+excerpt itself is the one already shown to the user directly in
+conversation (see `render_stroke()`'s `(centerline-slices ...)`/`(mask-
+points ...)` output, unchanged since Update 6's decoder wiring). No
+`.proto`/decoder changes this update.
