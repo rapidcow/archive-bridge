@@ -722,7 +722,153 @@ wholesale (typeglob assignment) with a corrected reimplementation that
 also adds memoization by object index (the original has none - harmless
 for small files, wasteful for large ones with heavily-shared objects like
 every stroke's `$class`). Fixed, this file now parses in well under a
-second. Worth reporting upstream at some point; not done yet.
+second.
+
+Drafted an actual upstream fix (not just our own script's workaround) in
+`~/net/github.com/briandfoy/mac-propertylist` (currently uncommitted
+there; decided in conversation not to open a PR yet). Confirmed with a
+minimal, Concepts-independent repro first: a 70,000-element array/dict
+built via the module's own `Mac::PropertyList::WriteBinary` (forces
+`ref_size=4`) round-trips as silent garbage on the unfixed reader - not
+just misordered, actual cross-contamination (`key26913` came back holding
+`key30930`'s value). The real fix consolidates the three duplicated buggy
+unpack sites into one `_read_refs`/`_unpack_sized_ints` helper, mirroring
+a pattern the file already used correctly for its *offset table* sizing
+(`_get_offset_table`) but never applied to object-ref sizing. Extended
+past just fixing size 4: the trailer's `ref_size`/`offset_size` bytes are
+spec-legal at any width from 1 to 8 (nothing in the format restricts them
+to a power of two), so `_unpack_sized_ints` (the shared helper both
+`_read_refs` and `_get_offset_table` now use) handles every width 1-8
+uniformly rather than only the ones some writer has been observed to
+produce. Widths 5 and up fall back to a manual most-significant-byte-first
+decode accumulated into `Math::BigInt`, since there's no native `unpack()`
+template for them and (7-8 especially) values can exceed a native
+double's 2^53 exact-integer limit on any Perl, or a plain integer's range
+on a 32-bit-`IV` build - verified directly against 2**64-1 for width 8.
+**What was actually special about the real Concepts file? Nothing** - and
+that turned out to matter for how the regression tests ended up shaped.
+Dug into it because publishing the real 1.8MB `Strokes.plist` (personal
+artwork) as a test fixture felt like the wrong move if it wasn't
+necessary. Broke down `New Drawing 2 Copy.concept`'s 92039 low-level
+bplist objects by `$classname`: 1966 `Stroke`s, and each one's *own* dict
+contributes on the order of a dozen-plus low-level objects on top of
+itself - a `BrushProperties` dict, a `UIColor` dict, an `NSDate`-shaped
+timestamp dict, a `keyPoints` `NSMutableArray` plus one `KeyPoint` dict
+per key point, and (this is the part that actually inflates the count)
+every dict *key string* (`"brushWidth"`, `"diIdentifier"`, `"$class"`, ...)
+is its OWN separately-numbered low-level bplist object too, not free
+metadata - dict keys aren't just Perl hash keys once you're back at the
+raw byte level. `92039 / 1966 ≈ 46.8` low-level objects per stroke - not
+a bug, not an anomaly, not "orphaned"/leftover data (checked and ruled
+that out directly: `scalar(@{$objects})`, i.e. the NSKeyedArchiver-level
+`$objects` array's own length, was only 16667 for this file - the other
+~75000 are exactly this key-string/sub-dict multiplication, counted at
+the low bplist level rather than the NSKeyedArchiver level). Just ordinary
+per-stroke bookkeeping, multiplied by "a few thousand strokes," crossing
+65536.
+
+The load-bearing fact: **`ref_size`/`offset_size` are pure trailer bytes
+that don't care what produced the file or what's in it - only how many
+low-level objects there are in total.** A minimal synthetic file with a
+trailer that *declares* a wide `ref_size` exercises the identical decode
+path a huge real file needs that width for, with zero real content
+involved. Confirmed this isn't just a theory: hand-built a tiny (62-139
+byte) 5-element-array bplist per width 1-8 (plus one with
+`offset_size != ref_size`, to make sure the two trailer fields are
+decoded independently rather than one accidentally reusing the other's
+width) via a new `hacks/make-wide-refs-fixtures.pl`, each with its
+trailer manually over-provisioned to claim that width regardless of the
+tiny content - verified every one against *three* independent readers
+(this module's fixed one, Python's `plistlib`, and real Apple `plutil`
+over `ssh MBP`) before trusting them, and confirmed each one reproduces
+the exact failure class (hang on 3/4, garbage/crash on 5-8) against the
+*pre-fix* code. These now live as real fixture files under `plists/`
+(`wide-refs-1.plist` .. `wide-refs-8.plist`, `wide-refs-mismatched.plist`),
+read via `Mac::PropertyList::parse_plist_file(catfile(qw(plists ...)))` -
+matching this project's own existing convention (`t/read_binary.t` reads
+`plists/the_perl_review.abcdp` the same way) - rather than only
+synthesizing bytes inline in the test. So: nothing from the real Concepts
+file needed publishing at all; the generic trailer-width property was the
+whole story, and a ~100-byte synthetic file proves it just as completely
+as the 1.8MB real one would have. `t/read_binary_large_refs.t` now checks
+0/1/max-value round-trips at every width 1-8 directly against
+`_unpack_sized_ints` too (32 more checks, a stronger arithmetic check than
+the fixtures' fixed small values alone give), plus the original real-file
+round-trips at widths 2 and 4 through the actual reader/writer at
+realistic scale. Fails on the pre-fix code, passes after. Full suite:
+301/301. `MANIFEST` updated to list the new `plists/`/`t/` files (not
+`hacks/make-wide-refs-fixtures.pl` itself - matching how sibling files in
+`hacks/` are dev-only and already absent from `MANIFEST`).
+
+Cross-checked against two independent implementations, not just our own
+patched reader agreeing with itself: (1) Python 3.14's standard-library
+`plistlib` - read its own `_count_to_size`/`_BINARY_FORMAT` source
+directly, confirmed it independently also only ever picks 1/2/4/8 (never
+3/5/6/7), same as this module's writer; fed a Python-written 70000-element
+binary plist (forces `ref_size=4`) through the *unfixed* Perl reader and
+it hung/recursed exactly the same way our own Concepts files did,
+confirming this isn't an artifact of round-tripping through the same
+(possibly-also-buggy) Perl writer - then confirmed the *fixed* reader
+round-trips it perfectly. (2) Real `plutil` on macOS (via `ssh MBP`,
+macOS 15.7.7) - `plutil -convert binary1` on the same 70000-element data
+produced a file **byte-for-byte identical** to Python's own binary
+writer output, and the fixed Perl reader round-trips that genuine
+Apple-produced file perfectly too; separately, `plutil -lint` accepted a
+plist written by this module's own `WriteBinary` as fully spec-valid.
+No test file/oracle actually exercises `offset_size`/`ref_size` outside
+{1,2,4} in the wild across any of Perl/Python/real-`plutil`'s writers -
+3 and 5-8 remain "spec-legal, defensively handled, never yet observed"
+even after this cross-check, which is exactly why the unit-level
+all-widths test above matters on its own rather than as a stand-in for
+a real-file test that may never exist.
+
+**Update: the `_read_plist_trailer` truncation flagged above is also a
+real, now-fixed bug** - the user asked for it to actually be verified
+rather than left as a hunch, so it was. `_read_plist_trailer` read
+`object_count`/`top_object`/`table_offset` with
+`unpack "x6 C C (x4 N)3"` - "skip 4 bytes, read a 4-byte big-endian int,"
+three times - which, since these are genuinely 8-byte big-endian fields,
+always keeps the low 4 bytes and silently discards the high 4. Unlike
+`ref_size`, this isn't only reachable via an absurd object count:
+`table_offset` is a byte position in the file, so any single file over
+4GB total size hits it regardless of object count (one huge embedded
+blob is enough) - `object_count`/`top_object` still need >4 billion
+objects, which stays unrealistic.
+
+Verified empirically, not just by inspection: built a real (not
+synthetic-trailer-only) file whose offset table genuinely sits past the
+4GB mark, using a sparse hole in the middle (confirmed ~8KB actual disk
+for a file that reports as >4GB - safe to construct here). Against the
+unfixed code: `table_offset` truncated to a small in-range value that
+happened to land inside the sparse (all-zero) hole; that decoded as a
+zeroed-out offset table; every object resolved to file position 0 - the
+literal `"bplist00"` magic bytes - misparsed as a 2-character UTF-16BE
+string. No error anywhere, just silently wrong output (worse than the
+`ref_size` bug in that specific way).
+
+Fixed by reusing `_unpack_sized_ints` at size 8 (the same helper the
+`ref_size` fix already built) for all three fields. Added
+`t/read_binary_trailer_counts.t`: a fast, always-run subtest exercises
+`_read_plist_trailer` directly against a tiny in-memory buffer whose
+*trailer bytes* just claim values past 2^32 (the function only ever
+reads the last 32 bytes of whatever it's given, so no large file is
+needed to test the arithmetic in isolation) - this is the real regression
+coverage, safe on every platform including CPAN Testers. A second
+subtest does build a genuine sparse >4GB file end-to-end, but only when
+`$MAC_PROPERTYLIST_TEST_HUGE_TRAILER` is explicitly set - deliberately
+*not* unconditional, because this project's own CI runs `xt/`
+unconditionally on Linux/macOS/**and Windows**, and Windows/NTFS does not
+auto-sparsify a file just because you seek and write past its current
+end the way Linux/macOS filesystems do - an unconditional version could
+have tried to allocate 4GB of real disk on a Windows CI runner (or,
+worse, on a CPAN Testers box - which is exactly the failure mode
+raised and specifically wanted avoided before committing anything).
+Confirmed the fixture-building code itself had its own unrelated bug on
+the first attempt (an errant `- 8` in the offset calculation, unrelated
+to the module fix) before trusting a green result - worth remembering
+that a passing "reproduction" needs the same scrutiny as the fix itself.
+Full suite: 304/304, both with and without the opt-in env var, disk usage
+unchanged either way.
 
 **Zip member names aren't always spelled the way you'd expect**: one real
 file (`~/my/art/export/iPad/Welcome to Concepts/Section 1/Untitled
