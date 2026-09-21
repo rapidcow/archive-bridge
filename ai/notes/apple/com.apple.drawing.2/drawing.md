@@ -823,3 +823,74 @@ after `.proto`/decoder changes used a random 20-drawing sample
 (`--immutable`, real `NoteStore.sqlite`), not a full-corpus sweep - a full
 1278-drawing sweep was intentionally avoided this session at the user's
 request (their personal drawings aren't shareable/reproducible test data).
+
+## Update 6 (2026-09-21): `centerlineSlices`/`maskPoints`' actual wire content, and how common they really are
+
+Follow-up to Update 5, which established the *semantic* story (Clipper-
+library erase/mask machinery) but left the two fields' actual byte content
+undecoded. This update decodes the bytes themselves, purely empirically
+(counting/unpacking real sample data - no new disassembly), against the
+user's own local archive (1278 drawings, 777,490 top-level strokes).
+
+**Correction to an initial miscount**: a first pass of this update
+iterated only `Drawing.strokes` directly and concluded these fields were
+present in just 2 drawings. That was wrong - it forgot `Stroke` is
+recursive (`substrokes`, field 11, confirmed real since Update 1) and a
+non-trivial number of real `centerlineSlices`/`maskPoints` occurrences live
+on *substrokes*, not top-level strokes (real substroke nesting in this
+archive goes up to 12 levels deep). Re-run recursively over the full
+stroke tree, the real numbers are: **156 of 1278 drawings** (12.2%) have at
+least one stroke (at any nesting depth) with `centerlineSlices` set, and
+**151 of 1278** (11.8%) have `maskPoints` set - not rare at all, just
+concentrated below the top level in some drawings. (`probe-marginal-
+fields.pl`'s own `walk_strokes` helper, from the previous session's
+"are these fields ever set" pass, already recursed correctly - its
+777,490-stroke/1802-mask_points/2803-centerline_slices *counts* were fine;
+only this update's follow-up "which drawings" queries had the bug,
+now fixed.)
+
+**`centerlineSlices`'s inner bytes are flat float32 `(x,y)` pairs.** Each
+`centerlineSlices` element is itself a length-delimited blob (already known
+- `PB::Data`, per Update 2); unpacking that blob as little-endian float32
+pairs gives smooth, monotonic point sequences whose coordinates sit in the
+same numeric range as the parent stroke's own points/bounds - i.e. a
+**polyline in the drawing's normal coordinate space**, consistent with
+Update 5's "slice of the stroke's centerline, as a sequence of points"
+reading, now with an actual decode instead of just a semantic guess. Over
+the full corpus: 3026 total `centerlineSlices` elements, **100% have a
+byte length that's an exact multiple of 8** (i.e. cleanly divides into
+float32 pairs, no remainder ever). One real slice sampled by hand: 89
+points, x running ~536→563 and y ~68→81 over the first 15 points, strictly
+increasing in both - a real polyline, not noise.
+
+**`maskPoints` is always an even-length flat float list**, confirmed
+across all 1802 real occurrences (element counts observed: 2, 4, 6, 8, 10,
+12, 14, 16, 20, 26, 42 - i.e. 1-21 `(x,y)` pairs, most commonly just 1 pair
+(1561/1802) or 2 pairs (162/1802), with a long tail). The "first value is
+always exactly 0" pattern noticed in an initial small hand-sample (from
+just one drawing) does **not** hold at full-corpus scale - only 1112/1802
+(62%) have a first value of exactly `0`. Downgraded from "worth re-
+checking" to explicitly **not a real pattern**, just a coincidence of the
+small sample it was first noticed in.
+
+`tools/apple-notes-drawing-decode.pl` now decodes `centerlineSlices`
+elements into `[x,y]` pairs (new `decode_float_pairs()` helper) instead of
+leaving them as opaque hex; `render_sexp`/`render_stroke` print each slice
+as a nested list of `(x y)` pairs. `maskPoints` was left as-is (already
+decoded as a flat float list since the original wiring pass). No `.proto`
+field-number changes this update - purely a decode-the-bytes pass on top
+of Update 2/5's existing field numbers/semantics.
+
+### Provenance
+
+Purely empirical this update - no new SSH/disassembly, just decoding real
+sample bytes from the user's own archive with the already-confirmed
+`Google::ProtocolBuffers`-parsed `Stroke.centerline_slices`/`mask_points`
+fields, via throwaway scripts recursing `Stroke.substrokes` (the bug in
+this update's first pass - see above - was exactly forgetting that
+recursion). Counts (not content) were gathered over the full local corpus
+- necessary to state prevalence/byte-length-divisibility facts correctly,
+since a random sample would both undercount a feature this unevenly
+distributed and couldn't support a "100% of N" claim. No drawing content
+beyond structural counts and the one hand-inspected polyline sample above
+is reproduced in this file.
