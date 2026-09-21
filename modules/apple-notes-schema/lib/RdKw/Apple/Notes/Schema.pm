@@ -8,7 +8,7 @@ $VERSION = eval $VERSION;
 
 =head1 NAME
 
-RdKw::Apple::Notes::Schema - apple notes ProtoBuf schemas
+Apple::Notes::Schema - apple notes ProtoBuf schemas
 
 =cut
 
