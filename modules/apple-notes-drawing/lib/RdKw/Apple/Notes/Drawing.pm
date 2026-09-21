@@ -1,0 +1,12 @@
+package RdKw::Apple::Notes::Drawing;
+
+our $VERSION = '0.00_00';
+$VERSION = eval $VERSION;
+
+=head1 NAME
+
+RdKw::Apple::Notes::Drawing - apple notes drawing decoder
+
+=cut
+
+1;
