@@ -502,7 +502,7 @@ sub format_channel {
 	if ($c->{kind} eq 'hex') {
 		return sprintf("%s(hex,unconfirmed)", $c->{value});
 	} elsif ($c->{kind} eq 'azimuth' || $c->{kind} eq 'altitude') {
-		return $c->{value}->bstr() . " π";  # exact rational, no decimal; raw UTF-8 bytes, no `use utf8`/-CS
+		return $c->{value}->bstr() . " #| π |#";  # exact rational, no decimal; raw UTF-8 bytes, no `use utf8`/-CS
 	} elsif ($c->{kind} eq 'force' || $c->{kind} eq 'aspect_ratio'
 			|| $c->{kind} eq 'edge_width' || $c->{kind} eq 'opacity'
 			|| $c->{kind} eq 'threshold') {
@@ -633,8 +633,8 @@ sub render_stroke {
 	push @out, "${prefix}  (points";
 	for my $p (@{ $st->{points} }) {
 	    my $chans = $p->{channels} || {};
-	    my $chan_str = join(" ", map { "$_=" . format_channel($chans->{$_}) } sort keys %$chans);
-	    push @out, sprintf("${prefix}    (%s %s) ; channels: %s",
+	    my $chan_str = join("", map { " ($_ . " . format_channel($chans->{$_}) . ")" } sort keys %$chans);
+	    push @out, sprintf("${prefix}    ((point %s %s)%s)",
 	        float_hex($p->{x}), float_hex($p->{y}), $chan_str);
 	}
 	push @out, "${prefix}  )";
