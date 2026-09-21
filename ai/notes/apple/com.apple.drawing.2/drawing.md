@@ -894,3 +894,115 @@ since a random sample would both undercount a feature this unevenly
 distributed and couldn't support a "100% of N" claim. No drawing content
 beyond structural counts and the one hand-inspected polyline sample above
 is reproduced in this file.
+
+## Update 7 (2026-09-21): what actually constructs a `PKStrokeMask` - the eraser, not lasso select
+
+(Numbering note: this file already has an unrelated `## Update 7:
+groupUUID...` section above, from the original 2026-09-12 session's own
+numbering sequence - this section continues the *dated* `(2026-09-21)`
+series started at Update 4, not that one. Kept as-is rather than
+renumbering the whole file, to avoid breaking any existing cross-
+references to the older Update 7.)
+
+Follow-up to Update 5/6, which established *what* `centerlineSlices`/
+`maskPoints` decode to and that they're consumed by `PKStrokeMask`, but
+never traced *which real user gesture* actually constructs one - Update 5
+guessed "erasing/lasso-cutting" from the class name and Clipper-library
+choice alone. The user, who has used this app extensively, pushed back on
+both halves of that guess: Apple's area eraser is usually described as
+ink/pixel painting rather than vector re-clipping, and lasso-select-and-
+move "should" just reassign whole strokes rather than surgically splitting
+one. This update traces the actual call sites to settle it.
+
+### The real caller: `-[PKDrawing(Slicing) sliceWithEraseStroke:]`
+
+`nm -U ~/re-notes/PencilKit | c++filt | grep -iE 'Slicing|slice|StrokeMask'`
+turns up an entire `Slicing` category (on both `PKStroke` and `PKDrawing`)
+that was invisible to the earlier, narrower `StrokeMask`-only search:
+`+[PKStroke sliceWithEraser:toClip:]`, `+[PKStroke
+sliceWithEraser:toClip:clipType:]`, `-[PKStroke sliceWithEraser:]`,
+`-[PKStroke sliceWithMask:]`, `-[PKDrawing sliceWithEraseStroke:]`, and a
+dedicated undo-stack command class, `PKSliceStrokesCommand`
+(`-initWithDrawingUUID:actionName:substrokes:strokesHidden:hiding:` -
+note it takes `substrokes` as a direct constructor argument, i.e. slicing
+strokes is itself a first-class undoable user action, not an internal
+detail).
+
+Disassembling `-[PKDrawing(Slicing) sliceWithEraseStroke:]`
+(`0x1ae72d868`) shows real logic, not just a name match: it calls
+`-newOutlinePaths` on the passed-in erase stroke (turning the eraser
+gesture's own path - which, like any stroke, has its own `radius`/
+`edgeWidth` per §7-9 of `point-decode-pipeline.md` - into a closed
+polygon), reads that stroke's `-_bounds`, then enumerates `-strokes` on
+the drawing (`_objc_msgSend$strokes`) to find which existing strokes it
+intersects. This is the eraser gesture's own inked shape being turned into
+a clip region and tested/applied against every stroke it overlaps -
+exactly the "erase" reading, now backed by actual logic rather than a
+class-name guess.
+
+Separately, `-[PKStroke(Slicing) generateMask]` (`0x1ae72c008`) - called
+on an arbitrary stroke, not specific to erasing - calls
+`_consumeRenderVertexes:ink:inkTransform:strokePath:` (building *that
+stroke's own* inked-outline polygon from its path/ink/transform, i.e. its
+visible rendered shape, width included) then
+`ClipperLib::SimplifyPolygons(...)` on the result. So the mechanism is:
+every stroke can produce its own "inked outline" Clipper polygon
+on demand (`generateMask`); the eraser gesture is itself just a stroke, so
+its outline is computed the same way; erasing = Clipper-differencing the
+erased-through stroke's own outline against the eraser stroke's outline,
+storing the surviving polygon fragments as `maskPaths`/`centerlineSlices`
+(Update 5/6) and the surviving ink pieces as `substrokes` (per
+`PKSliceStrokesCommand`'s constructor). This directly explains why it's
+vector geometry, not pixel painting, despite "erasing ink" being the
+user-facing description: PencilKit's ink is always vector (a path + a
+per-point radius/width), so "erase part of this ink's visible shape" is
+naturally a polygon-clip operation on that vector outline, not a bitmap
+operation - there's no pixel raster anywhere in this representation to
+paint over in the first place.
+
+### Lasso select: real, but a completely separate mechanism - not the cause
+
+`PKLassoTool`/`PKStrokeSelection`/`_PKInkIdentifierLasso` all exist for
+real (lasso selection is implemented by drawing the lasso boundary itself
+as a special-identifier ink stroke, then building a `PKStrokeSelection`
+object that holds the selected `strokes` plus that `lassoStroke`) - but
+**none of these symbols reference `PKStrokeMask`, the `Slicing` category,
+or `substrokes` anywhere** in the full symbol table. `PKStrokeSelection`
+groups whole strokes by intersection/containment with the lasso boundary;
+it does not appear to surgically split any of them. The user's skepticism
+here was correct: lasso select is unrelated to this mechanism.
+
+### Conclusion
+
+**Confirmed** (disassembly-traced logic, not just naming): the eraser
+tool - specifically, differencing the eraser gesture's own inked outline
+against an intersecting stroke's inked outline via `ClipperLib` - is what
+produces `substrokes`/`centerlineSlices`/`maskPoints`. This corrects
+Update 5's hedged "erasing/lasso-cutting" guess down to just "erasing,"
+and explains the "vector clip, not pixel paint" mechanism the user found
+surprising: because PencilKit ink has no raster representation at all
+(everything is vector path + per-point width), there's nothing else *to*
+paint over - clipping the vector outline is the only way to remove part of
+a stroke's visible ink. **Not fully closed**: this pass didn't confirm
+there's only one eraser mode that goes through this path (Apple Notes has
+historically offered more than one eraser behavior - e.g. a coarser
+"delete whole object you touch" mode vs. this finer ink-level one - and
+`+[PKStroke sliceWithEraser:toClip:clipType:]`'s `clipType:` parameter
+hints at more than one variant existing at this layer) - which specific
+eraser mode(s) route through `sliceWithEraseStroke:` vs. some other path
+entirely was not traced.
+
+### Provenance
+
+Same SSH/`ipsw` access as every other update in this file
+(`cooper.plug.rapidcow.net`, `~/re-notes/PencilKit`). All class/method
+names above are exact `nm -U | c++filt` output; the "real logic, not just
+naming" claims for `sliceWithEraseStroke:`/`generateMask` come from
+reading their actual disassembled instruction sequences (`ipsw macho
+disass -a <vaddr> --demangle --force`), specifically the sequence of
+Objective-C message sends (`_objc_msgSend$<selector>` stub calls, readable
+directly as call targets) and the literal `ClipperLib::SimplifyPolygons`
+symbol as a call target - not inferred from names alone. No sample
+`NoteStore.sqlite` data was used this update (pure disassembly, no need
+for empirical cross-check here). No `.proto`/decoder changes - this was a
+semantics-only investigation, no new wire-level fact was established.
