@@ -39,14 +39,14 @@ tasks.named<Test>("test") {
 
 // This module's package-info.java {@links} apple-notes-drawing's
 // packages, which apple-notes-drawing's own package-info.java {@links}
-// right back - so this can't depend on apple-notes-drawing's own
-// `javadoc` task for its element-list (that task equally depends on
+// right back --- so this can't depend on apple-notes-drawing's own
+// `javadoc' task for its element-list (that task equally depends on
 // this one's), that's a real cycle, not just an independence nicety.
-// Depending on the root aggregate `:javadoc` task instead sidesteps
+// Depending on the root aggregate `:javadoc' task instead sidesteps
 // it: both this task and apple-notes-drawing's depend on it, but it
 // depends on neither of them (see root build.gradle.kts), and it's a
 // real build (not a side-channel file), covering every module's
-// packages in one `element-list`.
+// packages in one `element-list'.
 tasks.javadoc {
     dependsOn(":javadoc")
     (options as StandardJavadocDocletOptions).apply {
@@ -61,9 +61,9 @@ tasks.javadoc {
         // linksOffline only decides the *URL* a resolved {@link}
         // renders as; javadoc still needs to resolve the symbol at
         // all, same as javac, and it never consults an element-list
-        // for that - only -sourcepath or -classpath. Adding
+        // for that --- only -sourcepath or -classpath.  Adding
         // apple-notes-drawing's own source root here (not its
-        // compiled classes - it doesn't have any yet, and doesn't
+        // compiled classes --- it doesn't have any yet, and doesn't
         // need to) is what actually lets these {@link}s resolve.
         addPathOption("sourcepath").value =
             listOf(project(":apple-notes-drawing").projectDir.resolve("src/main/java"))
