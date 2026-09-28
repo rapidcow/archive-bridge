@@ -18,6 +18,11 @@ public record PointsData(List<StrokePoint> points, Set<StrokeChannel> presentCha
 		}
 
 		int flags = data.getPointsFlags();
+		// EnumSet's iteration order is StrokeChannel's declaration/ordinal order,
+		// which StrokeChannel's own static initializer guarantees matches ascending
+		// bitIndex order - that's what makes iterating `present` below (rather than
+		// StrokeChannel.values()) reproduce points_data's actual per-point byte
+		// packing order. See StrokeChannel's class doc for why order is load-bearing.
 		EnumSet<StrokeChannel> present = EnumSet.noneOf(StrokeChannel.class);
 		int stride = 8;
 		for (StrokeChannel ch : StrokeChannel.values()) {

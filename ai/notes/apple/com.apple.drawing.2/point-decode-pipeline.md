@@ -663,6 +663,56 @@ enabled channels" and explains variability beyond simple presence/absence:
 a channel can be present for a stroke yet cost zero per-point bytes if it's
 constant across that stroke.
 
+### 7a. `location` is genuinely `float32 x, y` (not `float16`) - confirmed by the same discriminator that caught the *other* channels being fake
+
+Reasonable to suspect `location` might be a disguised `float16` pair too,
+by analogy with §8's finding that the other 2-byte channels only *looked*
+like `float16` - but the accessor's own instructions settle it, and settle
+it the other way. Full disassembly of
+`__ZNK25PKStrokePathPointsPrivate15locationAtIndexEm` (`0x1ae680f2c`, both
+branches - the in-range per-point read at `0x1ae680f70` and the
+out-of-range/zero-count default-record fallback both converge on the same
+tail):
+
+```
+ldr  s0, [x8]      ; load 4 raw bytes into a 32-bit FP register
+fcvt d1, s0        ; FLOAT-to-float widen (single -> double)
+ldr  s0, [x9]
+fcvt d0, s0
+ret
+```
+
+`fcvt` (float-to-float reinterpret/convert) is the exact opposite signature
+from §8's `ucvtf` (unsigned-int-to-float) finding for `force`/`azimuth`/
+`altitude` - here it's genuine proof the raw 4 bytes already *are* an
+IEEE754 `float32`, not an integer being dressed up as one. The companion
+writer, `PKStrokePathPointsPrivate::setLocation(CGPoint, unsigned long)`
+(`0x1ae680f84`, immediately adjacent), mirrors this exactly in reverse:
+`fcvt s0, d0` / `fcvt s1, d1` (narrow double back to single) then `stp s0,
+s1, [x8]` - storing both 32-bit float registers as one 8-byte pair. Matches
+`sFieldSizes[0] = 8` (§6) precisely: two real `float32`s, not two
+`float16`s (which would total 4 bytes, not 8). Also matches §6b's real
+sample bit-for-bit: point 0's `x` bytes (`1c5c7942`) decode as IEEE754
+`float32` to exactly `62.33995...`, identical to the tool's own reported
+value - a `float16` reinterpretation of those same 4 bytes wouldn't even
+parse as one (`float16` is 2 bytes).
+
+**No byte-swap instruction anywhere in either accessor** (`locationAtIndex`
+or `setLocation`) - every memory access is a plain `ldr`/`str`/`ldp`/`stp`
+straight between memory and register, no `rev`/`rev16`/`rev32`/`rev64`
+anywhere in either function's body. Same is true of every other accessor
+disassembled so far in this file (`forceAtIndex` et al. in §8: `ldr h0,
+[x8]` flows straight into `ucvtf`, no swap in between). So the "on-disk
+bytes already match the CPU's native register layout, no juggling needed"
+read is correct - PencilKit reads/writes `points_data` as a direct memory
+image of whatever device wrote it, with no host/network byte-order
+normalization step anywhere in the pipeline (no `ntohl`/`htonl` equivalent
+exists here). That's only safe because every device that has ever produced
+or consumed this format - iPhone, iPad, Mac, ARM and Intel alike - has been
+little-endian; Apple last shipped big-endian hardware (PowerPC) well before
+this format existed. It's a private host-order dump, not a portable wire
+format.
+
 ## 8. `force`/`azimuth`/`altitude` normalization constants - confirmed exact, and a correction to the table above
 
 Session date 2026-09-12, live SSH access to the same Mac (`cooper.plug.rapidcow.net`,
