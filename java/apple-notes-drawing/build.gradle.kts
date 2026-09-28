@@ -29,7 +29,7 @@ tasks.named<Test>("test") {
 // {@link}s into this module resolve without a circular task
 // dependency on this module's own `javadoc` task.
 tasks.register("elementList") {
-    val outputDir = layout.buildDirectory.dir("tmp/elementList")
+    val outputDir = layout.buildDirectory.dir(org.rapidcow.gradle.build.ElementList.PATH)
     val srcDirs = sourceSets.main.get().java.srcDirs
     inputs.files(sourceSets.main.get().allJava)
     outputs.dir(outputDir)

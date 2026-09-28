@@ -15,6 +15,8 @@ import java.io.File
  * dependency between their `javadoc` tasks.
  */
 object ElementList {
+    const val PATH = "tmp/elementList";
+
     fun generate(sourceRoots: Iterable<File>, outputFile: File) {
         val packages = sortedSetOf<String>()
         for (root in sourceRoots) {

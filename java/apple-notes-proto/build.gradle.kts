@@ -46,7 +46,7 @@ tasks.register("elementList") {
     // protoc has run.
     dependsOn(tasks.matching { it.name.startsWith("generate") && it.name.endsWith("Proto") })
 
-    val outputDir = layout.buildDirectory.dir("tmp/elementList")
+    val outputDir = layout.buildDirectory.dir(org.rapidcow.gradle.build.ElementList.PATH)
     val srcDirs = sourceSets.main.get().java.srcDirs
     inputs.files(sourceSets.main.get().allJava)
     outputs.dir(outputDir)
@@ -69,7 +69,7 @@ tasks.javadoc {
             // apple-notes-drawing has a real release; "latest" is a
             // placeholder.
             "https://javadoc.rapidcow.org/archive/bridge/apple-notes-drawing/latest/",
-            project(":apple-notes-drawing").layout.buildDirectory.dir("tmp/elementList").get().asFile.path,
+            project(":apple-notes-drawing").layout.buildDirectory.dir(org.rapidcow.gradle.build.ElementList.PATH).get().asFile.path,
         )
         // linksOffline only decides the *URL* a resolved {@link}
         // renders as; javadoc still needs to resolve the symbol at
