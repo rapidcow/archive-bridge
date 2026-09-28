@@ -3,6 +3,13 @@ plugins {
     alias(libs.plugins.protobuf)
 }
 
+// Need to explicitly specify that we want to reference protobuf
+// itself, since "protobuf" is a substring of "protobuf-plugin".
+// See <https://docs.gradle.org/9.8.0/userguide/version_catalogs.html#sec:avoiding_subgroup_accessors>
+val protobufVersion = libs.versions.protobuf.asProvider().get()
+// The most recent available documentation is 4.35.1, for some reason?
+val protobufJavadocVersion = "4.35.1"
+
 repositories {
     mavenCentral()
 }
@@ -16,7 +23,7 @@ dependencies {
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:4.36.2"
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
     }
 }
 
@@ -28,4 +35,10 @@ java {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+}
+
+tasks.javadoc {
+    (options as StandardJavadocDocletOptions).apply {
+        links("https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/");
+    }
 }
