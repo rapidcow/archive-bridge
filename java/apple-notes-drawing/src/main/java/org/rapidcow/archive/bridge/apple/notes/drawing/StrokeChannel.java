@@ -34,6 +34,6 @@ public enum StrokeChannel {
 	abstract ChannelReading decode(ByteBuffer littleEndian);
 
 	private static int u16(ByteBuffer b) {
-		return b.getShort() & 0xFFFF;
+		return Short.toUnsignedInt(b.getShort());
 	}
 }
