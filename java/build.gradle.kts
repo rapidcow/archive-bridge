@@ -17,6 +17,7 @@
 // `javadoc` binary itself, in that mode.
 evaluationDependsOnChildren()
 
+// The most recent available documentation is 4.35.1, for some reason?
 val protobufJavadocVersion = "4.35.1"
 
 tasks.register<Exec>("javadoc") {
