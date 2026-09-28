@@ -395,6 +395,77 @@ class surfaced only unrelated PKInk/PKToolConfiguration azimuth-related API).
 individually named (`forceAtIndex`, `azimuthAtIndex`, etc.) and read from
 these exact offsets/sizes.
 
+### 6a. Correcting "statically initialized": `sFieldSizes`/`sFieldOffsets` are a lazily-populated cache, not pre-filled data
+
+Session date 2026-09-28, same live SSH access as the `PKStrokePoint.location`
+re-confirmation above. Worth being precise about what "static" means here,
+since it's two different things layered together:
+
+- The **destination** - `sFieldSizes`/`sFieldOffsets` themselves - live in
+  `__DATA,__common` (confirmed via `otool -l`: that section's file `offset`
+  is `0`, i.e. genuinely zero-filled on disk, not pre-populated). Reading
+  these addresses straight from the file gives you zero, not the real
+  table - this is why an earlier pass of this file concluded the values
+  were unrecoverable by static analysis alone.
+- The **source** the writer copies from - sitting inside
+  `+[PKStrokePath _calculateOffsets:sizes:]`'s own compiled code at
+  `0x1ae6819dc`, in `__TEXT,__const` (a real, file-backed section, `otool
+  -l` confirms `offset 1401968`, no relocations) - genuinely is static,
+  file-backed constant data, and is what the earlier §6 analysis actually
+  extracted.
+
+So the honest description is: **a dispatch_once-guarded runtime copy from a
+real static literal table into a lazily-populated cache**, not "the tables
+are statically initialized" outright - the values are static, the storage
+location isn't populated until first use.
+
+Disassembly of the writer (`otool -tV`, confirms §6's account instruction
+for instruction):
+
+```
++[PKStrokePath _calculateOffsets:sizes:]:
+adrp x8, 0x1ae769000
+ldr  q0, [x8, #0x170]
+adrp x8, 0x1ae769000
+ldr  q1, [x8, #0x180]
+stp  q0, q1, [x2]         ; x2 = &sFieldOffsets - entries 0-3
+...
+mov  w8, #0x20
+str  x8, [x2, #0x50]      ; entry 10 = bare immediate 32, no load at all
+...
+stp  q0, q1, [x3]         ; x3 = &sFieldSizes - entries 0-3
+mov  w8, #0x2
+dup.2d v0, x8
+stp  q0, q0, [x3, #0x20]  ; entries 4-7 = immediate 2,2,2,2 (not loaded from __const)
+```
+
+Reading the actual literal bytes at those `adrp`/`ldr` addresses (file
+offset = vmaddr − `0x1ae60f000`, `__TEXT`'s vmaddr with `fileoff 0`, so
+address arithmetic maps 1:1 to file position) and unpacking each 16-byte
+`q`-register load as two little-endian `int64`s:
+
+| load | vmaddr | bytes (hex) | little-endian | big-endian |
+|---|---|---|---|---|
+| offsets[0:2) | `0x1ae769170` | `00..00 08..00` | `(0, 8)` | `(0, 576460752303423488)` |
+| offsets[2:4) | `0x1ae769180` | `0c..00 10..00` | `(12, 16)` | garbage |
+| offsets[4:6) | `0x1ae769190` | `12..00 14..00` | `(18, 20)` | garbage |
+| offsets[6:8) | `0x1ae7691a0` | `16..00 18..00` | `(22, 24)` | garbage |
+| offsets[8:10)| `0x1ae7691b0` | `1a..00 1c..00` | `(26, 28)` | garbage |
+| sizes[0:2) | `0x1ae7691c0` | `08..00 04..00` | `(8, 4)` | garbage |
+| sizes[2:4) | `0x1ae7691d0` | `04..00 02..00` | `(4, 2)` | garbage |
+| sizes[8:10)| `0x1ae7691e0` | `02..00 04..00` | `(2, 4)` | garbage |
+
+Reassembled in program order (immediates filled in where the disassembly
+shows no load): **offsets = `[0, 8, 12, 16, 18, 20, 22, 24, 26, 28, 32]`**,
+**sizes = `[8, 4, 4, 2, 2, 2, 2, 2, 2, 4, 2]`** - an exact, index-by-index
+match to §6's table, now backed by raw bytes and disassembly instead of the
+table alone. **Endianness is little-endian, empirically, not assumed**:
+the little-endian column above reproduces the small, monotonic values the
+table predicts; the big-endian column produces nonsense on every single
+entry. This matches AArch64's mode on all Apple hardware (always
+little-endian) and the convention already used for `points_data` itself in
+both decoders (Java's `ByteOrder.LITTLE_ENDIAN`, Perl's `f<`/`f<`).
+
 ## 7. Semantic identity of all 11 channels, confirmed via `PKStrokePathPointsPrivate`
 
 §6 closed the "what are the numeric sizes/offsets" question but left every
@@ -405,6 +476,31 @@ hypothesized public properties - `location`, `timeOffset`, `size`,
 `opacity`, `force`, `azimuth`, `altitude` - plus two undocumented ones,
 `secondaryScale` and `threshold`, and two private ones, `_edgeWidth` and
 `_radius2`, all confirmed via `nm -U PencilKit | grep -E '\-\[PKStrokePoint '`).
+
+**Re-confirmed session date 2026-09-28**, live SSH to the same Mac
+(`ethan@cooper`/`192.168.100.8`) after accepting the machine's outstanding
+Xcode license (`nm` and other Xcode CLT tools refuse to run at all until
+`sudo xcodebuild -license` is accepted interactively - this had lapsed
+since the §8 session). With the license accepted, `nm -U ~/re-notes/PencilKit`
+runs cleanly and reproduces every symbol this section cites, e.g.:
+
+```
+00000001ae645ddc t -[PKStrokePoint location]
+00000001ae645de8 t -[PKStrokePoint timeOffset]
+00000001ae645e90 t -[PKStrokePoint force]
+00000001ae645e9c t -[PKStrokePoint azimuth]
+00000001ae645ec8 t -[PKStrokePoint altitude]
+```
+
+The `t` symbol-type flag (lowercase = defined, in `__TEXT`, local linkage)
+confirms `location` is a genuinely compiled getter method living in the
+binary at file address `0x1ae645ddc`, not just a reference to something
+defined elsewhere - i.e. this is `PKStrokePoint`'s own real property
+accessor, not an inferred or guessed name. Before the license was accepted
+this same fact was independently obtainable via `grep -a -o
+"[+-]\[PKStrokePoint [A-Za-z0-9_:]*\]" ~/re-notes/PencilKit` (`grep` reads
+the raw string/symbol-table bytes directly and isn't gated by the Xcode
+license the way `nm`/`strings` are) - both routes agree exactly.
 Disassembling these accessors shows most of them (`location`, `opacity`,
 `force`, `threshold`, `_edgeWidth`) are 3-instruction wrappers that
 tail-call into a **different** C++ class than `PKStrokePathPointsShared`:
@@ -462,22 +558,28 @@ and branch between two addressing modes:
 
 The channel-index-to-size/offset match against §6's table is exact for all
 eleven entries, and each accessor's own read width (`ldr s0` for `float32`,
-`ldr h0` for a 16-bit half-float, or a plain `ldr`/`ldp` for the 8-byte
+`ldr h0` for a 16-bit half-word, or a plain `ldr`/`ldp` for the 8-byte
 `location` pair) matches `sFieldSizes[i]` exactly:
+
+**Raw-storage column corrected in place** (originally read `float16` for
+every 2-byte channel below; §8 found this wrong for `force`/`azimuth`/
+`altitude` via disassembly, `ucvtf` not `fcvt`, and the same conclusion
+extends to the other four 2-byte channels by the identical accessor shape -
+see §8 for the full evidence trail and per-channel divisor/bias constants):
 
 | index | `sFieldOffsets`/`sFieldSizes` | channel (from `PKStrokePathPointsPrivate`) | raw storage | normalization applied by the accessor |
 |---|---|---|---|---|
 | 0 | 0 / 8  | `location` (→ `PKStrokePoint.location`) | two `float32` (x, y) | none |
 | 1 | 8 / 4  | `timestamp` (→ `PKStrokePoint.timeOffset`) | `float32` | none |
 | 2 | 12 / 4 | `radius` (→ `PKStrokePoint.size.width`, and combined with aspectRatio for `.height`) | `float32` | none |
-| 3 | 16 / 2 | `aspectRatio` (→ `PKStrokePoint.size.height` via `radius * aspectRatio`) | `float16` | divided by a fixed constant |
-| 4 | 18 / 2 | `edgeWidth` (→ `PKStrokePoint._edgeWidth`, private) | `float16` | divided by literal `10.0` |
-| 5 | 20 / 2 | `force` (→ `PKStrokePoint.force`) | `float16` | divided by a fixed constant |
-| 6 | 22 / 2 | `azimuth` (→ `PKStrokePoint.azimuth`) | `float16` | divided by a fixed constant, then biased by addition in the public accessor |
-| 7 | 24 / 2 | `altitude` (→ `PKStrokePoint.altitude`) | `float16` | divided by a fixed constant, then `bias - raw` in the public accessor |
-| 8 | 26 / 2 | `opacity` (→ `PKStrokePoint.opacity`) | `float16` | divided by a fixed constant |
+| 3 | 16 / 2 | `aspectRatio` (→ `PKStrokePoint.size.height` via `radius * aspectRatio`) | `uint16` (fixed-point, not float16 - §8) | divided by a fixed constant |
+| 4 | 18 / 2 | `edgeWidth` (→ `PKStrokePoint._edgeWidth`, private) | `uint16` (fixed-point, not float16 - §8) | divided by literal `10.0` |
+| 5 | 20 / 2 | `force` (→ `PKStrokePoint.force`) | `uint16` (fixed-point, not float16 - §8, confirmed by disassembly) | divided by a fixed constant |
+| 6 | 22 / 2 | `azimuth` (→ `PKStrokePoint.azimuth`) | `uint16` (fixed-point, not float16 - §8, confirmed by disassembly) | divided by a fixed constant, then biased by addition in the public accessor |
+| 7 | 24 / 2 | `altitude` (→ `PKStrokePoint.altitude`) | `uint16` (fixed-point, not float16 - §8, confirmed by disassembly) | divided by a fixed constant, then `bias - raw` in the public accessor |
+| 8 | 26 / 2 | `opacity` (→ `PKStrokePoint.opacity`) | `uint16` (fixed-point, not float16 - §8) | divided by a fixed constant |
 | 9 | 28 / 4 | `radius2` (→ `PKStrokePoint._radius2`, private) | `float32` | none |
-| 10 | 32 / 2 | `threshold` (→ `PKStrokePoint.threshold`, undocumented public) | `float16` | divided by a fixed constant (same slot as `opacity`'s) |
+| 10 | 32 / 2 | `threshold` (→ `PKStrokePoint.threshold`, undocumented public) | `uint16` (fixed-point, not float16 - §8) | divided by a fixed constant (same slot as `opacity`'s) |
 
 The normalization constants themselves live at fixed, named-adjacent
 `adrp`/`ldr` addresses in `PencilKit`'s `__TEXT` segment (file-backed, same
