@@ -12,5 +12,4 @@ plugins {
 
 rootProject.name = "archive-bridge-apple-notes"
 include("apple-notes-drawing")
-include("apple-notes-proto")
 include("apple-notes-store")

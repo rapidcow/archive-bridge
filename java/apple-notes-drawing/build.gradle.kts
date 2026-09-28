@@ -1,15 +1,36 @@
 plugins {
     `java-library`
+    alias(libs.plugins.protobuf)
 }
+
+// Need to explicitly specify that we want to reference protobuf
+// itself, since "protobuf" is a substring of "protobuf-plugin".
+// See <https://docs.gradle.org/9.8.0/userguide/version_catalogs.html#sec:avoiding_subgroup_accessors>
+val protobufVersion = libs.versions.protobuf.asProvider().get()
+// The most recent available documentation is 4.35.1, for some reason?
+val protobufJavadocVersion = "4.35.1"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    api(libs.protobuf.java)
+    // Fraction (org.apache.commons.math3.fraction) appears in
+    // ChannelReading's public API surface, so this has to be `api',
+    // not `implementation' - consumers need it on their own compile
+    // classpath too.
+    api(libs.commons.math3)
+
     testImplementation(libs.junit.jupiter)
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -24,44 +45,25 @@ tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
-// This module's package-info.java {@links} apple-notes-proto's
-// package, which apple-notes-proto's own package-info.java {@links}
-// right back --- so this can't depend on apple-notes-proto's own
-// `javadoc' task for its element-list (that task equally depends on
-// this one's), that's a real cycle, not just an independence nicety.
-// Depending on the root aggregate `:javadoc' task instead sidesteps
-// it: both this task and apple-notes-proto's depend on it, but it
-// depends on neither of them (see root build.gradle.kts), and it's a
-// real build (not a side-channel file), covering every module's
-// packages in one `element-list'.
+// StrokeData now lives in this same module (see package-info.java for
+// why), so ordinary javadoc resolves it without any cross-module
+// -linkoffline/-sourcepath trick - just the external link to
+// protobuf-java's own generic runtime types (Message, ByteString, ...).
 tasks.javadoc {
-    dependsOn(":javadoc")
-    // apple-notes-proto's own StrokeData et al. only exist once protoc
-    // has run --- needed below so -sourcepath actually has something to
-    // find once this {@links} a specific generated class, not just
-    // the proto package itself.  Depending on the compile task (which
-    // depends on protoc generating sources, transitively) rather than
-    // that generation task directly, so this doesn't need to know
-    // protoc's own task-naming scheme.
-    dependsOn(":apple-notes-proto:compileJava")
     (options as StandardJavadocDocletOptions).apply {
-        linksOffline(
-            // TODO: confirm the actual published version path once
-            // apple-notes-proto has a real release; "latest" is a
-            // placeholder.
-            "https://javadoc.rapidcow.org/archive/bridge/apple-notes-proto/latest/",
-            rootProject.layout.buildDirectory.dir("docs/javadoc").get().asFile.path,
-        )
-        // linksOffline only decides the *URL* a resolved {@link}
-        // renders as; javadoc still needs to resolve the symbol at
-        // all, same as javac, and it never consults an element-list
-        // for that --- only -sourcepath or -classpath.  Adding
-        // apple-notes-proto's own sources here (both hand-written and
-        // protoc-generated) is what actually lets these {@link}s
-        // resolve.
-        addPathOption("sourcepath").value = listOf(
-            project(":apple-notes-proto").projectDir.resolve("src/main/java"),
-            project(":apple-notes-proto").layout.buildDirectory.dir("generated/sources/proto/main/java").get().asFile,
-        )
+        links("https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/")
+    }
+}
+
+// protoc copies each field's own comment onto its has/get/set/clear
+// accessors, but never comments the generic runtime plumbing (parse
+// factories, descriptor accessors, FIELD_NUMBER constants, ...) it
+// emits identically on every message class. gradle.build.ProtoJavadoc
+// fills that in with canned javadoc, matched by signature shape, so it
+// applies to every proto-generated class here and in future modules.
+tasks.matching { it.name.startsWith("generate") && it.name.endsWith("Proto") }.configureEach {
+    val protoSourcesDir = layout.buildDirectory.dir("generated/sources/proto").get().asFile
+    doLast {
+        org.rapidcow.gradle.build.ProtoJavadoc.documentGeneratedSources(protoSourcesDir)
     }
 }

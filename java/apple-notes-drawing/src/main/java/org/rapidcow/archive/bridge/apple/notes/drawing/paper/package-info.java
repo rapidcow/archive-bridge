@@ -10,9 +10,10 @@
  * {@code com.apple.paper} is a placeholder name here, not a confirmed
  * UTI string.
  *
- * <p>The bundle's rows parse as {@code proto2}-encoded messages built
- * on the shared wire types in {@link
- * org.rapidcow.archive.bridge.apple.notes.proto}. See {@code
+ * <p>The bundle's rows parse as {@code proto2}-encoded messages, with
+ * {@code drawing::StrokeData} payloads embedded verbatim and decoded via
+ * the shared {@code StrokeData} type in {@link
+ * org.rapidcow.archive.bridge.apple.notes.drawing}. See {@code
  * ai/notes/apple/com.apple.paper/} in the repository root for the
  * reverse-engineering notes this decoder is built from.
  */

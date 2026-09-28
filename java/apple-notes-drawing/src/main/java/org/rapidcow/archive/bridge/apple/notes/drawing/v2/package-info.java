@@ -11,9 +11,9 @@
  * live system.
  *
  * <p>The blob itself is an optional envelope followed by a {@code
- * proto2}-encoded {@code Drawing} message, built on the shared wire
- * types in {@link org.rapidcow.archive.bridge.apple.notes.proto}. See
- * {@code ai/notes/apple/com.apple.drawing.2/} in the repository root
+ * proto2}-encoded {@code Drawing} message, built on the shared {@code
+ * StrokeData} type in {@link org.rapidcow.archive.bridge.apple.notes.drawing}.
+ * See {@code ai/notes/apple/com.apple.drawing.2/} in the repository root
  * for the reverse-engineering notes this decoder is built from.
  */
 package org.rapidcow.archive.bridge.apple.notes.drawing.v2;
