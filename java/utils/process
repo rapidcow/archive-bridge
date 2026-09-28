@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+
+use 5.006;
+use strict;
+use warnings;
+
+BEGIN {
+	eval { require Template; 1; }
+	or die "E: missing `Template' module\n";
+}
+
+use File::Basename;
+use Getopt::Long;
+
+my $usage = "usage: @{[basename ($0)]} FILE [-o FILE]\n";
+
+Getopt::Long::Configure(qw( permute bundling ));
+GetOptions('o=s' => \(my $output = '-'))
+	or die $usage;
+
+@ARGV == 1 or die $usage;
+my ($input) = @ARGV;
+
+my $tt = Template->new({ EVAL_PERL => 1 })
+	or die "$Template::ERROR\n";
+$tt->process($input, {}, ($output) x ($output ne '-'))
+	or die $tt->error(), "\n";
