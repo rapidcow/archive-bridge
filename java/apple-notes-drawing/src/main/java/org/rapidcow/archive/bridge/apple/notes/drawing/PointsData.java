@@ -11,7 +11,6 @@ import java.util.Set;
 /** Interpreted form of StrokeData's points_count/points_flags/points_data
  *  trio: the flat, variable-stride point table, unpacked. */
 public record PointsData(List<StrokePoint> points, Set<StrokeChannel> presentChannels, int stride) {
-
 	public static PointsData decode(StrokeData data) {
 		int count = data.getPointsCount();
 		if (count == 0 || !data.hasPointsData()) {
