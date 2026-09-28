@@ -19,7 +19,6 @@ import java.io.File
  * whenever protoc regenerates sources in every proto module.
  */
 object ProtoJavadoc {
-
     private data class Rule(
         val pattern: Regex,
         val lines: (baseName: String, match: MatchResult) -> List<String>,
