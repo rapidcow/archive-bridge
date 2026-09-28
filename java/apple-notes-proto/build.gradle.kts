@@ -7,6 +7,8 @@ plugins {
 // itself, since "protobuf" is a substring of "protobuf-plugin".
 // See <https://docs.gradle.org/9.8.0/userguide/version_catalogs.html#sec:avoiding_subgroup_accessors>
 val protobufVersion = libs.versions.protobuf.asProvider().get()
+// The most recent available documentation is 4.35.1, for some reason?
+val protobufJavadocVersion = "4.35.1"
 
 repositories {
     mavenCentral()
@@ -35,12 +37,10 @@ tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
-// This module's package-info.java {@links} apple-notes-drawing's
-// packages and vice versa, so no single-module `javadoc` task can
-// ever resolve everything on its own - use the root project's
-// aggregate `javadoc` task instead.
 tasks.javadoc {
-    enabled = false
+    (options as StandardJavadocDocletOptions).apply {
+        links("https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/");
+    }
 }
 
 // protoc copies each field's own comment onto its has/get/set/clear
