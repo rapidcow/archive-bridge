@@ -9,10 +9,14 @@ BEGIN {
 	or die "E: missing `Template' module\n";
 }
 
+use Config;
 use File::Basename;
+use File::Temp;
 use Getopt::Long;
+use POSIX ();
 
-my $usage = "usage: @{[basename ($0)]} FILE [-o FILE]\n";
+my $me = basename($0);
+my $usage = "usage: $me FILE [-o FILE]\n";
 
 Getopt::Long::Configure(qw( permute bundling ));
 GetOptions('o=s' => \(my $output = '-'))
@@ -21,7 +25,60 @@ GetOptions('o=s' => \(my $output = '-'))
 @ARGV == 1 or die $usage;
 my ($input) = @ARGV;
 
+my $stdout = $output eq '-';
+
 my $tt = Template->new({ EVAL_PERL => 1 })
 	or die "$Template::ERROR\n";
-$tt->process($input, {}, ($output) x ($output ne '-'))
-	or die $tt->error(), "\n";
+my $fh;
+open $fh, ">", $output
+	or die "$me: open($output): $!\n"
+unless $stdout;
+
+{
+	my $cleanup = sub {
+		unless ($stdout) {
+			close $fh if defined $fh;
+			unlink $output;
+		}
+	};
+
+	local %SIG = %SIG;
+	$SIG{__DIE__} = sub { $cleanup->(); &CORE::die; };
+	foreach my $name (qw( INT HUP TERM QUIT )) {
+		if (has_sig($name)) {
+			$SIG{$name} = sub {
+				$SIG{$name} = 'DEFAULT';
+				warn <<OOF;
+$me: caught a SIG${name}! shutting down....
+OOF
+				$cleanup->();
+				POSIX::raise($name);
+			};
+		}
+	}
+
+	$tt->process($input, {}, $stdout ? () : ($fh))
+		or die "$me: ", $tt->error(), "\n";
+
+	unless (close $fh) {
+		undef $fh;
+		die "$me: close($output): $!\n";
+	}
+}
+
+BEGIN {
+	# Taken from Config.pm EXAMPLE
+	my %sig_num;
+	my @sig_name;
+	unless($Config{sig_name} && $Config{sig_num}) {
+	    # No Signals on this system ($^O eq 'Win32'?)
+	} else {
+	    my @names = split ' ', $Config{sig_name};
+	    @sig_num{@names} = split ' ', $Config{sig_num};
+	    foreach my $name (@names) {
+	        $sig_name[$sig_num{$name}] ||= $name;
+	    }
+	}
+
+	sub has_sig { defined $sig_num{$_[0]}; }
+}
