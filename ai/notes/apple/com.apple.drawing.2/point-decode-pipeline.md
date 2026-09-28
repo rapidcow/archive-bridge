@@ -466,6 +466,57 @@ entry. This matches AArch64's mode on all Apple hardware (always
 little-endian) and the convention already used for `points_data` itself in
 both decoders (Java's `ByteOrder.LITTLE_ENDIAN`, Perl's `f<`/`f<`).
 
+### 6b. `points_data`'s own on-wire bytes are little-endian too - confirmed on a real archived point, every field type
+
+§6a nailed down endianness for PencilKit's internal `sFieldSizes`/
+`sFieldOffsets` tables inside the binary. That's a different set of bytes
+from `points_data` itself (the archived, on-disk blob both decoders parse) -
+worth checking separately rather than assuming the same answer carries
+over. No live SSH needed for this one: pulled straight from the user's own
+local archive (`trivnote/NoteStore.sqlite`, `Z_PK=15436`, the same row §8
+already used), via a scratch-patched copy of
+`apple-notes-drawing-decode.pl` that dumped the raw bytes behind its own
+already-decoded output rather than trusting the decode blind.
+
+Stroke `d14801a2d76d4050acb71772af338b26`, `points_flags=167` (`0xa7` = bits
+1/2/5/7 → `timestamp`,`radius`,`force`,`altitude`), stride 20. Point index
+0's raw 20 bytes: `1c5c794261a0c0410000000008033140fa003c7a`. Split by the
+established channel layout (`x`,`y`,`timestamp`,`radius` as `float32`;
+`force`,`altitude` as `uint16`) and decoded both ways:
+
+| field | bytes | little-endian (what the tool reports) | big-endian |
+|---|---|---|---|
+| `x` (float32) | `1c5c7942` | `62.33995056152344` | `7.29e-22` |
+| `y` (float32) | `61a0c041` | `24.078310012817383` | `3.71e+20` |
+| `timestamp` (float32) | `00000000` | `0.0` | `0.0` |
+| `radius` (float32) | `08033140` | `2.765810012817383` | `3.95e-34` |
+| `force` (uint16) | `fa00` | `250 → 0.25` | `64000 → 64.0` |
+| `altitude` (uint16) | `3c7a` | `31292 → 34243/131070 turns-of-π` | `15482 → a different, equally-plausible-looking angle` |
+
+The little-endian column matches the tool's actual s-expression output for
+this exact point (`(point +0x1.f2b8380000000p+5 +0x1.8140c20000000p+4)
+(altitude . 34243/131070 #| π |#) (force . 1/4) (radius .
++0x1.6206100000000p+1) (timestamp . +0.0)`) bit-for-bit - `float.fromhex`
+on those hex-float literals reproduces `62.33995...`/`24.07831...`/
+`2.76581...` exactly. Big-endian gives obvious nonsense for every `float32`
+field (a y-coordinate of `3.7e20`, a radius of `3.95e-34`), but **note what
+it gives for the two `uint16` fields: not nonsense, a different plausible
+number** (`force=64.0` instead of `0.25`; `altitude` a different but
+still-in-range angle). This is the real danger of getting endianness wrong
+on a 2-byte field specifically - unlike the 4-byte fields, a `uint16`
+byte-swap doesn't reliably produce an obviously-broken value, it can
+silently produce a wrong-but-otherwise-sane-looking one. Both current
+decoders get this right by construction, not by relying on host/JVM
+defaults: Java explicitly sets `ByteBuffer.wrap(raw).order(ByteOrder
+.LITTLE_ENDIAN)` once in `PointsData.decode()`, which governs every
+`getFloat()`/`getShort()` read through that buffer regardless of the
+running platform (Java NIO's un-set default is unconditionally
+`BIG_ENDIAN`, not "native," so this explicit call is load-bearing, not
+redundant); Perl's `decode_channel()` uses `unpack("f<", ...)` for the
+`float32` channels and `unpack("v", ...)` for every `uint16` channel - `v`
+is Perl's explicitly-little-endian 16-bit format code (distinct from `S`,
+which is native-endian and would be the wrong choice here).
+
 ## 7. Semantic identity of all 11 channels, confirmed via `PKStrokePathPointsPrivate`
 
 §6 closed the "what are the numeric sizes/offsets" question but left every
