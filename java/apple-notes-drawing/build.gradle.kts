@@ -16,11 +16,11 @@ repositories {
 
 dependencies {
     api(libs.protobuf.java)
-    // Fraction (org.apache.commons.math3.fraction) appears in
+    // Fraction (org.apache.commons.numbers.fraction) appears in
     // ChannelReading's public API surface, so this has to be `api',
     // not `implementation' - consumers need it on their own compile
     // classpath too.
-    api(libs.commons.math3)
+    api(libs.commons.numbers.fraction)
 
     testImplementation(libs.junit.jupiter)
 
