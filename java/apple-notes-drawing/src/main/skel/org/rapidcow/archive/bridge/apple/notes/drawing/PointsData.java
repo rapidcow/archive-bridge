@@ -30,9 +30,9 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
  *   09  28  04 (f32 <)*1 | radius2*
  *   10  32  02 (u16 <)*1 | threshold*
  */
-[% PERL %]
+[%
 
-$stash->set("channels", [
+SET channels = [
 	"x",
 	"y",
 	"timestamp",
@@ -44,23 +44,24 @@ $stash->set("channels", [
 	"opacity",
 	"radius2",
 	"threshold",
-]);
-$stash->set("channel_type", {
-	"x"           , "float",
-	"y"           , "float",
-	"timestamp"   , "float",
-	"radius"      , "float",
-	"aspectRatio" , "short",
-	"edgeWidth"   , "short",
-	"force"       , "short",
-	"azimuth"     , "short",
-	"altitude"    , "short",
-	"opacity"     , "short",
-	"radius2"     , "float",
-	"threshold"   , "short",
-});
+];
 
-[% END -%]
+SET channel_type = {
+	x           = "float",
+	y           = "float",
+	timestamp   = "float",
+	radius      = "float",
+	aspectRatio = "short",
+	edgeWidth   = "short",
+	force       = "short",
+	azimuth     = "short",
+	altitude    = "short",
+	opacity     = "short",
+	radius2     = "float",
+	threshold   = "short",
+};
+
+-%]
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

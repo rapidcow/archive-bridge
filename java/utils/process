@@ -25,7 +25,7 @@ GetOptions('o=s' => \(my $output = '-'))
 @ARGV == 1 or die $usage;
 my ($input) = @ARGV;
 
-my $tt = Template->new({ EVAL_PERL => 1 })
+my $tt = Template->new()
 	or die "$Template::ERROR\n";
 my $fh;
 open $fh, ">", $output
