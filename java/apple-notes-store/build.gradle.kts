@@ -21,3 +21,11 @@ java {
 tasks.named<Test>("test") {
     useJUnitPlatform()
 }
+
+// This module's package-info.java {@links} the other apple-notes-*
+// modules' packages and vice versa, so no single-module `javadoc`
+// task can ever resolve everything on its own - use the root
+// project's aggregate `javadoc` task instead.
+tasks.javadoc {
+    enabled = false
+}

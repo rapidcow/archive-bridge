@@ -23,3 +23,11 @@ tasks.named<Test>("test") {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 }
+
+// This module's package-info.java {@links} apple-notes-proto's
+// packages and vice versa, so no single-module `javadoc` task can
+// ever resolve everything on its own - use the root project's
+// aggregate `javadoc` task instead.
+tasks.javadoc {
+    enabled = false
+}
