@@ -25,20 +25,20 @@ GetOptions('o=s' => \(my $output = '-'))
 @ARGV == 1 or die $usage;
 my ($input) = @ARGV;
 
-my $stdout = $output eq '-';
-
 my $tt = Template->new({ EVAL_PERL => 1 })
 	or die "$Template::ERROR\n";
 my $fh;
 open $fh, ">", $output
 	or die "$me: open($output): $!\n"
-unless $stdout;
+unless $output eq '-';
 
 {
 	my $cleanup = sub {
-		unless ($stdout) {
-			close $fh if defined $fh;
-			unlink $output;
+		close $fh if defined $fh;
+		unless ($output eq '-' || unlink $output) {
+			warn <<HUH unless $!{ENOENT};
+$me: unlink($output): $!
+HUH
 		}
 	};
 
@@ -57,10 +57,10 @@ OOF
 		}
 	}
 
-	$tt->process($input, {}, $stdout ? () : ($fh))
+	$tt->process($input, {}, ($fh) x (defined $fh))
 		or die "$me: ", $tt->error(), "\n";
 
-	unless (close $fh) {
+	unless (!defined $fh || close $fh) {
 		undef $fh;
 		die "$me: close($output): $!\n";
 	}
