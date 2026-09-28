@@ -1,7 +1,7 @@
 // StrokeData.proto - common Apple Notes ink markup stroke data
 //
 // Distilled version of `ai/tools/apple-notes-drawing-2.proto', ported from
-// `perl/apple-notes-schema/share/proto/StrokeData.proto'. Shared verbatim
+// `perl/apple-notes-schema/share/proto/StrokeData.proto'.  Shared verbatim
 // between the com.apple.drawing.2 and com.apple.paper (Coherence) decoders -
 // see ai/notes/apple/com.apple.drawing.2/drawing.md, Update 4, for how each
 // field's name/number/shape was confirmed via PencilKit disassembly.
@@ -26,7 +26,7 @@ message StrokeData {
   optional int32 points_count = 3;
 
   // pointsFlags - PencilKit's per-point channel presence bitmask,
-  // PKStrokePathPointsShared::pointFlags(). Bit 0 (0x1) appears
+  // PKStrokePathPointsShared::pointFlags().  Bit 0 (0x1) appears
   // to be always set.
   optional int32 points_flags = 4;
 
@@ -39,11 +39,11 @@ message StrokeData {
   optional bytes points_constant_values = 6;
 
   // pointsData - flat point table, length = points_count * stride.
-  // Stride varies per stroke (observed: 12,14,16,18,20,22). The
-  // first 8 bytes of every point are little-endian float32 X,
-  // float32 Y. The remaining (stride-8) bytes are the channels
-  // gated by `points_flags`, packed tightly in increasing channel-
-  // index order. This requires a specialized routine to decode further.
+  // Stride varies per stroke (observed: 12,14,16,18,20,22).
+  // The first 8 bytes of every point are little-endian float32 X,
+  // float32 Y.  The remaining (stride-8) bytes are the channels gated
+  // by `points_flags', packed tightly in increasing channel-index
+  // order.  This requires a specialized routine to decode further.
   optional bytes points_data = 7;
 
   // createdWithFinger - a single raw byte, decoded as a plain 0/1 bool.
