@@ -42,3 +42,16 @@ tasks.javadoc {
         links("https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/");
     }
 }
+
+// protoc copies each field's own comment onto its has/get/set/clear
+// accessors, but never comments the generic runtime plumbing (parse
+// factories, descriptor accessors, FIELD_NUMBER constants, ...) it
+// emits identically on every message class. gradle.build.ProtoJavadoc
+// fills that in with canned javadoc, matched by signature shape, so it
+// applies to every proto-generated class here and in future modules.
+tasks.matching { it.name.startsWith("generate") && it.name.endsWith("Proto") }.configureEach {
+    val protoSourcesDir = layout.buildDirectory.dir("generated/sources/proto").get().asFile
+    doLast {
+        org.rapidcow.gradle.build.ProtoJavadoc.documentGeneratedSources(protoSourcesDir)
+    }
+}
