@@ -10,5 +10,5 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "apple-notes-drawing"
-include("lib")
+rootProject.name = "archive-bridge-apple-notes"
+include("apple-notes-drawing")
