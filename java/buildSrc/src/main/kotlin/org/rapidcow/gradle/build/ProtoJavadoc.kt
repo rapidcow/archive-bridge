@@ -98,7 +98,7 @@ object ProtoJavadoc {
         Rule(Regex(
             """(?m)^([ \t]*)@com\.google\.protobuf\.Generated\r?\n[ \t]*public interface (\w+)OrBuilder extends"""
         )) { _, match ->
-            listOf("Common accessors shared between {@code ${match.groupValues[2]}} and its {@code Builder}.")
+            listOf("Common accessors shared between {@link ${match.groupValues[2]}} and its {@link ${match.groupValues[2]}.Builder}.")
         },
         // The <Name>OuterClass file wrapper class itself (same
         // before-the-annotation anchoring as above).
@@ -115,12 +115,12 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public static [\w.]+ parseFrom\(([\s\S]*?)\)"""
         )) { baseName, match ->
             buildList {
-                add("Parses a {@code $baseName} from the given source.")
+                add("Parses a {@link $baseName} from the given source.")
                 add("")
                 for (param in paramNames(match.groupValues[2])) {
                     add("@param $param ${paramDescription(param)}")
                 }
-                add("@return The parsed {@code $baseName}.")
+                add("@return The parsed {@link $baseName}.")
                 add("@throws com.google.protobuf.InvalidProtocolBufferException if")
                 add("        the input is not a valid, complete-enough encoding.")
             }
@@ -130,13 +130,13 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public static [\w.]+ parseDelimitedFrom\(([\s\S]*?)\)"""
         )) { baseName, match ->
             buildList {
-                add("Parses a single, length-delimited {@code $baseName} from")
+                add("Parses a single, length-delimited {@link $baseName} from")
                 add("the given stream.")
                 add("")
                 for (param in paramNames(match.groupValues[2])) {
                     add("@param $param ${paramDescription(param)}")
                 }
-                add("@return The parsed {@code $baseName}, or {@code null} at end of stream.")
+                add("@return The parsed {@link $baseName}, or {@code null} at end of stream.")
                 add("@throws java.io.IOException if an I/O error occurs while reading.")
             }
         },
@@ -145,7 +145,7 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public static Builder newBuilder\(\) \{"""
         )) { baseName, _ ->
             listOf(
-                "Creates a new, empty builder for {@code $baseName}.",
+                "Creates a new, empty builder for {@link $baseName}.",
                 "",
                 "@return A new, empty builder.",
             )
@@ -154,7 +154,7 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public static Builder newBuilder\([\w.]+ prototype\) \{"""
         )) { baseName, _ ->
             listOf(
-                "Creates a new builder for {@code $baseName}, pre-populated",
+                "Creates a new builder for {@link $baseName}, pre-populated",
                 "with the values from {@code prototype}.",
                 "",
                 "@param prototype ${paramDescription("prototype")}",
@@ -167,7 +167,7 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public Builder mergeFrom\((?!com\.google\.protobuf\.Message )[\w.]+ other\) \{"""
         )) { baseName, _ ->
             listOf(
-                "Merges the given {@code $baseName} into this builder,",
+                "Merges the given {@link $baseName} into this builder,",
                 "copying over any fields that are set on {@code other}.",
                 "",
                 "@param other ${paramDescription("other")}",
@@ -179,9 +179,9 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public static com\.google\.protobuf\.Parser<\w+> parser\(\) \{"""
         )) { baseName, _ ->
             listOf(
-                "Returns the parser used to read {@code $baseName} from a serialized form.",
+                "Returns the parser used to read {@link $baseName} from a serialized form.",
                 "",
-                "@return The parser for {@code $baseName}.",
+                "@return The parser for {@link $baseName}.",
             )
         },
         // getDefaultInstance() (not getDefaultInstanceForType(), which is
@@ -190,7 +190,7 @@ object ProtoJavadoc {
             """(?m)^([ \t]*)public static [\w.]+ getDefaultInstance\(\) \{"""
         )) { baseName, _ ->
             listOf(
-                "Returns the default, all-fields-unset instance of {@code $baseName}.",
+                "Returns the default, all-fields-unset instance of {@link $baseName}.",
                 "",
                 "@return The default instance.",
             )
