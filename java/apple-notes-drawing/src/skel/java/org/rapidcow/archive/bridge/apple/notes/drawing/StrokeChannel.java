@@ -27,9 +27,7 @@ import java.nio.ByteBuffer;
  */
 public enum StrokeChannel {
 [% FOREACH ch IN StrokeChannel.channels -%]
-[%   IF ch.bit -%]
 	[% ch.decl_padded %]{ ChannelReading decode(ByteBuffer b) { return [% ch.decode %]; } }[% loop.last ? ';' : ',' %]
-[%   END -%]
 [% END -%]
 
 	public final int bitIndex;

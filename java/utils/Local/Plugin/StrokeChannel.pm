@@ -88,7 +88,7 @@ sub new
 	bless { context => $context }, $class;
 }
 
-sub channels
+sub fields
 {
 	my $bit = 0;
 	my $pad = 0;
@@ -128,6 +128,8 @@ sub channels
 	@chan;
 }
 
+sub channels { grep { $_->{bit} } &fields; }
+
 1;
 
 __END__
@@ -139,7 +141,7 @@ Local::Plugin::StrokeChannel - shared StrokeChannel per-channel data
 =head1 SYNOPSIS
 
   [% USE StrokeChannel %]
-  [% FOREACH chan IN StrokeChannel.channels %]
+  [% FOREACH chan IN StrokeChannel.fields %]
   [% chan.java_type %] [% chan.name %]
   [% END %]
 
@@ -148,5 +150,8 @@ Local::Plugin::StrokeChannel - shared StrokeChannel per-channel data
 Both C<StrokeChannel.java> and C<PointsData.java> need the same per-channel
 facts (name, bit index, byte size, Java type, decode expression). This
 plugin holds that table once so neither skel has to restate it.
+
+The B<channels> method is now limited to the 10 optional channels.
+To get all channels, use B<fields>.
 
 =cut

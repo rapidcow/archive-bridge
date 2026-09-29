@@ -19,7 +19,7 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
  *
  *       Os  Wd  T     | channel
  *      ---------------+-------------
-[% FOREACH chan IN StrokeChannel.channels -%]
+[% FOREACH chan IN StrokeChannel.fields -%]
  *   [% IF chan.name == "x" %]00
 [%- ELSIF chan.name == "y" %]  [% ELSE -%]
 [% chan.bit | format("%02d") %][% END -%]
