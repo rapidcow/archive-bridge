@@ -73,7 +73,7 @@ Camel case to upper-case-ified snake case.
 sub snake
 {
 	my ($ident) = @_;
-	$ident =~ s/([a-z0-9])([A-Z])/${1}_${2}/g;
+	$ident =~ s/([a-z0-9])([A-Z])/${1}_\l${2}/g;
 	$ident;
 }
 
