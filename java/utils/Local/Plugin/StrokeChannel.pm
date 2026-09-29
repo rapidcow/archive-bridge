@@ -138,10 +138,10 @@ Local::Plugin::StrokeChannel - shared StrokeChannel per-channel data
 
 =head1 SYNOPSIS
 
-    [% USE StrokeChannel %]
-    [% FOREACH chan IN StrokeChannel.channels %]
-    [% chan.java_type %] [% chan.name %]
-    [% END %]
+  [% USE StrokeChannel %]
+  [% FOREACH chan IN StrokeChannel.channels %]
+  [% chan.java_type %] [% chan.name %]
+  [% END %]
 
 =head1 DESCRIPTION
 
