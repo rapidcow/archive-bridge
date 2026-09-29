@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use base 'Template::Plugin';
 
+use Local::Plugin::Snake qw(SNAKE);
+
 # Single source of truth for the ten optional per-point channels gated by
 # StrokeData.points_flags bits 1-10. `bit'/`size' come from PencilKit's own
 # sFieldOffsets/sFieldSizes; `decode' is the Java expression each
@@ -44,7 +46,7 @@ sub new {
 	# opening brace lines up, matching the hand-aligned original.
 	my $width = 0;
 	for my $ch (@{ $self->{channels} }) {
-		$ch->{enum} = _enum_name($ch->{name});
+		$ch->{enum} = SNAKE($ch->{name});
 		$ch->{decl} = "$ch->{enum}($ch->{bit}, $ch->{size})";
 		$width = length($ch->{decl}) if length($ch->{decl}) > $width;
 	}
@@ -55,12 +57,6 @@ sub new {
 }
 
 sub channels { return $_[0]->{channels}; }
-
-sub _enum_name {
-	my ($name) = @_;
-	(my $out = $name) =~ s/([a-z0-9])([A-Z])/${1}_${2}/g;
-	return uc $out;
-}
 
 1;
 
