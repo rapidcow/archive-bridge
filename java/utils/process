@@ -7,6 +7,16 @@ use warnings;
 BEGIN {
 	eval { require Template; 1; }
 	or die "E: missing `Template' module\n";
+
+	#
+	# The patch that made assert usable only landed in 3.103
+	# (since v3.103~14^2, commit 258ef174.)  Thank you TODDR!
+	# The CPAN release was on 2026 May 21 -- very recent, so
+	# chances are you need to upgrade...
+	#
+	eval { Template->VERSION(3.103); 1; }
+	or warn "W: Template 3.103 or above is recommended "
+	. "(you only have " . Template->VERSION() . ".)\n";
 }
 
 use Config;
