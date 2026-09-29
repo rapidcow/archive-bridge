@@ -51,7 +51,7 @@ sub new
 	$context->define_vmethod( scalar => snake => \&snake );
 	$context->define_vmethod( scalar => SNAKE => \&SNAKE );
 
-	return;
+	bless \1, $class;
 }
 
 =head1 VIRTUAL METHODS
