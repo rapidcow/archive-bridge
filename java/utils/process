@@ -15,6 +15,9 @@ use File::Temp;
 use Getopt::Long;
 use POSIX ();
 
+use FindBin;
+use lib $FindBin::Bin;
+
 my $me = basename($0);
 my $usage = "usage: $me FILE [-o FILE]\n";
 
@@ -25,7 +28,7 @@ GetOptions('o=s' => \(my $output = '-'))
 @ARGV == 1 or die $usage;
 my ($input) = @ARGV;
 
-my $tt = Template->new()
+my $tt = Template->new(PLUGIN_BASE => 'Local::Plugin')
 	or die "$Template::ERROR\n";
 my $fh;
 open $fh, ">", $output
