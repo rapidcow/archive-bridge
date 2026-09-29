@@ -1,3 +1,4 @@
+[% USE StrokeChannel -%]
 package org.rapidcow.archive.bridge.apple.notes.drawing;
 
 import java.nio.ByteBuffer;
@@ -24,7 +25,6 @@ import java.nio.ByteBuffer;
  * order - the static initializer below enforces this at class-load time so
  * a future reordering fails loudly instead of silently misreading bytes.
  */
-[% USE StrokeChannel -%]
 public enum StrokeChannel {
 [% FOREACH ch IN StrokeChannel.channels -%]
 	[% ch.decl_padded %]{ ChannelReading decode(ByteBuffer b) { return [% ch.decode %]; } }[% loop.last ? ';' : ',' %]
