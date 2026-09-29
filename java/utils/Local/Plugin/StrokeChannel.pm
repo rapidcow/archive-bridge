@@ -7,56 +7,126 @@ use base 'Template::Plugin';
 
 use Local::Plugin::Snake qw(SNAKE);
 
-# Single source of truth for the ten optional per-point channels gated by
-# StrokeData.points_flags bits 1-10. `bit'/`size' come from PencilKit's own
-# sFieldOffsets/sFieldSizes; `decode' is the Java expression each
-# StrokeChannel enum constant's decode(ByteBuffer) returns.  Order here is
-# the ascending-bitIndex declaration order that StrokeChannel.java's own
-# static initializer requires - see that file's class doc for why.
-my @CHANNELS = (
-	{ name => 'timestamp',   bit => 1,  size => 4, type => 'float',
-	  decode => 'new ChannelReading.DirectFloat(this, b.getFloat())' },
-	{ name => 'radius',      bit => 2,  size => 4, type => 'float',
-	  decode => 'new ChannelReading.DirectFloat(this, b.getFloat())' },
-	{ name => 'aspectRatio', bit => 3,  size => 2, type => 'short',
-	  decode => 'new ChannelReading.AspectRatio(u16(b))' },
-	{ name => 'edgeWidth',   bit => 4,  size => 2, type => 'short',
-	  decode => 'new ChannelReading.EdgeWidth(u16(b))' },
-	{ name => 'force',       bit => 5,  size => 2, type => 'short',
-	  decode => 'new ChannelReading.Force(u16(b))' },
-	{ name => 'azimuth',     bit => 6,  size => 2, type => 'short',
-	  decode => 'new ChannelReading.Azimuth(u16(b))' },
-	{ name => 'altitude',    bit => 7,  size => 2, type => 'short',
-	  decode => 'new ChannelReading.Altitude(u16(b))' },
-	{ name => 'opacity',     bit => 8,  size => 2, type => 'short',
-	  decode => 'new ChannelReading.Opacity(u16(b))' },
-	{ name => 'radius2',     bit => 9,  size => 4, type => 'float',
-	  decode => 'new ChannelReading.DirectFloat(this, b.getFloat())' },
-	{ name => 'threshold',   bit => 10, size => 2, type => 'short',
-	  decode => 'new ChannelReading.Threshold(u16(b))' },
-);
+sub parse_member
+{
+	my (@F) = @_;
+	my %alist;
 
-sub new {
-	my ($class, $context, @args) = @_;
-	my $self = bless { context => $context }, $class;
-	$self->{channels} = [ map { { %$_ } } @CHANNELS ];
-
-	# `enum' = the StrokeChannel constant's spelling, e.g. aspectRatio -> ASPECT_RATIO.
-	# `decl' = "ENUM_NAME(bit, size)", left-padded so every constant's
-	# opening brace lines up, matching the hand-aligned original.
-	my $width = 0;
-	for my $ch (@{ $self->{channels} }) {
-		$ch->{enum} = SNAKE($ch->{name});
-		$ch->{decl} = "$ch->{enum}($ch->{bit}, $ch->{size})";
-		$width = length($ch->{decl}) if length($ch->{decl}) > $width;
-	}
-	$_->{decl_padded} = sprintf('%-*s', $width + 1, $_->{decl})
-		for @{ $self->{channels} };
-
-	return $self;
+	@alist{qw( type name )} = @F;
+	($alist{endian}) = ($alist{type} =~ /[<>]$/g)
+		or die "E: type missing endianness\n";
+	$alist{type} = substr $alist{type}, 0, length ($alist{type}) - 1;
+	$alist{rescale} = $alist{name} =~ s/\*$//;
+	\%alist;
 }
 
-sub channels { return $_[0]->{channels}; }
+my @chan = map { parse_member( split "\t" ) }
+	grep { chomp; !/^#/ } split /^/,
+	<<'DATA';
+f32<	x
+f32<	y
+f32<	timestamp
+f32<	radius
+u16<	aspectRatio*
+u16<	edgeWidth*
+u16<	force*
+u16<	azimuth*
+u16<	altitude*
+u16<	opacity*
+f32<	radius2
+u16<	threshold*
+DATA
+
+my %byte_size = (
+	f32 => 4,
+	u16 => 2,
+);
+
+sub byte_size
+{
+	my ($type) = @_;
+	defined ( my $width = $byte_size{$type} )
+		or die "E: Byte size of $type unknown\n";
+	$width;
+}
+
+{
+	my ($offset, $width);
+	$offset = 0;
+	foreach my $chan (@chan) {
+		my $type = $chan->{type};
+		$width = byte_size($type);
+		$chan->{offset} = $offset;
+		$chan->{width} = $width;
+	} continue {
+		$offset += $width;
+	}
+}
+
+my %java_type = (
+	f32 => 'float',
+	u16 => 'short',
+);
+
+sub java_type
+{
+	my ($type) = @_;
+	defined ( my $java_type = $java_type{$type} )
+		or die "E: No map from $type to a Java type\n";
+	$java_type;
+}
+
+foreach my $chan (@chan) {
+	my $type = $chan->{type};
+	my $java_type = $java_type{$type};
+	$chan->{java_type} = $java_type;
+}
+
+sub new
+{
+	my ($class, $context, @args) = @_;
+	bless { context => $context }, $class;
+}
+
+sub channels
+{
+	my $bit = 0;
+	my $pad = 0;
+
+	# Deep copy: Note that I dropped the usual +{ ... }
+	# brace disambiguation since the first pair of braces
+	# of a pp_mapwhile always parses as XTERM.  (It makes
+	# intuitive sense since scope within map doesn't make
+	# much sense most of the time.)
+	my @chan = map { { %$_ } } @chan;
+
+	foreach (@chan) {
+		my $name = $_->{name};
+		unless (grep { $name eq $_ } qw( x y )) {
+			$bit++;
+		}
+		$_->{bit} = $bit;
+		$_->{enum} = SNAKE($_->{name});
+		if ($_->{bit}) {
+			$_->{decl} = "$_->{enum}($bit, $_->{width})";
+			if ($pad < length($_->{decl})) {
+				$pad = length($_->{decl});
+			}
+			$_->{parse} = $_->{type} eq 'u16' ? 'u16(b)' : "b.get\u$_->{java_type}()";
+			$_->{decode} = $_->{rescale}
+				? "new ChannelReading.\u$_->{name}($_->{parse})"
+				: "new ChannelReading.Direct\u$_->{java_type}(this, $_->{parse})";
+		}
+	}
+
+	foreach (@chan) {
+		if ($_->{bit}) {
+			$_->{decl_padded} = sprintf('%-*s', 1 + $pad, $_->{decl});
+		}
+	}
+
+	@chan;
+}
 
 1;
 
@@ -69,8 +139,8 @@ Local::Plugin::StrokeChannel - shared StrokeChannel per-channel data
 =head1 SYNOPSIS
 
     [% USE StrokeChannel %]
-    [% FOREACH ch IN StrokeChannel.channels %]
-    [% ch.enum %] bit=[% ch.bit %] size=[% ch.size %] type=[% ch.type %]
+    [% FOREACH chan IN StrokeChannel.channels %]
+    [% chan.java_type %] [% chan.name %]
     [% END %]
 
 =head1 DESCRIPTION

@@ -16,19 +16,20 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
  * `u' = unsigned int. `<' = little endian.
  * Asterisk means value is subject to re-scaling.
  *
- *       Os  Wd  T        | channel
- *      ------------------+-------------
- *   00  00  08 (f32 <)*2 | location
- *   01  08  04 (f32 <)*1 | timestamp
- *   02  12  04 (f32 <)*1 | radius
- *   03  16  02 (u16 <)*1 | aspectRatio*
- *   04  18  02 (u16 <)*1 | edgeWidth*
- *   05  20  02 (u16 <)*1 | force*
- *   06  22  02 (u16 <)*1 | azimuth*
- *   07  24  02 (u16 <)*1 | altitude*
- *   08  26  02 (u16 <)*1 | opacity*
- *   09  28  04 (f32 <)*1 | radius2*
- *   10  32  02 (u16 <)*1 | threshold*
+ *       Os  Wd  T     | channel
+ *      ---------------+-------------
+ *   00  00  04  f32 < | x
+ *       04  04  f32 < | y
+ *   01  08  04  f32 < | timestamp
+ *   02  12  04  f32 < | radius
+ *   03  16  02  u16 < | aspectRatio*
+ *   04  18  02  u16 < | edgeWidth*
+ *   05  20  02  u16 < | force*
+ *   06  22  02  u16 < | azimuth*
+ *   07  24  02  u16 < | altitude*
+ *   08  26  02  u16 < | opacity*
+ *   09  28  04  f32 < | radius2
+ *   10  32  02  u16 < | threshold*
  */
 
 import java.nio.ByteBuffer;

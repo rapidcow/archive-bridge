@@ -1,3 +1,4 @@
+[% USE StrokeChannel -%]
 package org.rapidcow.archive.bridge.apple.notes.drawing;
 
 /*
@@ -16,52 +17,18 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
  * `u' = unsigned int. `<' = little endian.
  * Asterisk means value is subject to re-scaling.
  *
- *       Os  Wd  T        | channel
- *      ------------------+-------------
- *   00  00  08 (f32 <)*2 | location
- *   01  08  04 (f32 <)*1 | timestamp
- *   02  12  04 (f32 <)*1 | radius
- *   03  16  02 (u16 <)*1 | aspectRatio*
- *   04  18  02 (u16 <)*1 | edgeWidth*
- *   05  20  02 (u16 <)*1 | force*
- *   06  22  02 (u16 <)*1 | azimuth*
- *   07  24  02 (u16 <)*1 | altitude*
- *   08  26  02 (u16 <)*1 | opacity*
- *   09  28  04 (f32 <)*1 | radius2*
- *   10  32  02 (u16 <)*1 | threshold*
+ *       Os  Wd  T     | channel
+ *      ---------------+-------------
+[% FOREACH chan IN StrokeChannel.channels -%]
+ *   [% IF chan.name == "x" %]00
+[%- ELSIF chan.name == "y" %]  [% ELSE -%]
+[% chan.bit | format("%02d") %][% END -%]
+  [% chan.offset | format("%02d") -%]
+  [% chan.width | format("%02d") -%]
+  [% chan.type %] [% chan.endian -%]
+ | [% chan.name %][% IF chan.rescale %]*[% END %]
+[% END -%]
  */
-[%
-
-SET channels = [
-	"x",
-	"y",
-	"timestamp",
-	"radius",
-	"aspectRatio",
-	"edgeWidth",
-	"force",
-	"azimuth",
-	"opacity",
-	"radius2",
-	"threshold",
-];
-
-SET channel_type = {
-	x           = "float",
-	y           = "float",
-	timestamp   = "float",
-	radius      = "float",
-	aspectRatio = "short",
-	edgeWidth   = "short",
-	force       = "short",
-	azimuth     = "short",
-	altitude    = "short",
-	opacity     = "short",
-	radius2     = "float",
-	threshold   = "short",
-};
-
--%]
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -78,9 +45,8 @@ import java.util.Set;
 public class PointsData
 {
 	private final int     channelLength;
-[% FOREACH chan IN channels -%]
-[% 	SET chan_type = channel_type.item(chan); -%]
-	private final [% chan_type %][] channel[% chan.ucfirst %];
+[% FOREACH chan IN StrokeChannel.channels -%]
+	private final [% chan.java_type %][] channel[% chan.name.ucfirst %];
 [% END -%]
 }
 [% END -%]
