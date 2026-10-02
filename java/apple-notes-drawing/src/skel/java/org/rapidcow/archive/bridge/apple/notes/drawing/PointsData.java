@@ -33,10 +33,7 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
