@@ -115,6 +115,13 @@ public class PointsData
 		return channelLength;
 	}
 [% FOREACH chan IN StrokeChannel.fields -%]
+[%   IF chan.bit -%]
+
+	public boolean has[% chan.name.ucfirst %]()
+	{
+		return channel[% chan.name.ucfirst %] != null;
+	}
+[%   END -%]
 
 [%   IF chan.type == "u16" -%]
 	public int [% chan.name %](int index)

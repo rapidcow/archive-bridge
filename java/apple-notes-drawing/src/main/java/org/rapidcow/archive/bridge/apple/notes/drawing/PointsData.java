@@ -255,12 +255,22 @@ public class PointsData
 		return channelY[index];
 	}
 
+	public boolean hasTimestamp()
+	{
+		return channelTimestamp != null;
+	}
+
 	public float timestamp(int index)
 	{
 		if (channelTimestamp == null) {
 			throw new NoSuchElementException("Channel timestamp absent");
 		}
 		return channelTimestamp[index];
+	}
+
+	public boolean hasRadius()
+	{
+		return channelRadius != null;
 	}
 
 	public float radius(int index)
@@ -271,12 +281,22 @@ public class PointsData
 		return channelRadius[index];
 	}
 
+	public boolean hasAspectRatio()
+	{
+		return channelAspectRatio != null;
+	}
+
 	public int aspectRatio(int index)
 	{
 		if (channelAspectRatio == null) {
 			throw new NoSuchElementException("Channel aspect_ratio absent");
 		}
 		return Short.toUnsignedInt(channelAspectRatio[index]);
+	}
+
+	public boolean hasEdgeWidth()
+	{
+		return channelEdgeWidth != null;
 	}
 
 	public int edgeWidth(int index)
@@ -287,12 +307,22 @@ public class PointsData
 		return Short.toUnsignedInt(channelEdgeWidth[index]);
 	}
 
+	public boolean hasForce()
+	{
+		return channelForce != null;
+	}
+
 	public int force(int index)
 	{
 		if (channelForce == null) {
 			throw new NoSuchElementException("Channel force absent");
 		}
 		return Short.toUnsignedInt(channelForce[index]);
+	}
+
+	public boolean hasAzimuth()
+	{
+		return channelAzimuth != null;
 	}
 
 	public int azimuth(int index)
@@ -303,12 +333,22 @@ public class PointsData
 		return Short.toUnsignedInt(channelAzimuth[index]);
 	}
 
+	public boolean hasAltitude()
+	{
+		return channelAltitude != null;
+	}
+
 	public int altitude(int index)
 	{
 		if (channelAltitude == null) {
 			throw new NoSuchElementException("Channel altitude absent");
 		}
 		return Short.toUnsignedInt(channelAltitude[index]);
+	}
+
+	public boolean hasOpacity()
+	{
+		return channelOpacity != null;
 	}
 
 	public int opacity(int index)
@@ -319,12 +359,22 @@ public class PointsData
 		return Short.toUnsignedInt(channelOpacity[index]);
 	}
 
+	public boolean hasRadius2()
+	{
+		return channelRadius2 != null;
+	}
+
 	public float radius2(int index)
 	{
 		if (channelRadius2 == null) {
 			throw new NoSuchElementException("Channel radius2 absent");
 		}
 		return channelRadius2[index];
+	}
+
+	public boolean hasThreshold()
+	{
+		return channelThreshold != null;
 	}
 
 	public int threshold(int index)
