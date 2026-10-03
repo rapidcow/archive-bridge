@@ -155,13 +155,13 @@ public class PointsData
 		 * Builds the {@link PointsData}.
 		 *
 		 * @return the finished data
-		 * @throws IllegalArgumentException if fewer points were added
+		 * @throws IllegalStateException if fewer points were added
 		 *    than the total number of points expected to be added
 		 */
 		public PointsData build()
 		{
 			if (index < channelLength - 1) {
-				throw new IllegalArgumentException("Insufficient points (added "
+				throw new IllegalStateException("Insufficient points (added "
 					+ index + " but expected " + channelLength + ")");
 			}
 			/* Note: index >= channelLength cannot happen. */
@@ -174,14 +174,14 @@ public class PointsData
 		 * @param x the <var>x</var>-coordinate
 		 * @param y the <var>y</var>-coordinate
 		 * @return this builder
-		 * @throws IllegalArgumentException if more points were added
+		 * @throws IllegalStateException if more points were added
 		 *    than the total number of points expected to be added
 		 */
 		public Builder addPoint(float x, float y)
 		{
 			/* Keep this check side-effect free. */
 			if (index >= channelLength - 1) {
-				throw new IllegalArgumentException("Too many points");
+				throw new IllegalStateException("Too many points");
 			}
 			++index;
 			channelX[index] = x;
@@ -194,13 +194,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setTimestamp(float value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelTimestamp == null) {
-				throw new IllegalArgumentException("Channel timestamp absent");
+				throw new IllegalStateException("Channel timestamp absent");
 			}
 			channelTimestamp[index] = value;
 			return this;
@@ -211,13 +214,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setRadius(float value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelRadius == null) {
-				throw new IllegalArgumentException("Channel radius absent");
+				throw new IllegalStateException("Channel radius absent");
 			}
 			channelRadius[index] = value;
 			return this;
@@ -228,13 +234,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setAspectRatio(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelAspectRatio == null) {
-				throw new IllegalArgumentException("Channel aspect_ratio absent");
+				throw new IllegalStateException("Channel aspect_ratio absent");
 			}
 			channelAspectRatio[index] = value;
 			return this;
@@ -245,13 +254,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setEdgeWidth(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelEdgeWidth == null) {
-				throw new IllegalArgumentException("Channel edge_width absent");
+				throw new IllegalStateException("Channel edge_width absent");
 			}
 			channelEdgeWidth[index] = value;
 			return this;
@@ -262,13 +274,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setForce(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelForce == null) {
-				throw new IllegalArgumentException("Channel force absent");
+				throw new IllegalStateException("Channel force absent");
 			}
 			channelForce[index] = value;
 			return this;
@@ -279,13 +294,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setAzimuth(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelAzimuth == null) {
-				throw new IllegalArgumentException("Channel azimuth absent");
+				throw new IllegalStateException("Channel azimuth absent");
 			}
 			channelAzimuth[index] = value;
 			return this;
@@ -296,13 +314,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setAltitude(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelAltitude == null) {
-				throw new IllegalArgumentException("Channel altitude absent");
+				throw new IllegalStateException("Channel altitude absent");
 			}
 			channelAltitude[index] = value;
 			return this;
@@ -313,13 +334,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setOpacity(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelOpacity == null) {
-				throw new IllegalArgumentException("Channel opacity absent");
+				throw new IllegalStateException("Channel opacity absent");
 			}
 			channelOpacity[index] = value;
 			return this;
@@ -330,13 +354,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setRadius2(float value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelRadius2 == null) {
-				throw new IllegalArgumentException("Channel radius2 absent");
+				throw new IllegalStateException("Channel radius2 absent");
 			}
 			channelRadius2[index] = value;
 			return this;
@@ -347,13 +374,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder setThreshold(short value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channelThreshold == null) {
-				throw new IllegalArgumentException("Channel threshold absent");
+				throw new IllegalStateException("Channel threshold absent");
 			}
 			channelThreshold[index] = value;
 			return this;

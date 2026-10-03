@@ -104,13 +104,13 @@ public class PointsData
 		 * Builds the {@link PointsData}.
 		 *
 		 * @return the finished data
-		 * @throws IllegalArgumentException if fewer points were added
+		 * @throws IllegalStateException if fewer points were added
 		 *    than the total number of points expected to be added
 		 */
 		public PointsData build()
 		{
 			if (index < channelLength - 1) {
-				throw new IllegalArgumentException("Insufficient points (added "
+				throw new IllegalStateException("Insufficient points (added "
 					+ index + " but expected " + channelLength + ")");
 			}
 			/* Note: index >= channelLength cannot happen. */
@@ -123,14 +123,14 @@ public class PointsData
 		 * @param x the <var>x</var>-coordinate
 		 * @param y the <var>y</var>-coordinate
 		 * @return this builder
-		 * @throws IllegalArgumentException if more points were added
+		 * @throws IllegalStateException if more points were added
 		 *    than the total number of points expected to be added
 		 */
 		public Builder addPoint(float x, float y)
 		{
 			/* Keep this check side-effect free. */
 			if (index >= channelLength - 1) {
-				throw new IllegalArgumentException("Too many points");
+				throw new IllegalStateException("Too many points");
 			}
 			++index;
 			channelX[index] = x;
@@ -144,13 +144,16 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalArgumentException if the channel was not
-		 *    requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet,
+		 *    or the channel was not requested in the constructor
 		 */
 		public Builder set[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
 			if (channel[% chan.name.ucfirst %] == null) {
-				throw new IllegalArgumentException("Channel [% chan.name.snake %] absent");
+				throw new IllegalStateException("Channel [% chan.name.snake %] absent");
 			}
 			channel[% chan.name.ucfirst %][index] = value;
 			return this;
