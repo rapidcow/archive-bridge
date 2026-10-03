@@ -82,9 +82,9 @@ public class PointsData
 		/**
 		 * Creates a builder for the given number of points.
 		 *
-		 * @param length the number of points to be added
-		 * @param set    the optional channels to allocate; location
-		 *               is always allocated and need not be included
+		 * @param length the number of points expected to be added
+		 * @param set  the optional channels to allocate; location
+		 *    is always allocated and need not be included
 		 */
 		public Builder(int length, Set<StrokeChannel> set)
 		{
@@ -105,7 +105,7 @@ public class PointsData
 		 *
 		 * @return the finished data
 		 * @throws IllegalArgumentException if fewer points were added
-		 *         than the length given to the constructor
+		 *    than the total number of points expected to be added
 		 */
 		public PointsData build()
 		{
@@ -120,12 +120,18 @@ public class PointsData
 		/**
 		 * Advances to the next point and sets its location.
 		 *
-		 * @param x the x coordinate
-		 * @param y the y coordinate
+		 * @param x the <var>x</var>-coordinate
+		 * @param y the <var>y</var>-coordinate
 		 * @return this builder
+		 * @throws IllegalArgumentException if more points were added
+		 *    than the total number of points expected to be added
 		 */
 		public Builder addPoint(float x, float y)
 		{
+			/* Keep this check side-effect free. */
+			if (index >= channelLength - 1) {
+				throw new IllegalArgumentException("Too many points");
+			}
 			++index;
 			channelX[index] = x;
 			channelY[index] = y;
@@ -134,13 +140,12 @@ public class PointsData
 [% FOREACH chan IN StrokeChannel.channels -%]
 
 		/**
-		 * Sets the {@code [% chan.name %]} channel of the current point
-		 * ([% chan.width %]-byte {@code [% chan.type %]}[% IF chan.rescale %], subject to re-scaling[% END %]).
+		 * Sets the {@code [% chan.name %]} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder set[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
@@ -154,21 +159,24 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the number of points.
-	 *
-	 * @return the number of points
+	 * {@return the number of points}
 	 */
 	public int length()
 	{
 		return channelLength;
 	}
+[%#
+  # This bit is a bit repetitive, but it's for Eclipse IDE, which
+  # doesn't seem to handle markup within {@return ...} well. :<
+  #-%]
 [% FOREACH chan IN StrokeChannel.fields -%]
 [%   IF chan.bit -%]
 
 	/**
 	 * Returns whether the {@code [% chan.name %]} channel is present.
+	 * True if and only if {@link #[% chan.name %](int)} may be called.
 	 *
-	 * @return {@code true} if {@link #[% chan.name %](int)} may be called
+	 * @return whether the {@code [% chan.name %]} channel is present
 	 */
 	public boolean has[% chan.name.ucfirst %]()
 	{
@@ -177,18 +185,16 @@ public class PointsData
 [%   END -%]
 
 	/**
-	 * Returns the {@code [% chan.name %]} of the point at {@code index}
-	 * ([% chan.width %]-byte {@code [% chan.type %]}[% IF chan.rescale %], subject to re-scaling[% END %]).
-[%   IF chan.type == "u16" -%]
-	 * The value is returned as an unsigned integer.
-[%   END -%]
+	 * Returns the {@code [% chan.name %]} field of the point at {@code index}.
+	 * This field is of type {@code [% chan.type %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
+[%-  IF chan.rescale %], unscaled[% END %]).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code [% chan.name %]}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
+	 * @return the {@code [% chan.name %]} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 [%   IF chan.bit -%]
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #has[% chan.name.ucfirst %]()})
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #has[% chan.name.ucfirst %]()
 [%   END -%]
 	 */
 [%   IF chan.type == "u16" -%]
@@ -213,13 +219,13 @@ public class PointsData
 	/**
 	 * Decodes the points of a stroke.
 	 *
-	 * <p>The active channels are taken from {@code points_flags}, and the
-	 * stride from their widths.
+	 * <p>The active channels are taken from {@code points_flags},
+	 * and the stride from their widths.
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
 	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *         does not match {@code points_count} times the stride
+	 *    does not match {@code points_count} times the stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{

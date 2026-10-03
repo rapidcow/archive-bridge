@@ -110,9 +110,9 @@ public class PointsData
 		/**
 		 * Creates a builder for the given number of points.
 		 *
-		 * @param length the number of points to be added
-		 * @param set    the optional channels to allocate; location
-		 *               is always allocated and need not be included
+		 * @param length the number of points expected to be added
+		 * @param set  the optional channels to allocate; location
+		 *    is always allocated and need not be included
 		 */
 		public Builder(int length, Set<StrokeChannel> set)
 		{
@@ -156,7 +156,7 @@ public class PointsData
 		 *
 		 * @return the finished data
 		 * @throws IllegalArgumentException if fewer points were added
-		 *         than the length given to the constructor
+		 *    than the total number of points expected to be added
 		 */
 		public PointsData build()
 		{
@@ -171,12 +171,18 @@ public class PointsData
 		/**
 		 * Advances to the next point and sets its location.
 		 *
-		 * @param x the x coordinate
-		 * @param y the y coordinate
+		 * @param x the <var>x</var>-coordinate
+		 * @param y the <var>y</var>-coordinate
 		 * @return this builder
+		 * @throws IllegalArgumentException if more points were added
+		 *    than the total number of points expected to be added
 		 */
 		public Builder addPoint(float x, float y)
 		{
+			/* Keep this check side-effect free. */
+			if (index >= channelLength - 1) {
+				throw new IllegalArgumentException("Too many points");
+			}
 			++index;
 			channelX[index] = x;
 			channelY[index] = y;
@@ -184,13 +190,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code timestamp} channel of the current point
-		 * (4-byte {@code f32}).
+		 * Sets the {@code timestamp} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setTimestamp(float value)
 		{
@@ -202,13 +207,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code radius} channel of the current point
-		 * (4-byte {@code f32}).
+		 * Sets the {@code radius} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setRadius(float value)
 		{
@@ -220,13 +224,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code aspectRatio} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code aspectRatio} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setAspectRatio(short value)
 		{
@@ -238,13 +241,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code edgeWidth} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code edgeWidth} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setEdgeWidth(short value)
 		{
@@ -256,13 +258,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code force} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code force} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setForce(short value)
 		{
@@ -274,13 +275,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code azimuth} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code azimuth} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setAzimuth(short value)
 		{
@@ -292,13 +292,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code altitude} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code altitude} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setAltitude(short value)
 		{
@@ -310,13 +309,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code opacity} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code opacity} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setOpacity(short value)
 		{
@@ -328,13 +326,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code radius2} channel of the current point
-		 * (4-byte {@code f32}).
+		 * Sets the {@code radius2} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setRadius2(float value)
 		{
@@ -346,13 +343,12 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code threshold} channel of the current point
-		 * (2-byte {@code u16}, subject to re-scaling).
+		 * Sets the {@code threshold} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
 		 * @throws IllegalArgumentException if the channel was not
-		 *         requested in the constructor
+		 *    requested in the constructor
 		 */
 		public Builder setThreshold(short value)
 		{
@@ -365,9 +361,7 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the number of points.
-	 *
-	 * @return the number of points
+	 * {@return the number of points}
 	 */
 	public int length()
 	{
@@ -375,12 +369,12 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code x} of the point at {@code index}
-	 * (4-byte {@code f32}).
+	 * Returns the {@code x} field of the point at {@code index}.
+	 * This field is of type {@code f32} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code x}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
+	 * @return the {@code x} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 */
 	public float x(int index)
 	{
@@ -388,12 +382,12 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code y} of the point at {@code index}
-	 * (4-byte {@code f32}).
+	 * Returns the {@code y} field of the point at {@code index}.
+	 * This field is of type {@code f32} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code y}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
+	 * @return the {@code y} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 */
 	public float y(int index)
 	{
@@ -402,8 +396,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code timestamp} channel is present.
+	 * True if and only if {@link #timestamp(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #timestamp(int)} may be called
+	 * @return whether the {@code timestamp} channel is present
 	 */
 	public boolean hasTimestamp()
 	{
@@ -411,14 +406,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code timestamp} of the point at {@code index}
-	 * (4-byte {@code f32}).
+	 * Returns the {@code timestamp} field of the point at {@code index}.
+	 * This field is of type {@code f32} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code timestamp}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasTimestamp()})
+	 * @return the {@code timestamp} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasTimestamp()
 	 */
 	public float timestamp(int index)
 	{
@@ -430,8 +425,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code radius} channel is present.
+	 * True if and only if {@link #radius(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #radius(int)} may be called
+	 * @return whether the {@code radius} channel is present
 	 */
 	public boolean hasRadius()
 	{
@@ -439,14 +435,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code radius} of the point at {@code index}
-	 * (4-byte {@code f32}).
+	 * Returns the {@code radius} field of the point at {@code index}.
+	 * This field is of type {@code f32} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code radius}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasRadius()})
+	 * @return the {@code radius} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasRadius()
 	 */
 	public float radius(int index)
 	{
@@ -458,8 +454,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code aspectRatio} channel is present.
+	 * True if and only if {@link #aspectRatio(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #aspectRatio(int)} may be called
+	 * @return whether the {@code aspectRatio} channel is present
 	 */
 	public boolean hasAspectRatio()
 	{
@@ -467,15 +464,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code aspectRatio} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code aspectRatio} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code aspectRatio}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasAspectRatio()})
+	 * @return the {@code aspectRatio} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasAspectRatio()
 	 */
 	public int aspectRatio(int index)
 	{
@@ -487,8 +483,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code edgeWidth} channel is present.
+	 * True if and only if {@link #edgeWidth(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #edgeWidth(int)} may be called
+	 * @return whether the {@code edgeWidth} channel is present
 	 */
 	public boolean hasEdgeWidth()
 	{
@@ -496,15 +493,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code edgeWidth} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code edgeWidth} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code edgeWidth}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasEdgeWidth()})
+	 * @return the {@code edgeWidth} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasEdgeWidth()
 	 */
 	public int edgeWidth(int index)
 	{
@@ -516,8 +512,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code force} channel is present.
+	 * True if and only if {@link #force(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #force(int)} may be called
+	 * @return whether the {@code force} channel is present
 	 */
 	public boolean hasForce()
 	{
@@ -525,15 +522,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code force} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code force} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code force}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasForce()})
+	 * @return the {@code force} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasForce()
 	 */
 	public int force(int index)
 	{
@@ -545,8 +541,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code azimuth} channel is present.
+	 * True if and only if {@link #azimuth(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #azimuth(int)} may be called
+	 * @return whether the {@code azimuth} channel is present
 	 */
 	public boolean hasAzimuth()
 	{
@@ -554,15 +551,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code azimuth} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code azimuth} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code azimuth}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasAzimuth()})
+	 * @return the {@code azimuth} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasAzimuth()
 	 */
 	public int azimuth(int index)
 	{
@@ -574,8 +570,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code altitude} channel is present.
+	 * True if and only if {@link #altitude(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #altitude(int)} may be called
+	 * @return whether the {@code altitude} channel is present
 	 */
 	public boolean hasAltitude()
 	{
@@ -583,15 +580,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code altitude} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code altitude} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code altitude}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasAltitude()})
+	 * @return the {@code altitude} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasAltitude()
 	 */
 	public int altitude(int index)
 	{
@@ -603,8 +599,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code opacity} channel is present.
+	 * True if and only if {@link #opacity(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #opacity(int)} may be called
+	 * @return whether the {@code opacity} channel is present
 	 */
 	public boolean hasOpacity()
 	{
@@ -612,15 +609,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code opacity} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code opacity} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code opacity}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasOpacity()})
+	 * @return the {@code opacity} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasOpacity()
 	 */
 	public int opacity(int index)
 	{
@@ -632,8 +628,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code radius2} channel is present.
+	 * True if and only if {@link #radius2(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #radius2(int)} may be called
+	 * @return whether the {@code radius2} channel is present
 	 */
 	public boolean hasRadius2()
 	{
@@ -641,14 +638,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code radius2} of the point at {@code index}
-	 * (4-byte {@code f32}).
+	 * Returns the {@code radius2} field of the point at {@code index}.
+	 * This field is of type {@code f32} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code radius2}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasRadius2()})
+	 * @return the {@code radius2} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasRadius2()
 	 */
 	public float radius2(int index)
 	{
@@ -660,8 +657,9 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code threshold} channel is present.
+	 * True if and only if {@link #threshold(int)} may be called.
 	 *
-	 * @return {@code true} if {@link #threshold(int)} may be called
+	 * @return whether the {@code threshold} channel is present
 	 */
 	public boolean hasThreshold()
 	{
@@ -669,15 +667,14 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code threshold} of the point at {@code index}
-	 * (2-byte {@code u16}, subject to re-scaling).
-	 * The value is returned as an unsigned integer.
+	 * Returns the {@code threshold} field of the point at {@code index}.
+	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code threshold}
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
-	 * @throws NoSuchElementException if the channel is absent (see
-	 *         {@link #hasThreshold()})
+	 * @return the {@code threshold} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the channel is absent
+	 * @see #hasThreshold()
 	 */
 	public int threshold(int index)
 	{
@@ -690,13 +687,13 @@ public class PointsData
 	/**
 	 * Decodes the points of a stroke.
 	 *
-	 * <p>The active channels are taken from {@code points_flags}, and the
-	 * stride from their widths.
+	 * <p>The active channels are taken from {@code points_flags},
+	 * and the stride from their widths.
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
 	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *         does not match {@code points_count} times the stride
+	 *    does not match {@code points_count} times the stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{
