@@ -39,6 +39,15 @@ import java.util.Set;
 
 /**
  * Decoder for StrokeData's {@code pointsData}.
+ *
+ * <p>The data is stored column-wise: each channel is an array holding
+ * one value per point.  The location channels ({@code x} and {@code y})
+ * are always present; every other channel is optional and may be queried
+ * with its corresponding {@code has*()} method before being read.
+ * Instances are created with {@link #decode(StrokeData)} or through
+ * a {@link Builder}.
+ *
+ * @see StrokeChannel
  */
 public class PointsData
 {
@@ -57,6 +66,10 @@ public class PointsData
 
 	/**
 	 * {@link PointsData} Builder.
+	 *
+	 * <p>Points are added one at a time with {@link #addPoint(float, float)},
+	 * and the optional channels of that point are filled in with the
+	 * {@code set*()} methods <em>before</em> the next point is added.
 	 */
 	public static final class Builder
 	{
@@ -66,6 +79,13 @@ public class PointsData
 		private [% chan.java_type %][] channel[% chan.name.ucfirst %];
 [% END -%]
 
+		/**
+		 * Creates a builder for the given number of points.
+		 *
+		 * @param length the number of points to be added
+		 * @param set    the optional channels to allocate; location
+		 *               is always allocated and need not be included
+		 */
 		public Builder(int length, Set<StrokeChannel> set)
 		{
 			channelLength = length;
@@ -80,6 +100,13 @@ public class PointsData
 [% END -%]
 		}
 
+		/**
+		 * Builds the {@link PointsData}.
+		 *
+		 * @return the finished data
+		 * @throws IllegalArgumentException if fewer points were added
+		 *         than the length given to the constructor
+		 */
 		public PointsData build()
 		{
 			if (index < channelLength - 1) {
@@ -90,6 +117,13 @@ public class PointsData
 			return new PointsData(this);
 		}
 
+		/**
+		 * Advances to the next point and sets its location.
+		 *
+		 * @param x the x coordinate
+		 * @param y the y coordinate
+		 * @return this builder
+		 */
 		public Builder addPoint(float x, float y)
 		{
 			++index;
@@ -99,6 +133,15 @@ public class PointsData
 		}
 [% FOREACH chan IN StrokeChannel.channels -%]
 
+		/**
+		 * Sets the {@code [% chan.name %]} channel of the current point
+		 * ([% chan.width %]-byte {@code [% chan.type %]}[% IF chan.rescale %], subject to re-scaling[% END %]).
+		 *
+		 * @param value the raw value
+		 * @return this builder
+		 * @throws IllegalArgumentException if the channel was not
+		 *         requested in the constructor
+		 */
 		public Builder set[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
 			if (channel[% chan.name.ucfirst %] == null) {
@@ -110,6 +153,11 @@ public class PointsData
 [% END -%]
 	}
 
+	/**
+	 * Returns the number of points.
+	 *
+	 * @return the number of points
+	 */
 	public int length()
 	{
 		return channelLength;
@@ -117,12 +165,32 @@ public class PointsData
 [% FOREACH chan IN StrokeChannel.fields -%]
 [%   IF chan.bit -%]
 
+	/**
+	 * Returns whether the {@code [% chan.name %]} channel is present.
+	 *
+	 * @return {@code true} if {@link #[% chan.name %](int)} may be called
+	 */
 	public boolean has[% chan.name.ucfirst %]()
 	{
 		return channel[% chan.name.ucfirst %] != null;
 	}
 [%   END -%]
 
+	/**
+	 * Returns the {@code [% chan.name %]} of the point at {@code index}
+	 * ([% chan.width %]-byte {@code [% chan.type %]}[% IF chan.rescale %], subject to re-scaling[% END %]).
+[%   IF chan.type == "u16" -%]
+	 * The value is returned as an unsigned integer.
+[%   END -%]
+	 *
+	 * @param index the zero-based point index
+	 * @return the {@code [% chan.name %]}
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of range
+[%   IF chan.bit -%]
+	 * @throws NoSuchElementException if the channel is absent (see
+	 *         {@link #has[% chan.name.ucfirst %]()})
+[%   END -%]
+	 */
 [%   IF chan.type == "u16" -%]
 	public int [% chan.name %](int index)
 [%   ELSE -%]
@@ -142,6 +210,17 @@ public class PointsData
 	}
 [% END -%]
 
+	/**
+	 * Decodes the points of a stroke.
+	 *
+	 * <p>The active channels are taken from {@code points_flags}, and the
+	 * stride from their widths.
+	 *
+	 * @param data the stroke
+	 * @return the decoded points
+	 * @throws StrokeDataFormatException if the length of {@code points_data}
+	 *         does not match {@code points_count} times the stride
+	 */
 	public static PointsData decode(StrokeData data)
 	{
 		int count = data.getPointsCount();
