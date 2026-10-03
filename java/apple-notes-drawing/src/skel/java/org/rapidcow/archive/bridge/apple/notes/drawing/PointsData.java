@@ -38,7 +38,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * Decoder for StrokeData's {@code pointsData}.
+ * Decoder for StrokeData's {@code points_data}.
  *
  * <p>The data is stored column-wise: each channel is an array holding
  * one value per point.  The location channels ({@code x} and {@code y})
@@ -140,7 +140,7 @@ public class PointsData
 [% FOREACH chan IN StrokeChannel.channels -%]
 
 		/**
-		 * Sets the {@code [% chan.name %]} channel for the current point.
+		 * Sets the {@code [% chan.name.snake %]} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
@@ -173,10 +173,10 @@ public class PointsData
 [%   IF chan.bit -%]
 
 	/**
-	 * Returns whether the {@code [% chan.name %]} channel is present.
+	 * Returns whether the {@code [% chan.name.snake %]} channel is present.
 	 * True if and only if {@link #[% chan.name %](int)} may be called.
 	 *
-	 * @return whether the {@code [% chan.name %]} channel is present
+	 * @return whether the {@code [% chan.name.snake %]} channel is present
 	 */
 	public boolean has[% chan.name.ucfirst %]()
 	{
@@ -185,12 +185,12 @@ public class PointsData
 [%   END -%]
 
 	/**
-	 * Returns the {@code [% chan.name %]} field of the point at {@code index}.
+	 * Returns the {@code [% chan.name.snake %]} field of the point at {@code index}.
 	 * This field is of type {@code [% chan.type %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
 [%-  IF chan.rescale %], unscaled[% END %]).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code [% chan.name %]} field
+	 * @return the {@code [% chan.name.snake %]} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 [%   IF chan.bit -%]
 	 * @throws NoSuchElementException if the channel is absent

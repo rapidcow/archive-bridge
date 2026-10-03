@@ -39,7 +39,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * Decoder for StrokeData's {@code pointsData}.
+ * Decoder for StrokeData's {@code points_data}.
  *
  * <p>The data is stored column-wise: each channel is an array holding
  * one value per point.  The location channels ({@code x} and {@code y})
@@ -224,7 +224,7 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code aspectRatio} channel for the current point.
+		 * Sets the {@code aspect_ratio} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
@@ -241,7 +241,7 @@ public class PointsData
 		}
 
 		/**
-		 * Sets the {@code edgeWidth} channel for the current point.
+		 * Sets the {@code edge_width} channel for the current point.
 		 *
 		 * @param value the raw value
 		 * @return this builder
@@ -453,10 +453,10 @@ public class PointsData
 	}
 
 	/**
-	 * Returns whether the {@code aspectRatio} channel is present.
+	 * Returns whether the {@code aspect_ratio} channel is present.
 	 * True if and only if {@link #aspectRatio(int)} may be called.
 	 *
-	 * @return whether the {@code aspectRatio} channel is present
+	 * @return whether the {@code aspect_ratio} channel is present
 	 */
 	public boolean hasAspectRatio()
 	{
@@ -464,11 +464,11 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code aspectRatio} field of the point at {@code index}.
+	 * Returns the {@code aspect_ratio} field of the point at {@code index}.
 	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code aspectRatio} field
+	 * @return the {@code aspect_ratio} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the channel is absent
 	 * @see #hasAspectRatio()
@@ -482,10 +482,10 @@ public class PointsData
 	}
 
 	/**
-	 * Returns whether the {@code edgeWidth} channel is present.
+	 * Returns whether the {@code edge_width} channel is present.
 	 * True if and only if {@link #edgeWidth(int)} may be called.
 	 *
-	 * @return whether the {@code edgeWidth} channel is present
+	 * @return whether the {@code edge_width} channel is present
 	 */
 	public boolean hasEdgeWidth()
 	{
@@ -493,11 +493,11 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code edgeWidth} field of the point at {@code index}.
+	 * Returns the {@code edge_width} field of the point at {@code index}.
 	 * This field is of type {@code u16} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code edgeWidth} field
+	 * @return the {@code edge_width} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the channel is absent
 	 * @see #hasEdgeWidth()
