@@ -233,7 +233,7 @@ public class PointsData
 	 * Derived from {@link #rawTimestamp(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 14.0,
+	 * class’s eponymous public instance property added in iOS 14.0,
 	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
@@ -253,7 +253,7 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code width} member
 	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * attribute added in iOS 14.0, MacOS 11.0.
+	 * instance property added in iOS 14.0, MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point width
@@ -274,7 +274,7 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code height} member
 	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * attribute added in iOS 14.0, MacOS 11.0.
+	 * instance property added in iOS 14.0, MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point height
@@ -327,7 +327,7 @@ public class PointsData
 	 * Same as {@link #edgeWidth(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 27.0,
+	 * class’s eponymous public instance property added in iOS 27.0,
 	 * MacOS 27.0.
 	 *
 	 * @param index the zero-based point index
@@ -346,7 +346,7 @@ public class PointsData
 	 * Derived from {@link #rawForce(int)} divided by 1000.0.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 14.0,
+	 * class’s eponymous public instance property added in iOS 14.0,
 	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
@@ -369,7 +369,7 @@ public class PointsData
 	 * and π/2 along +<var>y</var> (down).
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 14.0,
+	 * class’s eponymous public instance property added in iOS 14.0,
 	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
@@ -392,7 +392,7 @@ public class PointsData
 	 * means it stands upright.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 14.0,
+	 * class’s eponymous public instance property added in iOS 14.0,
 	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
@@ -412,7 +412,7 @@ public class PointsData
 	 * 65535/2, giving a value in [0, 2].
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in
+	 * class’s eponymous public instance property added in
 [%-    IF chan.name == "threshold" %] iOS 26.0,
 	 * MacOS 26.0.
 [%-    ELSE %] iOS 14.0,
@@ -436,7 +436,7 @@ public class PointsData
 	 * {@link #rawRadius(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 17.0,
+	 * class’s eponymous public instance property added in iOS 17.0,
 	 * MacOS 14.0.
 	 *
 	 * @param index the zero-based point index
