@@ -356,6 +356,21 @@ public class PointsData
 	{
 		return (double) rawAspectRatio(index) / 1000.0;
 	}
+
+	/**
+	 * Returns the aspect ratio of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 65.535].
+	 *
+	 * @param index the zero-based point index
+	 * @return the aspect ratio
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
+	 * @see #rawAspectRatio(int)
+	 */
+	public Fraction aspectRatioExact(int index)
+	{
+		return Fraction.of(rawAspectRatio(index), 1000);
+	}
 [%   ELSIF chan.name == "edgeWidth" -%]
 
 	/**
@@ -371,6 +386,21 @@ public class PointsData
 	public double edgeWidth(int index)
 	{
 		return (double) rawEdgeWidth(index) / 10.0;
+	}
+
+	/**
+	 * Returns the edge width of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 6553.5].
+	 *
+	 * @param index the zero-based point index
+	 * @return the edge width
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
+	 * @see #rawEdgeWidth(int)
+	 */
+	public Fraction edgeWidthExact(int index)
+	{
+		return Fraction.of(rawEdgeWidth(index), 10);
 	}
 
 	/**
@@ -410,6 +440,21 @@ public class PointsData
 	public double force(int index)
 	{
 		return (double) rawForce(index) / 1000.0;
+	}
+
+	/**
+	 * Returns the force of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 65.535].
+	 *
+	 * @param index the zero-based point index
+	 * @return the force
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code force} channel is absent
+	 * @see #rawForce(int)
+	 */
+	public Fraction forceExact(int index)
+	{
+		return Fraction.of(rawForce(index), 1000);
 	}
 [%   ELSIF chan.name == "azimuth" -%]
 
@@ -513,6 +558,21 @@ public class PointsData
 	public double [% chan.name %](int index)
 	{
 		return 2.0 * raw[% chan.name.ucfirst %](index) / 65535.0;
+	}
+
+	/**
+	 * Returns the [% chan.name %] of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 2].
+	 *
+	 * @param index the zero-based point index
+	 * @return the [% chan.name %]
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
+	 * @see #raw[% chan.name.ucfirst %](int)
+	 */
+	public Fraction [% chan.name %]Exact(int index)
+	{
+		return Fraction.of(2 * raw[% chan.name.ucfirst %](index), 65535);
 	}
 [%   ELSIF chan.name == "radius2" -%]
 

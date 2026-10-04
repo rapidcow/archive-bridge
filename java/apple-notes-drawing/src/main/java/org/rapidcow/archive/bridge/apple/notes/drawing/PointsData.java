@@ -722,6 +722,21 @@ public class PointsData
 	}
 
 	/**
+	 * Returns the aspect ratio of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 65.535].
+	 *
+	 * @param index the zero-based point index
+	 * @return the aspect ratio
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
+	 * @see #rawAspectRatio(int)
+	 */
+	public Fraction aspectRatioExact(int index)
+	{
+		return Fraction.of(rawAspectRatio(index), 1000);
+	}
+
+	/**
 	 * Returns whether the {@code edge_width} channel is present.
 	 * True if and only if {@link #rawEdgeWidth(int)} may be called.
 	 *
@@ -763,6 +778,21 @@ public class PointsData
 	public double edgeWidth(int index)
 	{
 		return (double) rawEdgeWidth(index) / 10.0;
+	}
+
+	/**
+	 * Returns the edge width of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 6553.5].
+	 *
+	 * @param index the zero-based point index
+	 * @return the edge width
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
+	 * @see #rawEdgeWidth(int)
+	 */
+	public Fraction edgeWidthExact(int index)
+	{
+		return Fraction.of(rawEdgeWidth(index), 10);
 	}
 
 	/**
@@ -830,6 +860,21 @@ public class PointsData
 	public double force(int index)
 	{
 		return (double) rawForce(index) / 1000.0;
+	}
+
+	/**
+	 * Returns the force of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 65.535].
+	 *
+	 * @param index the zero-based point index
+	 * @return the force
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code force} channel is absent
+	 * @see #rawForce(int)
+	 */
+	public Fraction forceExact(int index)
+	{
+		return Fraction.of(rawForce(index), 1000);
 	}
 
 	/**
@@ -1016,6 +1061,21 @@ public class PointsData
 	}
 
 	/**
+	 * Returns the opacity of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 2].
+	 *
+	 * @param index the zero-based point index
+	 * @return the opacity
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code opacity} channel is absent
+	 * @see #rawOpacity(int)
+	 */
+	public Fraction opacityExact(int index)
+	{
+		return Fraction.of(2 * rawOpacity(index), 65535);
+	}
+
+	/**
 	 * Returns whether the {@code radius2} channel is present.
 	 * True if and only if {@link #rawRadius2(int)} may be called.
 	 *
@@ -1112,6 +1172,21 @@ public class PointsData
 	public double threshold(int index)
 	{
 		return 2.0 * rawThreshold(index) / 65535.0;
+	}
+
+	/**
+	 * Returns the threshold of the point at {@code index}
+	 * as an exact fraction.  The value is in [0, 2].
+	 *
+	 * @param index the zero-based point index
+	 * @return the threshold
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code threshold} channel is absent
+	 * @see #rawThreshold(int)
+	 */
+	public Fraction thresholdExact(int index)
+	{
+		return Fraction.of(2 * rawThreshold(index), 65535);
 	}
 
 	/**
