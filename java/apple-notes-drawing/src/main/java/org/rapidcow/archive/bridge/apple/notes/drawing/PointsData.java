@@ -659,6 +659,9 @@ public class PointsData
 	 * Returns the aspect ratio of the point’s size at {@code index}.
 	 * Derived from {@link #rawAspectRatio(int)} divided by 1000.0.
 	 *
+	 * <p>It is noteworthy that the aspect ratio is defined as
+	 * height over width, not the other way around.
+	 *
 	 * @param index the zero-based point index
 	 * @return the aspect ratio
 	 * @throws NoSuchElementException if the {@code aspectRatio} channel is absent
@@ -947,7 +950,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the elevation
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the {@code elevation} channel absent
+	 * @throws NoSuchElementException if the {@code elevation} channel is absent
 	 */
 	public double elevation(int index)
 	{
