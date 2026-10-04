@@ -229,7 +229,7 @@ public class PointsData
 [%   IF chan.name == "timestamp" -%]
 
 	/**
-	 * Returns the time offset of the point’s size at {@code index}.
+	 * Returns the time offset of the point at {@code index}.
 	 * Derived from {@link #rawTimestamp(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
@@ -237,7 +237,7 @@ public class PointsData
 	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
-	 * @return the point width
+	 * @return the time offset in seconds
 	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/timeoffset">-[PKStrokePoint timeOffset]</a>
 	 */
@@ -269,7 +269,8 @@ public class PointsData
 
 	/**
 	 * Returns the height of the point’s size at {@code index}.
-	 * Derived from {@link #rawRadius(int)} and {@link #rawAspectRatio(int)}.
+	 * Derived from the product of {@link #width(int)} and
+	 * {@link #aspectRatio(int)}.
 	 *
 	 * <p>This name is consistent with the {@code height} member
 	 * of the {@code PKStrokePoint} class’s {@code size} public
@@ -279,14 +280,28 @@ public class PointsData
 	 * @return the point height
 	 * @throws NoSuchElementException if the {@code radius}
 	 *    or the {@code aspectRatio} channel is absent
-	 * @see #width(int)
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/height">CGSize.height</a>
 	 */
 	public double height(int index)
 	{
-		/* Casting the left operand to float64 is enough. */
-		return (double) rawRadius(index) * rawAspectRatio(index);
+		return width(index) * aspectRatio(index);
+	}
+[%   ELSIF chan.name == "aspectRatio" -%]
+
+	/**
+	 * Returns the aspect ratio of the point’s size at {@code index}.
+	 * Derived from {@link #rawAspectRatio(int)} divided by 1000.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the aspect ratio
+	 * @throws NoSuchElementException if the {@code aspectRatio} channel is absent
+	 * @see #width(int)
+	 * @see #height(int)
+	 */
+	public double aspectRatio(int index)
+	{
+		return (double) rawAspectRatio(index) / 1000.0;
 	}
 [%   ELSIF chan.name == "edgeWidth" -%]
 
@@ -342,12 +357,13 @@ public class PointsData
 
 	/**
 	 * Returns the [% value %] of the point at {@code index}.
+	 * Derived from {@link #raw[% chan.name.ucfirst %](int)}.
 	 *
 	 * @param index the zero-based point index
 	 * @return the [% value %]
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 [%     IF chan.bit -%]
-	 * @throws NoSuchElementException if {@link #raw[% chan.name.ucfirst %](int)} is absent
+	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel absent
 [%     END -%]
 	 */
 [%     IF chan.type == "u16" -%]
