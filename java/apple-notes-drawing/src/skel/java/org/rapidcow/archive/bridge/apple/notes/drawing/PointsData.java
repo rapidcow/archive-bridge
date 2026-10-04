@@ -191,14 +191,14 @@ public class PointsData
 
 	/**
 	 * Returns the {@code [% chan.name.snake %]} field of the point at {@code index}.
-	 * This field is of type {@code [% chan.type %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
+	 * This field is of type {@code [% chan.type %] [% chan.endian %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
 [%-  IF chan.rescale %], unscaled[% END %]).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code [% chan.name.snake %]} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 [%   IF chan.bit -%]
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
 	 * @see #has[% chan.name.ucfirst %]()
 [%   END -%]
 	 */
@@ -225,12 +225,12 @@ public class PointsData
 	 * Decodes the points of a stroke.
 	 *
 	 * <p>The active channels are taken from {@code points_flags},
-	 * and the stride from their widths.
+	 * and the computed stride from their widths.
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
 	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *    does not match {@code points_count} times the stride
+	 *    does not match {@code points_count} times the computed stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{

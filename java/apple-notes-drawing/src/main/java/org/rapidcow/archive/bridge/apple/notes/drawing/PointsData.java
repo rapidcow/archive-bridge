@@ -429,7 +429,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code x} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code x} field
@@ -442,7 +442,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code y} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code y} field
@@ -466,12 +466,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code timestamp} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code timestamp} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see #hasTimestamp()
 	 */
 	public float timestamp(int index)
@@ -495,12 +495,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code radius} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code radius} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code radius} channel is absent
 	 * @see #hasRadius()
 	 */
 	public float radius(int index)
@@ -524,12 +524,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code aspect_ratio} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code aspect_ratio} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #hasAspectRatio()
 	 */
 	public int aspectRatio(int index)
@@ -553,12 +553,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code edge_width} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code edge_width} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #hasEdgeWidth()
 	 */
 	public int edgeWidth(int index)
@@ -582,12 +582,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code force} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code force} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see #hasForce()
 	 */
 	public int force(int index)
@@ -611,12 +611,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code azimuth} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code azimuth} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see #hasAzimuth()
 	 */
 	public int azimuth(int index)
@@ -640,12 +640,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code altitude} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code altitude} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see #hasAltitude()
 	 */
 	public int altitude(int index)
@@ -669,12 +669,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code opacity} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code opacity} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see #hasOpacity()
 	 */
 	public int opacity(int index)
@@ -698,12 +698,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code radius2} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code radius2} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code radius2} channel is absent
 	 * @see #hasRadius2()
 	 */
 	public float radius2(int index)
@@ -727,12 +727,12 @@ public class PointsData
 
 	/**
 	 * Returns the {@code threshold} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code threshold} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see #hasThreshold()
 	 */
 	public int threshold(int index)
@@ -747,12 +747,12 @@ public class PointsData
 	 * Decodes the points of a stroke.
 	 *
 	 * <p>The active channels are taken from {@code points_flags},
-	 * and the stride from their widths.
+	 * and the computed stride from their widths.
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
 	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *    does not match {@code points_count} times the stride
+	 *    does not match {@code points_count} times the computed stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{
