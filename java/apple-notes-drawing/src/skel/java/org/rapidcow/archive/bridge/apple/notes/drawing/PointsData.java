@@ -109,8 +109,9 @@ public class PointsData
 		public PointsData build()
 		{
 			if (index < channelLength - 1) {
+				int added = index + 1;
 				throw new IllegalStateException("Insufficient points (added "
-					+ index + " but expected " + channelLength + ")");
+					+ added + " but expected " + channelLength + ")");
 			}
 			/* Note: index >= channelLength cannot happen. */
 			return new PointsData(this);
@@ -508,7 +509,7 @@ public class PointsData
 	 * @param data the stroke
 	 * @return the decoded points
 	 * @throws StrokeDataFormatException if there exists at least
-	 *    one point and {@code points_flags} contains unknonwn
+	 *    one point and {@code points_flags} contains unknown
 	 *    high bits, or if the length of {@code points_data} does
 	 *    not match {@code points_count} times the computed stride
 	 */
