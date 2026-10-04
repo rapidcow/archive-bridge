@@ -225,12 +225,12 @@ public class PointsData
 	 * Decodes the points of a stroke.
 	 *
 	 * <p>The active channels are taken from {@code points_flags},
-	 * and the stride from their widths.
+	 * and the computed stride from their widths.
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
 	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *    does not match {@code points_count} times the stride
+	 *    does not match {@code points_count} times the computed stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{
