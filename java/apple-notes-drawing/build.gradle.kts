@@ -51,6 +51,9 @@ tasks.named<Test>("test") {
 // protobuf-java's own generic runtime types (Message, ByteString, ...).
 tasks.javadoc {
     (options as StandardJavadocDocletOptions).apply {
+        encoding = "UTF-8";
+        charSet = "UTF-8";
+        docEncoding = "UTF-8";
         links("https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/")
     }
 }
