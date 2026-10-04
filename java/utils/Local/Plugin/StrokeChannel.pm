@@ -35,6 +35,7 @@ u16<	altitude*
 u16<	opacity*
 f32<	radius2
 u16<	threshold*
+f32<	elevation
 DATA
 
 my %byte_size = (

@@ -17,5 +17,6 @@ public enum StrokeChannel {
 	ALTITUDE,
 	OPACITY,
 	RADIUS2,
-	THRESHOLD;
+	THRESHOLD,
+	ELEVATION;
 }

@@ -30,6 +30,7 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
  *   08  26  02  u16 < | opacity*
  *   09  28  04  f32 < | radius2
  *   10  32  02  u16 < | threshold*
+ *   11  34  04  f32 < | elevation
  */
 
 import java.nio.ByteBuffer;
@@ -65,6 +66,7 @@ public class PointsData
 	private final short[] channelOpacity;
 	private final float[] channelRadius2;
 	private final short[] channelThreshold;
+	private final float[] channelElevation;
 
 	private PointsData(Builder data)
 	{
@@ -81,6 +83,7 @@ public class PointsData
 		this.channelOpacity     = data.channelOpacity;
 		this.channelRadius2     = data.channelRadius2;
 		this.channelThreshold   = data.channelThreshold;
+		this.channelElevation   = data.channelElevation;
 	}
 
 	/**
@@ -106,6 +109,7 @@ public class PointsData
 		private short[] channelOpacity;
 		private float[] channelRadius2;
 		private short[] channelThreshold;
+		private float[] channelElevation;
 
 		/**
 		 * Creates a builder for the given number of points.
@@ -147,6 +151,9 @@ public class PointsData
 			}
 			if (set.contains(StrokeChannel.THRESHOLD)) {
 				channelThreshold = new short[length];
+			}
+			if (set.contains(StrokeChannel.ELEVATION)) {
+				channelElevation = new float[length];
 			}
 		}
 
@@ -415,6 +422,29 @@ public class PointsData
 				throw new IllegalArgumentException("Channel threshold absent");
 			}
 			channelThreshold[index] = value;
+			return this;
+		}
+
+		/**
+		 * Sets the {@code elevation} channel for the current point.
+		 *
+		 * @param value the raw value
+		 * @return this builder
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the elevation
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#ELEVATION} is
+		 *    absent from the set passed to the constructor.
+		 */
+		public Builder setElevation(float value)
+		{
+			if (index < 0) {
+				throw new IllegalStateException("No point added yet");
+			}
+			if (channelElevation == null) {
+				throw new IllegalArgumentException("Channel elevation absent");
+			}
+			channelElevation[index] = value;
 			return this;
 		}
 	}
@@ -744,6 +774,35 @@ public class PointsData
 	}
 
 	/**
+	 * Returns whether the {@code elevation} channel is present.
+	 * True if and only if {@link #elevation(int)} may be called.
+	 *
+	 * @return whether the {@code elevation} channel is present
+	 */
+	public boolean hasElevation()
+	{
+		return channelElevation != null;
+	}
+
+	/**
+	 * Returns the {@code elevation} field of the point at {@code index}.
+	 * This field is of type {@code f32 <} (4 bytes).
+	 *
+	 * @param index the zero-based point index
+	 * @return the {@code elevation} field
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code elevation} channel is absent
+	 * @see #hasElevation()
+	 */
+	public float elevation(int index)
+	{
+		if (channelElevation == null) {
+			throw new NoSuchElementException("Channel elevation absent");
+		}
+		return channelElevation[index];
+	}
+
+	/**
 	 * Decodes the points of a stroke.
 	 *
 	 * <p>The active channels are taken from {@code points_flags},
@@ -810,6 +869,10 @@ public class PointsData
 			set.add(StrokeChannel.THRESHOLD);
 			stride += 2;
 		}
+		if ( 0 != (flags & ( 1 << 11 )) ) {
+			set.add(StrokeChannel.ELEVATION);
+			stride += 4;
+		}
 
 		if (buf.length != count * stride) {
 			throw new StrokeDataFormatException(
@@ -860,6 +923,9 @@ public class PointsData
 					break;
 				case THRESHOLD:
 					out.setThreshold(reader.getShort());
+					break;
+				case ELEVATION:
+					out.setElevation(reader.getFloat());
 					break;
 				}
 			}
