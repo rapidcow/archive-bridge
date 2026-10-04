@@ -537,14 +537,19 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the timestamp of the point at {@code index}.
+	 * Returns the time offset of the point’s size at {@code index}.
+	 * Derived from {@link #rawTimestamp(int)}.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 14.0,
+	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
-	 * @return the timestamp
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if {@link #rawTimestamp(int)} is absent
+	 * @return the point width
+	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/timeoffset">-[PKStrokePoint timeOffset]</a>
 	 */
-	public double timestamp(int index)
+	public double timeOffset(int index)
 	{
 		return rawTimestamp(index);
 	}
@@ -579,16 +584,45 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the radius of the point at {@code index}.
+	 * Returns the width of the point’s size at {@code index}.
+	 * Derived from {@link #rawRadius(int)}.
+	 *
+	 * <p>This name is consistent with the {@code width} member
+	 * of the {@code PKStrokePoint} class’s {@code size} public
+	 * attribute added in iOS 14.0, MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
-	 * @return the radius
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if {@link #rawRadius(int)} is absent
+	 * @return the point width
+	 * @throws NoSuchElementException if the {@code radius} channel is absent
+	 * @see #height(int)
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/width">CGSize.width</a>
 	 */
-	public double radius(int index)
+	public double width(int index)
 	{
 		return rawRadius(index);
+	}
+
+	/**
+	 * Returns the height of the point’s size at {@code index}.
+	 * Derived from {@link #rawRadius(int)} and {@link #rawAspectRatio(int)}.
+	 *
+	 * <p>This name is consistent with the {@code height} member
+	 * of the {@code PKStrokePoint} class’s {@code size} public
+	 * attribute added in iOS 14.0, MacOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the point height
+	 * @throws NoSuchElementException if the {@code radius}
+	 *    or the {@code aspectRatio} channel is absent
+	 * @see #width(int)
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/height">CGSize.height</a>
+	 */
+	public double height(int index)
+	{
+		/* Casting the left operand to float64 is enough. */
+		return (double) rawRadius(index) * rawAspectRatio(index);
 	}
 
 	/**
@@ -813,16 +847,23 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the radius 2 of the point at {@code index}.
+	 * Returns the secondary scale of the point at {@code index}.
+	 * Derived from the quotient of {@link #rawRadius2(int)} and
+	 * {@link #rawRadius(int)}.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 17.0,
+	 * MacOS 14.0.
 	 *
 	 * @param index the zero-based point index
-	 * @return the radius 2
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if {@link #rawRadius2(int)} is absent
+	 * @return the secondary scale
+	 * @throws NoSuchElementException if the {@code radius2}
+	 *    or the {@code radius} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/secondaryscale">-[PKStrokePoint secondaryScale]</a>
 	 */
-	public double radius2(int index)
+	public double secondaryScale(int index)
 	{
-		return rawRadius2(index);
+		return (double) rawRadius2(index) / rawRadius(index);
 	}
 
 	/**

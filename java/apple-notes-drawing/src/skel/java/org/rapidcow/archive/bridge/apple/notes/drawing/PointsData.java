@@ -220,40 +220,75 @@ public class PointsData
 		return channel[% chan.name.ucfirst %][index];
 [%   END -%]
 	}
-
-[%- IF not chan.rescale -%]
-
-[%-  IF chan.name == "x" %]
-[%-    SET value = "<var>x</var>-coordinate" %]
-[%-  ELSIF chan.name == "y" %]
-[%-    SET value = "<var>y</var>-coordinate" %]
-[%-  ELSIF chan.name == "radius2" %]
-[%-    SET value = "radius 2" %]
-[%-  ELSE %]
-[%-    SET value = chan.name.snake.replace("_", " ") %]
-[%-  END -%]
+[%# Accessor methods with correct scaling.
+  # They mimic PencilKit on 64-bit systems, floats
+  # are widened, and floating-point math is done...
+  # (unless they are "exact" (which I will add in
+  # a bit.))
+  -%]
+[%   IF chan.name == "timestamp" -%]
 
 	/**
-	 * Returns the [% value %] of the point at {@code index}.
+	 * Returns the time offset of the point’s size at {@code index}.
+	 * Derived from {@link #rawTimestamp(int)}.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 14.0,
+	 * MacOS 11.0.
 	 *
 	 * @param index the zero-based point index
-	 * @return the [% value %]
-	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-[%   IF chan.bit -%]
-	 * @throws NoSuchElementException if {@link #raw[% chan.name.ucfirst %](int)} is absent
-[%   END -%]
+	 * @return the point width
+	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/timeoffset">-[PKStrokePoint timeOffset]</a>
 	 */
-[%   IF chan.type == "u16" -%]
-	public int [% chan.name %](int index)
-[%   ELSIF chan.type.match("^f") -%]
-	public double [% chan.name %](int index)
-[%   ELSE -%]
-	public [% chan.java_type %] [% chan.name %](int index)
-[%   END -%]
+	public double timeOffset(int index)
 	{
-		return raw[% chan.name.ucfirst %](index);
+		return rawTimestamp(index);
 	}
-[% ELSIF chan.name == "edgeWidth" -%]
+[%   ELSIF chan.name == "radius" -%]
+
+	/**
+	 * Returns the width of the point’s size at {@code index}.
+	 * Derived from {@link #rawRadius(int)}.
+	 *
+	 * <p>This name is consistent with the {@code width} member
+	 * of the {@code PKStrokePoint} class’s {@code size} public
+	 * attribute added in iOS 14.0, MacOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the point width
+	 * @throws NoSuchElementException if the {@code radius} channel is absent
+	 * @see #height(int)
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/width">CGSize.width</a>
+	 */
+	public double width(int index)
+	{
+		return rawRadius(index);
+	}
+
+	/**
+	 * Returns the height of the point’s size at {@code index}.
+	 * Derived from {@link #rawRadius(int)} and {@link #rawAspectRatio(int)}.
+	 *
+	 * <p>This name is consistent with the {@code height} member
+	 * of the {@code PKStrokePoint} class’s {@code size} public
+	 * attribute added in iOS 14.0, MacOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the point height
+	 * @throws NoSuchElementException if the {@code radius}
+	 *    or the {@code aspectRatio} channel is absent
+	 * @see #width(int)
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/height">CGSize.height</a>
+	 */
+	public double height(int index)
+	{
+		/* Casting the left operand to float64 is enough. */
+		return (double) rawRadius(index) * rawAspectRatio(index);
+	}
+[%   ELSIF chan.name == "edgeWidth" -%]
 
 	/**
 	 * Returns the lateral jitter of the point at {@code index}.
@@ -291,7 +326,39 @@ public class PointsData
 	 */
 	public double secondaryScale(int index)
 	{
-		return (double) rawRadius2(index) / (double) rawRadius(index);
+		return (double) rawRadius2(index) / rawRadius(index);
+	}
+[%   ELSIF not chan.rescale -%]
+
+[%-    IF chan.name == "x" %]
+[%-      SET value = "<var>x</var>-coordinate" %]
+[%-    ELSIF chan.name == "y" %]
+[%-      SET value = "<var>y</var>-coordinate" %]
+[%-    ELSIF chan.name == "radius2" %]
+[%-      SET value = "radius 2" %]
+[%-    ELSE %]
+[%-      SET value = chan.name.snake.replace("_", " ") %]
+[%-    END -%]
+
+	/**
+	 * Returns the [% value %] of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the [% value %]
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+[%     IF chan.bit -%]
+	 * @throws NoSuchElementException if {@link #raw[% chan.name.ucfirst %](int)} is absent
+[%     END -%]
+	 */
+[%     IF chan.type == "u16" -%]
+	public int [% chan.name %](int index)
+[%     ELSIF chan.type.match("^f") -%]
+	public double [% chan.name %](int index)
+[%     ELSE -%]
+	public [% chan.java_type %] [% chan.name %](int index)
+[%     END -%]
+	{
+		return raw[% chan.name.ucfirst %](index);
 	}
 [%   END -%]
 [% END -%]
