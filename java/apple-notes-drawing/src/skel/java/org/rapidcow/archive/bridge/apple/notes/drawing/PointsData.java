@@ -69,7 +69,7 @@ public class PointsData
 	 *
 	 * <p>Points are added one at a time with {@link #addPoint(float, float)},
 	 * and the optional channels of that point are filled in with the
-	 * {@code set*()} methods <em>before</em> the next point is added.
+	 * {@code setRaw*()} methods <em>before</em> the next point is added.
 	 */
 	public static final class Builder
 	{
@@ -149,7 +149,7 @@ public class PointsData
 		 *    {@link StrokeChannel#[% chan.name.SNAKE %]} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder set[% chan.name.ucfirst %]([% chan.java_type %] value)
+		public Builder setRaw[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -179,7 +179,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code [% chan.name.snake %]} channel is present.
-	 * True if and only if {@link #[% chan.name %](int)} may be called.
+	 * True if and only if {@link #raw[% chan.name.ucfirst %](int)} may be called.
 	 *
 	 * @return whether the {@code [% chan.name.snake %]} channel is present
 	 */
@@ -190,12 +190,13 @@ public class PointsData
 [%   END -%]
 
 	/**
-	 * Returns the {@code [% chan.name.snake %]} field of the point at {@code index}.
+	 * Returns the raw {@code [% chan.name.snake %]} field of the point at {@code index}.
 	 * This field is of type {@code [% chan.type %] [% chan.endian %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
 [%-  IF chan.rescale %], unscaled[% END %]).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code [% chan.name.snake %]} field
+	 * @return the raw {@code [% chan.name.snake %]} field
+[%-  IF chan.type == "u16" %], widened to an {@code int}[% END %]
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 [%   IF chan.bit -%]
 	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
@@ -203,9 +204,9 @@ public class PointsData
 [%   END -%]
 	 */
 [%   IF chan.type == "u16" -%]
-	public int [% chan.name %](int index)
+	public int raw[% chan.name.ucfirst %](int index)
 [%   ELSE -%]
-	public [% chan.java_type %] [% chan.name %](int index)
+	public [% chan.java_type %] raw[% chan.name.ucfirst %](int index)
 [%   END -%]
 	{
 [%   IF chan.bit -%]
@@ -220,11 +221,43 @@ public class PointsData
 [%   END -%]
 	}
 
-[%- IF chan.name == "edgeWidth" -%]
+[%- IF not chan.rescale -%]
+
+[%-  IF chan.name == "x" %]
+[%-    SET value = "<var>x</var>-coordinate" %]
+[%-  ELSIF chan.name == "y" %]
+[%-    SET value = "<var>y</var>-coordinate" %]
+[%-  ELSIF chan.name == "radius2" %]
+[%-    SET value = "radius 2" %]
+[%-  ELSE %]
+[%-    SET value = chan.name.snake.replace("_", " ") %]
+[%-  END -%]
+
+	/**
+	 * Returns the [% value %] of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the [% value %]
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+[%   IF chan.bit -%]
+	 * @throws NoSuchElementException if {@link #raw[% chan.name.ucfirst %](int)} is absent
+[%   END -%]
+	 */
+[%   IF chan.type == "u16" -%]
+	public int [% chan.name %](int index)
+[%   ELSIF chan.type.match("^f") -%]
+	public double [% chan.name %](int index)
+[%   ELSE -%]
+	public [% chan.java_type %] [% chan.name %](int index)
+[%   END -%]
+	{
+		return raw[% chan.name.ucfirst %](index);
+	}
+[% ELSIF chan.name == "edgeWidth" -%]
 
 	/**
 	 * Returns the lateral jitter of the point at {@code index}.
-	 * Derived from {@link #edgeWidth(int)} by dividing by {@code 10.0}.
+	 * Derived from {@link #rawEdgeWidth(int)} by dividing by {@code 10.0}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public attribute added in iOS 27.0,
@@ -237,14 +270,14 @@ public class PointsData
 	 */
 	public double lateralJitter(int index)
 	{
-		return (double) edgeWidth(index) / 10.0;
+		return (double) rawEdgeWidth(index) / 10.0;
 	}
 [%   ELSIF chan.name == "radius2" -%]
 
 	/**
 	 * Returns the secondary scale of the point at {@code index}.
-	 * Derived from the quotient of {@link #radius2(int)} and
-	 * {@link #radius(int)}.
+	 * Derived from the quotient of {@link #rawRadius2(int)} and
+	 * {@link #rawRadius(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public attribute added in iOS 17.0,
@@ -258,7 +291,7 @@ public class PointsData
 	 */
 	public double secondaryScale(int index)
 	{
-		return (double) radius2(index) / (double) radius(index);
+		return (double) rawRadius2(index) / (double) rawRadius(index);
 	}
 [%   END -%]
 [% END -%]
@@ -341,7 +374,7 @@ public class PointsData
 				switch (chan) {
 [% FOREACH chan IN StrokeChannel.channels -%]
 				case [% chan.name.SNAKE %]:
-					out.set[% chan.name.ucfirst %](reader.get[% chan.java_type.ucfirst %]());
+					out.setRaw[% chan.name.ucfirst %](reader.get[% chan.java_type.ucfirst %]());
 					break;
 [% END -%]
 				}

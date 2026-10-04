@@ -91,7 +91,7 @@ public class PointsData
 	 *
 	 * <p>Points are added one at a time with {@link #addPoint(float, float)},
 	 * and the optional channels of that point are filled in with the
-	 * {@code set*()} methods <em>before</em> the next point is added.
+	 * {@code setRaw*()} methods <em>before</em> the next point is added.
 	 */
 	public static final class Builder
 	{
@@ -206,7 +206,7 @@ public class PointsData
 		 *    {@link StrokeChannel#TIMESTAMP} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setTimestamp(float value)
+		public Builder setRawTimestamp(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -229,7 +229,7 @@ public class PointsData
 		 *    {@link StrokeChannel#RADIUS} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setRadius(float value)
+		public Builder setRawRadius(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -252,7 +252,7 @@ public class PointsData
 		 *    {@link StrokeChannel#ASPECT_RATIO} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setAspectRatio(short value)
+		public Builder setRawAspectRatio(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -275,7 +275,7 @@ public class PointsData
 		 *    {@link StrokeChannel#EDGE_WIDTH} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setEdgeWidth(short value)
+		public Builder setRawEdgeWidth(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -298,7 +298,7 @@ public class PointsData
 		 *    {@link StrokeChannel#FORCE} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setForce(short value)
+		public Builder setRawForce(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -321,7 +321,7 @@ public class PointsData
 		 *    {@link StrokeChannel#AZIMUTH} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setAzimuth(short value)
+		public Builder setRawAzimuth(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -344,7 +344,7 @@ public class PointsData
 		 *    {@link StrokeChannel#ALTITUDE} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setAltitude(short value)
+		public Builder setRawAltitude(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -367,7 +367,7 @@ public class PointsData
 		 *    {@link StrokeChannel#OPACITY} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setOpacity(short value)
+		public Builder setRawOpacity(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -390,7 +390,7 @@ public class PointsData
 		 *    {@link StrokeChannel#RADIUS2} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setRadius2(float value)
+		public Builder setRawRadius2(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -413,7 +413,7 @@ public class PointsData
 		 *    {@link StrokeChannel#THRESHOLD} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setThreshold(short value)
+		public Builder setRawThreshold(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -436,7 +436,7 @@ public class PointsData
 		 *    {@link StrokeChannel#ELEVATION} is
 		 *    absent from the set passed to the constructor.
 		 */
-		public Builder setElevation(float value)
+		public Builder setRawElevation(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point added yet");
@@ -458,34 +458,58 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code x} field of the point at {@code index}.
+	 * Returns the raw {@code x} field of the point at {@code index}.
 	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code x} field
+	 * @return the raw {@code x} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 */
-	public float x(int index)
+	public float rawX(int index)
 	{
 		return channelX[index];
 	}
 
 	/**
-	 * Returns the {@code y} field of the point at {@code index}.
+	 * Returns the <var>x</var>-coordinate of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the <var>x</var>-coordinate
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 */
+	public double x(int index)
+	{
+		return rawX(index);
+	}
+
+	/**
+	 * Returns the raw {@code y} field of the point at {@code index}.
 	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code y} field
+	 * @return the raw {@code y} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 */
-	public float y(int index)
+	public float rawY(int index)
 	{
 		return channelY[index];
 	}
 
 	/**
+	 * Returns the <var>y</var>-coordinate of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the <var>y</var>-coordinate
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 */
+	public double y(int index)
+	{
+		return rawY(index);
+	}
+
+	/**
 	 * Returns whether the {@code timestamp} channel is present.
-	 * True if and only if {@link #timestamp(int)} may be called.
+	 * True if and only if {@link #rawTimestamp(int)} may be called.
 	 *
 	 * @return whether the {@code timestamp} channel is present
 	 */
@@ -495,16 +519,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code timestamp} field of the point at {@code index}.
+	 * Returns the raw {@code timestamp} field of the point at {@code index}.
 	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code timestamp} field
+	 * @return the raw {@code timestamp} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see #hasTimestamp()
 	 */
-	public float timestamp(int index)
+	public float rawTimestamp(int index)
 	{
 		if (channelTimestamp == null) {
 			throw new NoSuchElementException("Channel timestamp absent");
@@ -513,8 +537,21 @@ public class PointsData
 	}
 
 	/**
+	 * Returns the timestamp of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the timestamp
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if {@link #rawTimestamp(int)} is absent
+	 */
+	public double timestamp(int index)
+	{
+		return rawTimestamp(index);
+	}
+
+	/**
 	 * Returns whether the {@code radius} channel is present.
-	 * True if and only if {@link #radius(int)} may be called.
+	 * True if and only if {@link #rawRadius(int)} may be called.
 	 *
 	 * @return whether the {@code radius} channel is present
 	 */
@@ -524,16 +561,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code radius} field of the point at {@code index}.
+	 * Returns the raw {@code radius} field of the point at {@code index}.
 	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code radius} field
+	 * @return the raw {@code radius} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code radius} channel is absent
 	 * @see #hasRadius()
 	 */
-	public float radius(int index)
+	public float rawRadius(int index)
 	{
 		if (channelRadius == null) {
 			throw new NoSuchElementException("Channel radius absent");
@@ -542,8 +579,21 @@ public class PointsData
 	}
 
 	/**
+	 * Returns the radius of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the radius
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if {@link #rawRadius(int)} is absent
+	 */
+	public double radius(int index)
+	{
+		return rawRadius(index);
+	}
+
+	/**
 	 * Returns whether the {@code aspect_ratio} channel is present.
-	 * True if and only if {@link #aspectRatio(int)} may be called.
+	 * True if and only if {@link #rawAspectRatio(int)} may be called.
 	 *
 	 * @return whether the {@code aspect_ratio} channel is present
 	 */
@@ -553,16 +603,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code aspect_ratio} field of the point at {@code index}.
+	 * Returns the raw {@code aspect_ratio} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code aspect_ratio} field
+	 * @return the raw {@code aspect_ratio} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #hasAspectRatio()
 	 */
-	public int aspectRatio(int index)
+	public int rawAspectRatio(int index)
 	{
 		if (channelAspectRatio == null) {
 			throw new NoSuchElementException("Channel aspect_ratio absent");
@@ -572,7 +622,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code edge_width} channel is present.
-	 * True if and only if {@link #edgeWidth(int)} may be called.
+	 * True if and only if {@link #rawEdgeWidth(int)} may be called.
 	 *
 	 * @return whether the {@code edge_width} channel is present
 	 */
@@ -582,16 +632,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code edge_width} field of the point at {@code index}.
+	 * Returns the raw {@code edge_width} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code edge_width} field
+	 * @return the raw {@code edge_width} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #hasEdgeWidth()
 	 */
-	public int edgeWidth(int index)
+	public int rawEdgeWidth(int index)
 	{
 		if (channelEdgeWidth == null) {
 			throw new NoSuchElementException("Channel edge_width absent");
@@ -601,7 +651,7 @@ public class PointsData
 
 	/**
 	 * Returns the lateral jitter of the point at {@code index}.
-	 * Derived from {@link #edgeWidth(int)} by dividing by {@code 10.0}.
+	 * Derived from {@link #rawEdgeWidth(int)} by dividing by {@code 10.0}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public attribute added in iOS 27.0,
@@ -614,12 +664,12 @@ public class PointsData
 	 */
 	public double lateralJitter(int index)
 	{
-		return (double) edgeWidth(index) / 10.0;
+		return (double) rawEdgeWidth(index) / 10.0;
 	}
 
 	/**
 	 * Returns whether the {@code force} channel is present.
-	 * True if and only if {@link #force(int)} may be called.
+	 * True if and only if {@link #rawForce(int)} may be called.
 	 *
 	 * @return whether the {@code force} channel is present
 	 */
@@ -629,16 +679,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code force} field of the point at {@code index}.
+	 * Returns the raw {@code force} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code force} field
+	 * @return the raw {@code force} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see #hasForce()
 	 */
-	public int force(int index)
+	public int rawForce(int index)
 	{
 		if (channelForce == null) {
 			throw new NoSuchElementException("Channel force absent");
@@ -648,7 +698,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code azimuth} channel is present.
-	 * True if and only if {@link #azimuth(int)} may be called.
+	 * True if and only if {@link #rawAzimuth(int)} may be called.
 	 *
 	 * @return whether the {@code azimuth} channel is present
 	 */
@@ -658,16 +708,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code azimuth} field of the point at {@code index}.
+	 * Returns the raw {@code azimuth} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code azimuth} field
+	 * @return the raw {@code azimuth} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see #hasAzimuth()
 	 */
-	public int azimuth(int index)
+	public int rawAzimuth(int index)
 	{
 		if (channelAzimuth == null) {
 			throw new NoSuchElementException("Channel azimuth absent");
@@ -677,7 +727,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code altitude} channel is present.
-	 * True if and only if {@link #altitude(int)} may be called.
+	 * True if and only if {@link #rawAltitude(int)} may be called.
 	 *
 	 * @return whether the {@code altitude} channel is present
 	 */
@@ -687,16 +737,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code altitude} field of the point at {@code index}.
+	 * Returns the raw {@code altitude} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code altitude} field
+	 * @return the raw {@code altitude} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see #hasAltitude()
 	 */
-	public int altitude(int index)
+	public int rawAltitude(int index)
 	{
 		if (channelAltitude == null) {
 			throw new NoSuchElementException("Channel altitude absent");
@@ -706,7 +756,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code opacity} channel is present.
-	 * True if and only if {@link #opacity(int)} may be called.
+	 * True if and only if {@link #rawOpacity(int)} may be called.
 	 *
 	 * @return whether the {@code opacity} channel is present
 	 */
@@ -716,16 +766,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code opacity} field of the point at {@code index}.
+	 * Returns the raw {@code opacity} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code opacity} field
+	 * @return the raw {@code opacity} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see #hasOpacity()
 	 */
-	public int opacity(int index)
+	public int rawOpacity(int index)
 	{
 		if (channelOpacity == null) {
 			throw new NoSuchElementException("Channel opacity absent");
@@ -735,7 +785,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code radius2} channel is present.
-	 * True if and only if {@link #radius2(int)} may be called.
+	 * True if and only if {@link #rawRadius2(int)} may be called.
 	 *
 	 * @return whether the {@code radius2} channel is present
 	 */
@@ -745,16 +795,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code radius2} field of the point at {@code index}.
+	 * Returns the raw {@code radius2} field of the point at {@code index}.
 	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code radius2} field
+	 * @return the raw {@code radius2} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code radius2} channel is absent
 	 * @see #hasRadius2()
 	 */
-	public float radius2(int index)
+	public float rawRadius2(int index)
 	{
 		if (channelRadius2 == null) {
 			throw new NoSuchElementException("Channel radius2 absent");
@@ -763,28 +813,21 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the secondary scale of the point at {@code index}.
-	 * Derived from the quotient of {@link #radius2(int)} and
-	 * {@link #radius(int)}.
-	 *
-	 * <p>This name is consistent with the {@code PKStrokePoint}
-	 * class’s eponymous public attribute added in iOS 17.0,
-	 * MacOS 14.0.
+	 * Returns the radius 2 of the point at {@code index}.
 	 *
 	 * @param index the zero-based point index
-	 * @return the secondary scale
-	 * @throws NoSuchElementException if the {@code radius2}
-	 *    or the {@code radius} channel is absent
-	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/secondaryscale">-[PKStrokePoint secondaryScale]</a>
+	 * @return the radius 2
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if {@link #rawRadius2(int)} is absent
 	 */
-	public double secondaryScale(int index)
+	public double radius2(int index)
 	{
-		return (double) radius2(index) / (double) radius(index);
+		return rawRadius2(index);
 	}
 
 	/**
 	 * Returns whether the {@code threshold} channel is present.
-	 * True if and only if {@link #threshold(int)} may be called.
+	 * True if and only if {@link #rawThreshold(int)} may be called.
 	 *
 	 * @return whether the {@code threshold} channel is present
 	 */
@@ -794,16 +837,16 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code threshold} field of the point at {@code index}.
+	 * Returns the raw {@code threshold} field of the point at {@code index}.
 	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code threshold} field
+	 * @return the raw {@code threshold} field, widened to an {@code int}
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see #hasThreshold()
 	 */
-	public int threshold(int index)
+	public int rawThreshold(int index)
 	{
 		if (channelThreshold == null) {
 			throw new NoSuchElementException("Channel threshold absent");
@@ -813,7 +856,7 @@ public class PointsData
 
 	/**
 	 * Returns whether the {@code elevation} channel is present.
-	 * True if and only if {@link #elevation(int)} may be called.
+	 * True if and only if {@link #rawElevation(int)} may be called.
 	 *
 	 * @return whether the {@code elevation} channel is present
 	 */
@@ -823,21 +866,34 @@ public class PointsData
 	}
 
 	/**
-	 * Returns the {@code elevation} field of the point at {@code index}.
+	 * Returns the raw {@code elevation} field of the point at {@code index}.
 	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
-	 * @return the {@code elevation} field
+	 * @return the raw {@code elevation} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code elevation} channel is absent
 	 * @see #hasElevation()
 	 */
-	public float elevation(int index)
+	public float rawElevation(int index)
 	{
 		if (channelElevation == null) {
 			throw new NoSuchElementException("Channel elevation absent");
 		}
 		return channelElevation[index];
+	}
+
+	/**
+	 * Returns the elevation of the point at {@code index}.
+	 *
+	 * @param index the zero-based point index
+	 * @return the elevation
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if {@link #rawElevation(int)} is absent
+	 */
+	public double elevation(int index)
+	{
+		return rawElevation(index);
 	}
 
 	/** Every {@code points_flags} bit this decoder understands. */
@@ -955,37 +1011,37 @@ public class PointsData
 			for (StrokeChannel chan : set) {
 				switch (chan) {
 				case TIMESTAMP:
-					out.setTimestamp(reader.getFloat());
+					out.setRawTimestamp(reader.getFloat());
 					break;
 				case RADIUS:
-					out.setRadius(reader.getFloat());
+					out.setRawRadius(reader.getFloat());
 					break;
 				case ASPECT_RATIO:
-					out.setAspectRatio(reader.getShort());
+					out.setRawAspectRatio(reader.getShort());
 					break;
 				case EDGE_WIDTH:
-					out.setEdgeWidth(reader.getShort());
+					out.setRawEdgeWidth(reader.getShort());
 					break;
 				case FORCE:
-					out.setForce(reader.getShort());
+					out.setRawForce(reader.getShort());
 					break;
 				case AZIMUTH:
-					out.setAzimuth(reader.getShort());
+					out.setRawAzimuth(reader.getShort());
 					break;
 				case ALTITUDE:
-					out.setAltitude(reader.getShort());
+					out.setRawAltitude(reader.getShort());
 					break;
 				case OPACITY:
-					out.setOpacity(reader.getShort());
+					out.setRawOpacity(reader.getShort());
 					break;
 				case RADIUS2:
-					out.setRadius2(reader.getFloat());
+					out.setRawRadius2(reader.getFloat());
 					break;
 				case THRESHOLD:
-					out.setThreshold(reader.getShort());
+					out.setRawThreshold(reader.getShort());
 					break;
 				case ELEVATION:
-					out.setElevation(reader.getFloat());
+					out.setRawElevation(reader.getFloat());
 					break;
 				}
 			}
