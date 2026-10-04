@@ -44,6 +44,7 @@ import java.nio.ByteOrder;
 import java.util.EnumSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import org.apache.commons.numbers.fraction.Fraction;
 
 /**
  * Decoder for StrokeData's {@code points_data}.
@@ -884,6 +885,20 @@ public class PointsData
 	}
 
 	/**
+	 * Returns the azimuth of the point at {@code index}
+	 * as a fraction of π.  The value is in [−1, 1].
+	 *
+	 * @param index the zero-based point index
+	 * @return the azimuth in π radians
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
+	 */
+	public Fraction azimuthExact(int index)
+	{
+		return Fraction.of(2 * rawAzimuth(index) - 65535, 65535);
+	}
+
+	/**
 	 * Returns whether the {@code altitude} channel is present.
 	 * True if and only if {@link #rawAltitude(int)} may be called.
 	 *
@@ -933,6 +948,20 @@ public class PointsData
 	public double altitude(int index)
 	{
 		return Math.PI / 2.0 - (double) rawAltitude(index) * (Math.PI / 2.0 / 65535.0);
+	}
+
+	/**
+	 * Returns the altitude of the point at {@code index}
+	 * as a fraction of π/2.  The value is in [0, 1].
+	 *
+	 * @param index the zero-based point index
+	 * @return the altitude in π/2 radians
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @throws NoSuchElementException if the {@code altitude} channel is absent
+	 */
+	public Fraction altitudeExact(int index)
+	{
+		return Fraction.of(65535 - rawAltitude(index), 65535);
 	}
 
 	/**
