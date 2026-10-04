@@ -803,7 +803,7 @@ public class PointsData
 	}
 
 	/** Every {@code points_flags} bit this decoder understands. */
-	private static final int KNOWN_FLAGS = 0xffe;
+	private static final int KNOWN_FLAGS = 0xfff;
 
 	/**
 	 * Decodes the points of a stroke.

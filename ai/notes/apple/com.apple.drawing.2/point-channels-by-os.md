@@ -217,8 +217,13 @@ types from the public API's doubles.
   ignoring unknown bits is not an option; the practical response is to reject
   them with their bit numbers named and add the channel from this table when
   a new release introduces one.
-- `points_flags` bit 0 is the mandatory location pair (always present); the
-  optional channels are bits 1-11. Bit `i` of `points_flags` is channel `i`.
+- Bit `i` of `points_flags` is channel `i`; the optional channels are bits
+  1-11. Location (channel 0) is unconditional and needs no flag. Bit 0 of
+  `points_flags` has been set on every real sample seen so far (e.g. 167 =
+  `0xa7`), but its meaning is unconfirmed (see the comment on `points_flags`
+  in `ai/tools/apple-notes-drawing-2.proto`); it is not known to be
+  "always set". A decoder should accept it, not require it, and not treat
+  it as an unknown bit.
 - To check a future release: repeat §1, compare the entry count and the new
   rows against §2, and look in `-[PKStrokePoint init...]` (the longest
   `initWithLocation:...` variant) for which `PKStrokePoint` argument feeds

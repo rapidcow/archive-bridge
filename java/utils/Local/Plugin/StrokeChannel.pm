@@ -147,7 +147,7 @@ sub channels { grep { $_->{bit} } &fields; }
 #
 sub mask
 {
-	my $mask = 0;
+	my $mask = 1;
 	$mask |= 1 << $_->{bit} foreach &channels;
 	$mask;
 }
