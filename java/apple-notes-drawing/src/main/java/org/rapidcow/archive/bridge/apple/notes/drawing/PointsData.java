@@ -1,3 +1,9 @@
+/*
+ * This is a file is generated!  You should edit
+ * the source template in `src/skel/java/'. ;)
+ *
+ * Run `make apple-notes-drawing' to re-generate.
+ */
 package org.rapidcow.archive.bridge.apple.notes.drawing;
 
 /*
@@ -48,8 +54,6 @@ import java.util.Set;
  * with its corresponding {@code has*()} method before being read.
  * Instances are created with {@link #decode(StrokeData)} or through
  * a {@link Builder}.
- *
- * @see StrokeChannel
  */
 public class PointsData
 {
@@ -178,11 +182,13 @@ public class PointsData
 		/**
 		 * Advances to the next point and sets its location.
 		 *
-		 * @param x the <var>x</var>-coordinate
-		 * @param y the <var>y</var>-coordinate
+		 * @param x the raw <var>x</var>-coordinate
+		 * @param y the raw <var>y</var>-coordinate
 		 * @return this builder
 		 * @throws IllegalStateException if more points were added
 		 *    than the total number of points expected to be added
+		 * @see PointsData#x(int)
+		 * @see PointsData#y(int)
 		 */
 		public Builder addPoint(float x, float y)
 		{
@@ -199,21 +205,23 @@ public class PointsData
 		/**
 		 * Sets the {@code timestamp} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code timestamp} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the timestamp
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#TIMESTAMP} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawTimestamp(int)
+		 * @see PointsData#timeOffset(int)
 		 */
 		public Builder setRawTimestamp(float value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelTimestamp == null) {
-				throw new IllegalArgumentException("Channel timestamp absent");
+				throw new IllegalArgumentException("Channel timestamp is absent");
 			}
 			channelTimestamp[index] = value;
 			return this;
@@ -222,21 +230,24 @@ public class PointsData
 		/**
 		 * Sets the {@code radius} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code radius} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the radius
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#RADIUS} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawRadius(int)
+		 * @see PointsData#width(int)
+		 * @see PointsData#height(int)
 		 */
 		public Builder setRawRadius(float value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelRadius == null) {
-				throw new IllegalArgumentException("Channel radius absent");
+				throw new IllegalArgumentException("Channel radius is absent");
 			}
 			channelRadius[index] = value;
 			return this;
@@ -245,21 +256,24 @@ public class PointsData
 		/**
 		 * Sets the {@code aspect_ratio} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code aspect_ratio} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the aspect_ratio
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#ASPECT_RATIO} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawAspectRatio(int)
+		 * @see PointsData#width(int)
+		 * @see PointsData#height(int)
 		 */
 		public Builder setRawAspectRatio(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelAspectRatio == null) {
-				throw new IllegalArgumentException("Channel aspect_ratio absent");
+				throw new IllegalArgumentException("Channel aspect_ratio is absent");
 			}
 			channelAspectRatio[index] = value;
 			return this;
@@ -268,21 +282,24 @@ public class PointsData
 		/**
 		 * Sets the {@code edge_width} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code edge_width} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the edge_width
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#EDGE_WIDTH} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawEdgeWidth(int)
+		 * @see PointsData#edgeWidth(int)
+		 * @see PointsData#lateralJitter(int)
 		 */
 		public Builder setRawEdgeWidth(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelEdgeWidth == null) {
-				throw new IllegalArgumentException("Channel edge_width absent");
+				throw new IllegalArgumentException("Channel edge_width is absent");
 			}
 			channelEdgeWidth[index] = value;
 			return this;
@@ -291,21 +308,23 @@ public class PointsData
 		/**
 		 * Sets the {@code force} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code force} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the force
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#FORCE} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawForce(int)
+		 * @see PointsData#force(int)
 		 */
 		public Builder setRawForce(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelForce == null) {
-				throw new IllegalArgumentException("Channel force absent");
+				throw new IllegalArgumentException("Channel force is absent");
 			}
 			channelForce[index] = value;
 			return this;
@@ -314,21 +333,23 @@ public class PointsData
 		/**
 		 * Sets the {@code azimuth} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code azimuth} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the azimuth
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#AZIMUTH} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawAzimuth(int)
+		 * @see PointsData#azimuth(int)
 		 */
 		public Builder setRawAzimuth(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelAzimuth == null) {
-				throw new IllegalArgumentException("Channel azimuth absent");
+				throw new IllegalArgumentException("Channel azimuth is absent");
 			}
 			channelAzimuth[index] = value;
 			return this;
@@ -337,21 +358,23 @@ public class PointsData
 		/**
 		 * Sets the {@code altitude} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code altitude} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the altitude
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#ALTITUDE} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawAltitude(int)
+		 * @see PointsData#altitude(int)
 		 */
 		public Builder setRawAltitude(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelAltitude == null) {
-				throw new IllegalArgumentException("Channel altitude absent");
+				throw new IllegalArgumentException("Channel altitude is absent");
 			}
 			channelAltitude[index] = value;
 			return this;
@@ -360,21 +383,23 @@ public class PointsData
 		/**
 		 * Sets the {@code opacity} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code opacity} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the opacity
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#OPACITY} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawOpacity(int)
+		 * @see PointsData#opacity(int)
 		 */
 		public Builder setRawOpacity(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelOpacity == null) {
-				throw new IllegalArgumentException("Channel opacity absent");
+				throw new IllegalArgumentException("Channel opacity is absent");
 			}
 			channelOpacity[index] = value;
 			return this;
@@ -383,21 +408,23 @@ public class PointsData
 		/**
 		 * Sets the {@code radius2} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code radius2} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the radius2
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#RADIUS2} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawRadius2(int)
+		 * @see PointsData#secondaryScale(int)
 		 */
 		public Builder setRawRadius2(float value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelRadius2 == null) {
-				throw new IllegalArgumentException("Channel radius2 absent");
+				throw new IllegalArgumentException("Channel radius2 is absent");
 			}
 			channelRadius2[index] = value;
 			return this;
@@ -406,21 +433,23 @@ public class PointsData
 		/**
 		 * Sets the {@code threshold} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code threshold} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the threshold
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#THRESHOLD} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawThreshold(int)
+		 * @see PointsData#threshold(int)
 		 */
 		public Builder setRawThreshold(short value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelThreshold == null) {
-				throw new IllegalArgumentException("Channel threshold absent");
+				throw new IllegalArgumentException("Channel threshold is absent");
 			}
 			channelThreshold[index] = value;
 			return this;
@@ -429,21 +458,22 @@ public class PointsData
 		/**
 		 * Sets the {@code elevation} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code elevation} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the elevation
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#ELEVATION} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#rawElevation(int)
 		 */
 		public Builder setRawElevation(float value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channelElevation == null) {
-				throw new IllegalArgumentException("Channel elevation absent");
+				throw new IllegalArgumentException("Channel elevation is absent");
 			}
 			channelElevation[index] = value;
 			return this;
@@ -475,9 +505,15 @@ public class PointsData
 	 * Returns the <var>x</var>-coordinate of the point at {@code index}.
 	 * Derived from {@link #rawX(int)}.
 	 *
+	 * <p>This name is consistent with the eponymous {@code x}
+	 * member of the {@code PKStrokePoint} class’s {@code CGPoint location}
+	 * public instance property added in iOS 14.0, macOS 11.0.
+	 *
 	 * @param index the zero-based point index
 	 * @return the <var>x</var>-coordinate
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/location">-[PKStrokePoint location]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgpoint/x">CGPoint.x</a>
 	 */
 	public double x(int index)
 	{
@@ -501,9 +537,15 @@ public class PointsData
 	 * Returns the <var>y</var>-coordinate of the point at {@code index}.
 	 * Derived from {@link #rawY(int)}.
 	 *
+	 * <p>This name is consistent with the eponymous {@code y}
+	 * member of the {@code PKStrokePoint} class’s {@code CGPoint location}
+	 * public instance property added in iOS 14.0, macOS 11.0.
+	 *
 	 * @param index the zero-based point index
 	 * @return the <var>y</var>-coordinate
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/location">-[PKStrokePoint location]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgpoint/y">CGPoint.y</a>
 	 */
 	public double y(int index)
 	{
@@ -534,14 +576,14 @@ public class PointsData
 	public float rawTimestamp(int index)
 	{
 		if (channelTimestamp == null) {
-			throw new NoSuchElementException("Channel timestamp absent");
+			throw new NoSuchElementException("Channel timestamp is absent");
 		}
 		return channelTimestamp[index];
 	}
 
 	/**
-	 * Returns the time offset of the point at {@code index}.
-	 * Derived from {@link #rawTimestamp(int)}.
+	 * Returns the time offset of the point at {@code index}
+	 * in seconds.  Derived from {@link #rawTimestamp(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
@@ -582,7 +624,7 @@ public class PointsData
 	public float rawRadius(int index)
 	{
 		if (channelRadius == null) {
-			throw new NoSuchElementException("Channel radius absent");
+			throw new NoSuchElementException("Channel radius is absent");
 		}
 		return channelRadius[index];
 	}
@@ -591,9 +633,9 @@ public class PointsData
 	 * Returns the width of the point’s size at {@code index}.
 	 * Derived from {@link #rawRadius(int)}.
 	 *
-	 * <p>This name is consistent with the {@code width} member
-	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * instance property added in iOS 14.0, macOS 11.0.
+	 * <p>This name is consistent with the eponymous {@code width}
+	 * member of the {@code PKStrokePoint} class’s {@code CGSize size}
+	 * public instance property added in iOS 14.0, macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point width
@@ -613,9 +655,9 @@ public class PointsData
 	 * Derived from the product of {@link #width(int)} and
 	 * {@link #aspectRatio(int)}.
 	 *
-	 * <p>This name is consistent with the {@code height} member
-	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * instance property added in iOS 14.0, macOS 11.0.
+	 * <p>This name is consistent with the eponymous {@code height}
+	 * member of the {@code PKStrokePoint} class’s {@code CGSize size}
+	 * public instance property added in iOS 14.0, macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point height
@@ -654,7 +696,7 @@ public class PointsData
 	public int rawAspectRatio(int index)
 	{
 		if (channelAspectRatio == null) {
-			throw new NoSuchElementException("Channel aspect_ratio absent");
+			throw new NoSuchElementException("Channel aspect_ratio is absent");
 		}
 		return Short.toUnsignedInt(channelAspectRatio[index]);
 	}
@@ -702,7 +744,7 @@ public class PointsData
 	public int rawEdgeWidth(int index)
 	{
 		if (channelEdgeWidth == null) {
-			throw new NoSuchElementException("Channel edge_width absent");
+			throw new NoSuchElementException("Channel edge_width is absent");
 		}
 		return Short.toUnsignedInt(channelEdgeWidth[index]);
 	}
@@ -724,7 +766,7 @@ public class PointsData
 
 	/**
 	 * Returns the lateral jitter of the point at {@code index}.
-	 * Same as {@link #edgeWidth(int)}.
+	 * Alias of {@link #edgeWidth(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 27.0,
@@ -765,7 +807,7 @@ public class PointsData
 	public int rawForce(int index)
 	{
 		if (channelForce == null) {
-			throw new NoSuchElementException("Channel force absent");
+			throw new NoSuchElementException("Channel force is absent");
 		}
 		return Short.toUnsignedInt(channelForce[index]);
 	}
@@ -813,7 +855,7 @@ public class PointsData
 	public int rawAzimuth(int index)
 	{
 		if (channelAzimuth == null) {
-			throw new NoSuchElementException("Channel azimuth absent");
+			throw new NoSuchElementException("Channel azimuth is absent");
 		}
 		return Short.toUnsignedInt(channelAzimuth[index]);
 	}
@@ -865,7 +907,7 @@ public class PointsData
 	public int rawAltitude(int index)
 	{
 		if (channelAltitude == null) {
-			throw new NoSuchElementException("Channel altitude absent");
+			throw new NoSuchElementException("Channel altitude is absent");
 		}
 		return Short.toUnsignedInt(channelAltitude[index]);
 	}
@@ -917,7 +959,7 @@ public class PointsData
 	public int rawOpacity(int index)
 	{
 		if (channelOpacity == null) {
-			throw new NoSuchElementException("Channel opacity absent");
+			throw new NoSuchElementException("Channel opacity is absent");
 		}
 		return Short.toUnsignedInt(channelOpacity[index]);
 	}
@@ -966,7 +1008,7 @@ public class PointsData
 	public float rawRadius2(int index)
 	{
 		if (channelRadius2 == null) {
-			throw new NoSuchElementException("Channel radius2 absent");
+			throw new NoSuchElementException("Channel radius2 is absent");
 		}
 		return channelRadius2[index];
 	}
@@ -1016,7 +1058,7 @@ public class PointsData
 	public int rawThreshold(int index)
 	{
 		if (channelThreshold == null) {
-			throw new NoSuchElementException("Channel threshold absent");
+			throw new NoSuchElementException("Channel threshold is absent");
 		}
 		return Short.toUnsignedInt(channelThreshold[index]);
 	}
@@ -1065,13 +1107,10 @@ public class PointsData
 	public float rawElevation(int index)
 	{
 		if (channelElevation == null) {
-			throw new NoSuchElementException("Channel elevation absent");
+			throw new NoSuchElementException("Channel elevation is absent");
 		}
 		return channelElevation[index];
 	}
-
-	/** Every {@code points_flags} bit this decoder understands. */
-	private static final int KNOWN_POINTS_FLAGS = 0xfff;
 
 	/**
 	 * Decodes the points of a stroke.
@@ -1108,7 +1147,7 @@ public class PointsData
 		 * It doesn't hurt if the points are empty though, so we
 		 * gave that a generous exception above!
 		 */
-		int unknown = flags & ~KNOWN_POINTS_FLAGS;
+		int unknown = flags & ~0xfff;
 		if (unknown != 0) {
 			throw new StrokeDataFormatException(
 				"Unknown points_flags bits 0x"

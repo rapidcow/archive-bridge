@@ -1,5 +1,15 @@
 [% USE Snake -%]
 [% USE StrokeChannel -%]
+/*
+ * This is a file is generated!  You should edit
+ * the source template in `src/skel/java/'. ;)
+[%#
+ * If you can read this, you are looking at the source! :D
+ * This means you can edit and expect changes to persist.
+ -%]
+ *
+ * Run `make apple-notes-drawing' to re-generate.
+ */
 package org.rapidcow.archive.bridge.apple.notes.drawing;
 
 /*
@@ -46,8 +56,6 @@ import java.util.Set;
  * with its corresponding {@code has*()} method before being read.
  * Instances are created with {@link #decode(StrokeData)} or through
  * a {@link Builder}.
- *
- * @see StrokeChannel
  */
 public class PointsData
 {
@@ -120,11 +128,13 @@ public class PointsData
 		/**
 		 * Advances to the next point and sets its location.
 		 *
-		 * @param x the <var>x</var>-coordinate
-		 * @param y the <var>y</var>-coordinate
+		 * @param x the raw <var>x</var>-coordinate
+		 * @param y the raw <var>y</var>-coordinate
 		 * @return this builder
 		 * @throws IllegalStateException if more points were added
 		 *    than the total number of points expected to be added
+		 * @see PointsData#x(int)
+		 * @see PointsData#y(int)
 		 */
 		public Builder addPoint(float x, float y)
 		{
@@ -142,21 +152,35 @@ public class PointsData
 		/**
 		 * Sets the {@code [% chan.name.snake %]} channel for the current point.
 		 *
-		 * @param value the raw value
+		 * @param value the raw {@code [% chan.name.snake %]} value
 		 * @return this builder
 		 * @throws IllegalStateException if no point has been added yet
 		 * @throws IllegalArgumentException if the [% chan.name.snake %]
 		 *    channel was not expected; namely, if the enum
 		 *    {@link StrokeChannel#[% chan.name.SNAKE %]} is
 		 *    absent from the set passed to the constructor.
+		 * @see PointsData#raw[% chan.name.ucfirst %](int)
+[%   IF chan.name == "timestamp" -%]
+		 * @see PointsData#timeOffset(int)
+[%   ELSIF chan.name == "radius" || chan.name == "aspectRatio" -%]
+		 * @see PointsData#width(int)
+		 * @see PointsData#height(int)
+[%   ELSIF chan.name == "radius2" -%]
+		 * @see PointsData#secondaryScale(int)
+[%   ELSIF chan.name != "elevation" -%]
+		 * @see PointsData#[% chan.name %](int)
+[%     IF chan.name == "edgeWidth" -%]
+		 * @see PointsData#lateralJitter(int)
+[%     END -%]
+[%   END -%]
 		 */
 		public Builder setRaw[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
 			if (index < 0) {
-				throw new IllegalStateException("No point added yet");
+				throw new IllegalStateException("No point");
 			}
 			if (channel[% chan.name.ucfirst %] == null) {
-				throw new IllegalArgumentException("Channel [% chan.name.snake %] absent");
+				throw new IllegalArgumentException("Channel [% chan.name.snake %] is absent");
 			}
 			channel[% chan.name.ucfirst %][index] = value;
 			return this;
@@ -212,7 +236,7 @@ public class PointsData
 	{
 [%   IF chan.bit -%]
 		if (channel[% chan.name.ucfirst %] == null) {
-			throw new NoSuchElementException("Channel [% chan.name.snake %] absent");
+			throw new NoSuchElementException("Channel [% chan.name.snake %] is absent");
 		}
 [%   END -%]
 [%   IF chan.type == "u16" -%]
@@ -227,11 +251,31 @@ public class PointsData
   # (unless they are "exact" (which I will add in
   # a bit.))
   -%]
-[%   IF chan.name == "timestamp" -%]
+[%   IF chan.name == "x" || chan.name == "y" -%]
 
 	/**
-	 * Returns the time offset of the point at {@code index}.
-	 * Derived from {@link #rawTimestamp(int)}.
+	 * Returns the <var>[% chan.name %]</var>-coordinate of the point at {@code index}.
+	 * Derived from {@link #raw[% chan.name.ucfirst %](int)}.
+	 *
+	 * <p>This name is consistent with the eponymous {@code [% chan.name %]}
+	 * member of the {@code PKStrokePoint} class’s {@code CGPoint location}
+	 * public instance property added in iOS 14.0, macOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the <var>[% chan.name %]</var>-coordinate
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/location">-[PKStrokePoint location]</a>
+	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgpoint/[% chan.name | xml %]">CGPoint.[% chan.name %]</a>
+	 */
+	public double [% chan.name %](int index)
+	{
+		return raw[% chan.name.ucfirst %](index);
+	}
+[%   ELSIF chan.name == "timestamp" -%]
+
+	/**
+	 * Returns the time offset of the point at {@code index}
+	 * in seconds.  Derived from {@link #rawTimestamp(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
@@ -253,9 +297,9 @@ public class PointsData
 	 * Returns the width of the point’s size at {@code index}.
 	 * Derived from {@link #rawRadius(int)}.
 	 *
-	 * <p>This name is consistent with the {@code width} member
-	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * instance property added in iOS 14.0, macOS 11.0.
+	 * <p>This name is consistent with the eponymous {@code width}
+	 * member of the {@code PKStrokePoint} class’s {@code CGSize size}
+	 * public instance property added in iOS 14.0, macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point width
@@ -275,9 +319,9 @@ public class PointsData
 	 * Derived from the product of {@link #width(int)} and
 	 * {@link #aspectRatio(int)}.
 	 *
-	 * <p>This name is consistent with the {@code height} member
-	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * instance property added in iOS 14.0, macOS 11.0.
+	 * <p>This name is consistent with the eponymous {@code height}
+	 * member of the {@code PKStrokePoint} class’s {@code CGSize size}
+	 * public instance property added in iOS 14.0, macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point height
@@ -330,7 +374,7 @@ public class PointsData
 
 	/**
 	 * Returns the lateral jitter of the point at {@code index}.
-	 * Same as {@link #edgeWidth(int)}.
+	 * Alias of {@link #edgeWidth(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 27.0,
@@ -465,13 +509,7 @@ public class PointsData
 [%#    No public PencilKit API for this, so leave it raw only. -%]
 [%   ELSIF not chan.rescale -%]
 
-[%-    IF chan.name == "x" %]
-[%-      SET value = "<var>x</var>-coordinate" %]
-[%-    ELSIF chan.name == "y" %]
-[%-      SET value = "<var>y</var>-coordinate" %]
-[%-    ELSE %]
-[%-      SET value = chan.name.snake.replace("_", " ") %]
-[%-    END -%]
+[%-    SET value = chan.name.snake.replace("_", " ") -%]
 
 	/**
 	 * Returns the [% value %] of the point at {@code index}.
@@ -496,9 +534,6 @@ public class PointsData
 	}
 [%   END -%]
 [% END -%]
-
-	/** Every {@code points_flags} bit this decoder understands. */
-	private static final int KNOWN_POINTS_FLAGS = [% StrokeChannel.mask | format("%#x") %];
 
 	/**
 	 * Decodes the points of a stroke.
@@ -535,7 +570,7 @@ public class PointsData
 		 * It doesn't hurt if the points are empty though, so we
 		 * gave that a generous exception above!
 		 */
-		int unknown = flags & ~KNOWN_POINTS_FLAGS;
+		int unknown = flags & ~[% StrokeChannel.mask | format("%#x") %];
 		if (unknown != 0) {
 			throw new StrokeDataFormatException(
 				"Unknown points_flags bits 0x"
