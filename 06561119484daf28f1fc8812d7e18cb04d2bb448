@@ -1,0 +1,41 @@
+i said this with somewhat the same condescending tone
+in https://youtube.com/watch?v=tlEHUh8NnKo&t=275s lol :)
+
+that said i want to explain the methodology---the best
+way i can.  this is partially why i bought a new mac
+with more than twice the money that my parents would
+have given me to buy an iPhone 17-something with more
+than 256G of NAND (with some indefinite icloud storage)
+because i was always logged out of weixin and imessage
+due to forgetting to charge and uninstalling apps due to
+my photos and videos filling up my phone.  shortly after
+setting it up from the previous ebay owner's factory
+reset (apple discontinued the M4 in august (and the 64G
+M4 Pro earlier in may) so i had to take the hard after-
+market route >n>) it was 15.3.2 (24D81).  i upgraded to
+the latest security patch, 15.8.1 (24H32) (though this
+had to be done on the command-line as apple is very, VERY
+eager to get me to hop on the macOS/iOS 27 bandwagon.)
+and this is basically from me opening the Notes.app and
+closing it, then giving Terminal.app Full Disk Access
+(this is a necessary step; you are not above macOS even
+if you become root) yanking out the entirety of
+
+    ~/Library/Group Containers/group.com.apple.notes/
+
+with rsync -r.  Change owner to me, make them writable
+(i forgot if they were already writable, but i did it
+explicitly anyways), open with sqlite3 (which comes with
+bundled macOS), run "VACUUM INTO <NoteStore.sqlite under
+a different path or some random name i will mv later>",
+and ".quit".  (remember to quote your path of course.)
+
+i think Claude did something similar but my method
+described above produces byte-identical files anyways.
+and yes, this is all to not have to deal with unflushed
+write-ahead logs (WALs) and journal, because git-annex
+clears the write bit on annexed files so doing so on a
+database with all those additional artifacts might need
+locking will be a nightmare.  (i may be horrible wrong
+on this but well... it still holds that 2 more files
+is three times as much git-annex metadata to track!)
