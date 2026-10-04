@@ -7,12 +7,14 @@ guava = "33.5.0-jre"
 junit-jupiter = "6.0.1"
 protobuf = "4.36.2"
 protobuf-plugin = "0.10.0"
+sqlite-jdbc = "3.53.4.0"
 
 [libraries]
 commons-numbers-fraction = { module = "org.apache.commons:commons-numbers-fraction", version.ref = "commons-numbers-fraction" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 [plugins]
 protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }

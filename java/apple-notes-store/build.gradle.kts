@@ -8,6 +8,9 @@ repositories {
 
 dependencies {
     implementation(project(":apple-notes-drawing"))
+    // JDBC driver for NoteStore.sqlite. Nothing from java.sql or the
+    // driver is exposed in this module's API, so `implementation'.
+    implementation(libs.sqlite.jdbc)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
