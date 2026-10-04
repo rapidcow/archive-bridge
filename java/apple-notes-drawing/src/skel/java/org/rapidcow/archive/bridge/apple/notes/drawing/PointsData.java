@@ -74,7 +74,7 @@ public class PointsData
 	}
 
 	/**
-	 * {@link PointsData} Builder.
+	 * {@link PointsData} builder.
 	 *
 	 * <p>Points are added one at a time with {@link #addPoint(float, float)},
 	 * and the optional channels of that point are filled in with the
