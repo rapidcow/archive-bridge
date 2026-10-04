@@ -471,7 +471,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code timestamp} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see #hasTimestamp()
 	 */
 	public float timestamp(int index)
@@ -500,7 +500,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code radius} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code radius} channel is absent
 	 * @see #hasRadius()
 	 */
 	public float radius(int index)
@@ -529,7 +529,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code aspect_ratio} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #hasAspectRatio()
 	 */
 	public int aspectRatio(int index)
@@ -558,7 +558,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code edge_width} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #hasEdgeWidth()
 	 */
 	public int edgeWidth(int index)
@@ -587,7 +587,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code force} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see #hasForce()
 	 */
 	public int force(int index)
@@ -616,7 +616,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code azimuth} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see #hasAzimuth()
 	 */
 	public int azimuth(int index)
@@ -645,7 +645,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code altitude} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see #hasAltitude()
 	 */
 	public int altitude(int index)
@@ -674,7 +674,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code opacity} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see #hasOpacity()
 	 */
 	public int opacity(int index)
@@ -703,7 +703,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code radius2} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code radius2} channel is absent
 	 * @see #hasRadius2()
 	 */
 	public float radius2(int index)
@@ -732,7 +732,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the {@code threshold} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see #hasThreshold()
 	 */
 	public int threshold(int index)

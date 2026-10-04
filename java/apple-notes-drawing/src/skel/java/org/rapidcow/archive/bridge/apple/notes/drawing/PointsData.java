@@ -198,7 +198,7 @@ public class PointsData
 	 * @return the {@code [% chan.name.snake %]} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 [%   IF chan.bit -%]
-	 * @throws NoSuchElementException if the channel is absent
+	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
 	 * @see #has[% chan.name.ucfirst %]()
 [%   END -%]
 	 */
