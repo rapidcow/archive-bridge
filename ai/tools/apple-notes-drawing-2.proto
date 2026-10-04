@@ -63,6 +63,26 @@
 // the `ucvtf` (unsigned-int-to-float) instruction each accessor uses, which
 // would need to be `fcvt` (float-to-float) for a real float16 reinterpret.
 //
+// Channels 2 (radius) and 3 (aspectRatio) are the raw wire channels; the
+// public `PKStrokePointReference.size: CGSize` Apple actually documents is
+// a derived view over both, not a channel of its own. Confirmed verbatim
+// from `-[PKStrokePoint size]`'s own disassembly (arm64e, macOS 26
+// PencilKit.framework):
+//
+//   -[PKStrokePoint size]:
+//       d8 = radius            ; same raw float32 radiusAtIndex: reads
+//       d0 = aspectRatioAtIndex(0)
+//       return CGSize(width: d0 * d8, height: d8)
+//
+// i.e. `size.height == radius` exactly, and `size.width == radius *
+// aspectRatio` exactly - a circle (aspectRatio 1.0) has size == (radius,
+// radius); an elongated calligraphic nib has aspectRatio != 1 and a
+// correspondingly wider-or-narrower width. No other function (in
+// particular, none of the unrelated `DKDSize*`/`DKDFitOrFill*` aspect-ratio
+// utilities elsewhere in this framework - checked, zero call sites to or
+// from them anywhere in this binary) is involved; this is a two-line inline
+// computation, not a call to a shared geometry helper.
+//
 // Present channels (1-10, gated by their point_flags bit) are packed into
 // the flat per-point record tightly, in increasing channel-index order, with
 // no padding for absent channels - i.e. the wire layout is NOT the fixed
