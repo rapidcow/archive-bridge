@@ -83,8 +83,7 @@ public class PointsData
 		 * Creates a builder for the given number of points.
 		 *
 		 * @param length the number of points expected to be added
-		 * @param set  the optional channels to allocate; location
-		 *    is always allocated and need not be included
+		 * @param set  the optional channels expected to be added
 		 */
 		public Builder(int length, Set<StrokeChannel> set)
 		{
@@ -144,8 +143,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the [% chan.name.snake %]
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#[% chan.name.SNAKE %]} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder set[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
@@ -153,7 +155,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channel[% chan.name.ucfirst %] == null) {
-				throw new IllegalStateException("Channel [% chan.name.snake %] absent");
+				throw new IllegalArgumentException("Channel [% chan.name.snake %] absent");
 			}
 			channel[% chan.name.ucfirst %][index] = value;
 			return this;

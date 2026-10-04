@@ -111,8 +111,7 @@ public class PointsData
 		 * Creates a builder for the given number of points.
 		 *
 		 * @param length the number of points expected to be added
-		 * @param set  the optional channels to allocate; location
-		 *    is always allocated and need not be included
+		 * @param set  the optional channels expected to be added
 		 */
 		public Builder(int length, Set<StrokeChannel> set)
 		{
@@ -194,8 +193,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the timestamp
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#TIMESTAMP} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setTimestamp(float value)
 		{
@@ -203,7 +205,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelTimestamp == null) {
-				throw new IllegalStateException("Channel timestamp absent");
+				throw new IllegalArgumentException("Channel timestamp absent");
 			}
 			channelTimestamp[index] = value;
 			return this;
@@ -214,8 +216,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the radius
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#RADIUS} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setRadius(float value)
 		{
@@ -223,7 +228,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelRadius == null) {
-				throw new IllegalStateException("Channel radius absent");
+				throw new IllegalArgumentException("Channel radius absent");
 			}
 			channelRadius[index] = value;
 			return this;
@@ -234,8 +239,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the aspect_ratio
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#ASPECT_RATIO} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setAspectRatio(short value)
 		{
@@ -243,7 +251,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelAspectRatio == null) {
-				throw new IllegalStateException("Channel aspect_ratio absent");
+				throw new IllegalArgumentException("Channel aspect_ratio absent");
 			}
 			channelAspectRatio[index] = value;
 			return this;
@@ -254,8 +262,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the edge_width
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#EDGE_WIDTH} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setEdgeWidth(short value)
 		{
@@ -263,7 +274,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelEdgeWidth == null) {
-				throw new IllegalStateException("Channel edge_width absent");
+				throw new IllegalArgumentException("Channel edge_width absent");
 			}
 			channelEdgeWidth[index] = value;
 			return this;
@@ -274,8 +285,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the force
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#FORCE} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setForce(short value)
 		{
@@ -283,7 +297,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelForce == null) {
-				throw new IllegalStateException("Channel force absent");
+				throw new IllegalArgumentException("Channel force absent");
 			}
 			channelForce[index] = value;
 			return this;
@@ -294,8 +308,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the azimuth
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#AZIMUTH} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setAzimuth(short value)
 		{
@@ -303,7 +320,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelAzimuth == null) {
-				throw new IllegalStateException("Channel azimuth absent");
+				throw new IllegalArgumentException("Channel azimuth absent");
 			}
 			channelAzimuth[index] = value;
 			return this;
@@ -314,8 +331,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the altitude
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#ALTITUDE} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setAltitude(short value)
 		{
@@ -323,7 +343,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelAltitude == null) {
-				throw new IllegalStateException("Channel altitude absent");
+				throw new IllegalArgumentException("Channel altitude absent");
 			}
 			channelAltitude[index] = value;
 			return this;
@@ -334,8 +354,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the opacity
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#OPACITY} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setOpacity(short value)
 		{
@@ -343,7 +366,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelOpacity == null) {
-				throw new IllegalStateException("Channel opacity absent");
+				throw new IllegalArgumentException("Channel opacity absent");
 			}
 			channelOpacity[index] = value;
 			return this;
@@ -354,8 +377,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the radius2
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#RADIUS2} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setRadius2(float value)
 		{
@@ -363,7 +389,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelRadius2 == null) {
-				throw new IllegalStateException("Channel radius2 absent");
+				throw new IllegalArgumentException("Channel radius2 absent");
 			}
 			channelRadius2[index] = value;
 			return this;
@@ -374,8 +400,11 @@ public class PointsData
 		 *
 		 * @param value the raw value
 		 * @return this builder
-		 * @throws IllegalStateException if no point has been added yet,
-		 *    or the channel was not requested in the constructor
+		 * @throws IllegalStateException if no point has been added yet
+		 * @throws IllegalArgumentException if the threshold
+		 *    channel was not expected; namely, if the enum
+		 *    {@link StrokeChannel#THRESHOLD} is
+		 *    absent from the set passed to the constructor.
 		 */
 		public Builder setThreshold(short value)
 		{
@@ -383,7 +412,7 @@ public class PointsData
 				throw new IllegalStateException("No point added yet");
 			}
 			if (channelThreshold == null) {
-				throw new IllegalStateException("Channel threshold absent");
+				throw new IllegalArgumentException("Channel threshold absent");
 			}
 			channelThreshold[index] = value;
 			return this;
