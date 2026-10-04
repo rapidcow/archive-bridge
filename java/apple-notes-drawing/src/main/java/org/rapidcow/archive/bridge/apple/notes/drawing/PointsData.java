@@ -669,7 +669,7 @@ public class PointsData
 	 * @param index the zero-based point index
 	 * @return the aspect ratio
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
-	 * @throws NoSuchElementException if the {@code aspectRatio} channel is absent
+	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #width(int)
 	 * @see #height(int)
 	 */
