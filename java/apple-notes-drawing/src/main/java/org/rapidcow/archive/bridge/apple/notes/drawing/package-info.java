@@ -4,8 +4,7 @@
  * and {@link org.rapidcow.archive.bridge.apple.notes.drawing.paper} -
  * today, just {@code StrokeData} (protoc-generated from {@code
  * StrokeData.proto}) and the hand-written point/channel decoder built on
- * top of it ({@link StrokeChannel}, {@link ChannelReading}, {@link
- * StrokePoint}, {@link PointsData}).
+ * top of it ({@link StrokeChannel}, {@link PointsData}).
  *
  * <p>Generated and hand-written classes deliberately sit in the same
  * package here, mirroring how Apple's own {@code drawing::} C++ namespace
