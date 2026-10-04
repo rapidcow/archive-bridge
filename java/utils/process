@@ -56,7 +56,7 @@ HUH
 	};
 
 	local %SIG = %SIG;
-	$SIG{__DIE__} = sub { $cleanup->(); &CORE::die; };
+	$SIG{__DIE__} = sub { $cleanup->(); goto &CORE::die; };
 	foreach my $name (qw( INT HUP TERM QUIT )) {
 		if (has_sig($name)) {
 			$SIG{$name} = sub {
