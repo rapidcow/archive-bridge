@@ -544,10 +544,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
-	 * MacOS 11.0.
+	 * macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the time offset in seconds
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/timeoffset">-[PKStrokePoint timeOffset]</a>
 	 */
@@ -591,10 +592,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code width} member
 	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * instance property added in iOS 14.0, MacOS 11.0.
+	 * instance property added in iOS 14.0, macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point width
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code radius} channel is absent
 	 * @see #height(int)
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
@@ -612,12 +614,13 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code height} member
 	 * of the {@code PKStrokePoint} class’s {@code size} public
-	 * instance property added in iOS 14.0, MacOS 11.0.
+	 * instance property added in iOS 14.0, macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the point height
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code radius}
-	 *    or the {@code aspectRatio} channel is absent
+	 *    or the {@code aspect_ratio} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/height">CGSize.height</a>
 	 */
@@ -664,6 +667,7 @@ public class PointsData
 	 *
 	 * @param index the zero-based point index
 	 * @return the aspect ratio
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code aspectRatio} channel is absent
 	 * @see #width(int)
 	 * @see #height(int)
@@ -708,6 +712,7 @@ public class PointsData
 	 *
 	 * @param index the zero-based point index
 	 * @return the edge width
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #lateralJitter(int)
 	 */
@@ -722,10 +727,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 27.0,
-	 * MacOS 27.0.
+	 * macOS 27.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the lateral jitter
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/lateraljitter">-[PKStrokePoint lateralJitter]</a>
 	 */
@@ -769,10 +775,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
-	 * MacOS 11.0.
+	 * macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the force
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/force">-[PKStrokePoint force]</a>
 	 */
@@ -820,10 +827,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
-	 * MacOS 11.0.
+	 * macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the azimuth in radians
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/azimuth">-[PKStrokePoint azimuth]</a>
 	 */
@@ -871,10 +879,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
-	 * MacOS 11.0.
+	 * macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the altitude in radians
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/altitude">-[PKStrokePoint altitude]</a>
 	 */
@@ -919,10 +928,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 14.0,
-	 * MacOS 11.0.
+	 * macOS 11.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the opacity
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/opacity">-[PKStrokePoint opacity]</a>
 	 */
@@ -967,10 +977,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 17.0,
-	 * MacOS 14.0.
+	 * macOS 14.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the secondary scale
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code radius2}
 	 *    or the {@code radius} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/secondaryscale">-[PKStrokePoint secondaryScale]</a>
@@ -1016,10 +1027,11 @@ public class PointsData
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public instance property added in iOS 26.0,
-	 * MacOS 26.0.
+	 * macOS 26.0.
 	 *
 	 * @param index the zero-based point index
 	 * @return the threshold
+	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/threshold">-[PKStrokePoint threshold]</a>
 	 */
