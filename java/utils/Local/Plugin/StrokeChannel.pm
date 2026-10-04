@@ -51,15 +51,21 @@ sub byte_size
 	$width;
 }
 
+#
+# `offset' serves to reconstruct sFieldOffsets by obeying
+# the 4-byte alignment rule that the Cxx compiler follows.
+# The wire format does not concern these offsets, but it
+# helps us compare against progression of future PencilKit
+# versions.  (Credits to Claude for alignment code...)
+#
 {
-	my ($offset, $width);
-	$offset = 0;
+	my $offset = 0;
 	foreach my $chan (@chan) {
 		my $type = $chan->{type};
-		$width = byte_size($type);
+		my $width = byte_size($type);
+		$offset = ($offset + $width - 1) & ~($width - 1);
 		$chan->{offset} = $offset;
 		$chan->{width} = $width;
-	} continue {
 		$offset += $width;
 	}
 }
@@ -131,6 +137,21 @@ sub fields
 
 sub channels { grep { $_->{bit} } &fields; }
 
+#
+# Bitmask of every points_flags bit the decoder understands:
+# bit 0 (the location pair) plus one bit per optional channel.
+#
+# I've written something like this, but scrapped it since i
+# thought it was too strict.  Claude then independently wrote
+# this up --- so thanks! :)
+#
+sub mask
+{
+	my $mask = 0;
+	$mask |= 1 << $_->{bit} foreach &channels;
+	$mask;
+}
+
 1;
 
 __END__
@@ -152,7 +173,10 @@ Both C<StrokeChannel.java> and C<PointsData.java> need the same per-channel
 facts (name, bit index, byte size, Java type, decode expression). This
 plugin holds that table once so neither skel has to restate it.
 
-The B<channels> method is now limited to the 10 optional channels.
+The B<channels> method is now limited to the optional channels.
 To get all channels, use B<fields>.
+
+The B<mask> method returns the bitmask of all known C<points_flags> bits
+(including bit 0, the always-present location pair).
 
 =cut

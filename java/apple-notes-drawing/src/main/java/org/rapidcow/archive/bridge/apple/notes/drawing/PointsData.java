@@ -30,7 +30,7 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
  *   08  26  02  u16 < | opacity*
  *   09  28  04  f32 < | radius2
  *   10  32  02  u16 < | threshold*
- *   11  34  04  f32 < | elevation
+ *   11  36  04  f32 < | elevation
  */
 
 import java.nio.ByteBuffer;
@@ -802,6 +802,9 @@ public class PointsData
 		return channelElevation[index];
 	}
 
+	/** Every {@code points_flags} bit this decoder understands. */
+	private static final int KNOWN_FLAGS = 0xffe;
+
 	/**
 	 * Decodes the points of a stroke.
 	 *
@@ -810,14 +813,16 @@ public class PointsData
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
-	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *    does not match {@code points_count} times the computed stride
+	 * @throws StrokeDataFormatException if there exists at least
+	 *    one point and {@code points_flags} contains unknonwn
+	 *    high bits, or if the length of {@code points_data} does
+	 *    not match {@code points_count} times the computed stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{
 		int count = data.getPointsCount();
 		int flags = data.getPointsFlags();
-		byte[] buf = data.getPointsData().toByteArray();
+		byte[] buf;  /* points_data (read later) */
 
 		/* location (float x and y) is a mandatory channel. */
 		int stride = 8;
@@ -826,6 +831,22 @@ public class PointsData
 		/* path strictly taken when there is absolutely nothing to parse. */
 		if (count == 0 && !data.hasPointsData()) {
 			return new PointsData.Builder(count, set).build();
+		}
+
+		/* Even if we by some miracle get around the stride * count
+		 * == length check, it'd still be sketchy overlooking some
+		 * fields.  Error shouldn't pass silently (PEP 20).
+		 *
+		 * It doesn't hurt if the points are empty though, so we
+		 * gave that a generous exception above!
+		 */
+		int unknown = flags & ~KNOWN_FLAGS;
+		if (unknown != 0) {
+			throw new StrokeDataFormatException(
+				"Unknown points_flags bits 0x"
+				+ Integer.toHexString(unknown)
+				+ " (points_flags 0x"
+				+ Integer.toHexString(flags) + ")");
 		}
 
 		/* widen stride based on optional channels... */
@@ -874,6 +895,7 @@ public class PointsData
 			stride += 4;
 		}
 
+		buf = data.getPointsData().toByteArray();
 		if (buf.length != count * stride) {
 			throw new StrokeDataFormatException(
 				"Bad points_data length " + buf.length

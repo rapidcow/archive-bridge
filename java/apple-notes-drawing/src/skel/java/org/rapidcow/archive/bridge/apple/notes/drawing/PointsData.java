@@ -221,6 +221,9 @@ public class PointsData
 	}
 [% END -%]
 
+	/** Every {@code points_flags} bit this decoder understands. */
+	private static final int KNOWN_FLAGS = [% StrokeChannel.mask | format("%#x") %];
+
 	/**
 	 * Decodes the points of a stroke.
 	 *
@@ -229,14 +232,16 @@ public class PointsData
 	 *
 	 * @param data the stroke
 	 * @return the decoded points
-	 * @throws StrokeDataFormatException if the length of {@code points_data}
-	 *    does not match {@code points_count} times the computed stride
+	 * @throws StrokeDataFormatException if there exists at least
+	 *    one point and {@code points_flags} contains unknonwn
+	 *    high bits, or if the length of {@code points_data} does
+	 *    not match {@code points_count} times the computed stride
 	 */
 	public static PointsData decode(StrokeData data)
 	{
 		int count = data.getPointsCount();
 		int flags = data.getPointsFlags();
-		byte[] buf = data.getPointsData().toByteArray();
+		byte[] buf;  /* points_data (read later) */
 
 		/* location (float x and y) is a mandatory channel. */
 		int stride = 8;
@@ -247,6 +252,22 @@ public class PointsData
 			return new PointsData.Builder(count, set).build();
 		}
 
+		/* Even if we by some miracle get around the stride * count
+		 * == length check, it'd still be sketchy overlooking some
+		 * fields.  Error shouldn't pass silently (PEP 20).
+		 *
+		 * It doesn't hurt if the points are empty though, so we
+		 * gave that a generous exception above!
+		 */
+		int unknown = flags & ~KNOWN_FLAGS;
+		if (unknown != 0) {
+			throw new StrokeDataFormatException(
+				"Unknown points_flags bits 0x"
+				+ Integer.toHexString(unknown)
+				+ " (points_flags 0x"
+				+ Integer.toHexString(flags) + ")");
+		}
+
 		/* widen stride based on optional channels... */
 [% FOREACH chan IN StrokeChannel.channels -%]
 		if ( 0 != (flags & ( 1 << [% chan.bit %] )) ) {
@@ -255,6 +276,7 @@ public class PointsData
 		}
 [% END -%]
 
+		buf = data.getPointsData().toByteArray();
 		if (buf.length != count * stride) {
 			throw new StrokeDataFormatException(
 				"Bad points_data length " + buf.length
