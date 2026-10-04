@@ -17,6 +17,22 @@
 // `javadoc` binary itself, in that mode.
 evaluationDependsOnChildren()
 
+// The sources contain non-ASCII (typographic quotes in Javadoc), so
+// nothing may fall back to the platform's default charset: that is
+// the locale on JDK 17 and fails to compile under e.g. LC_ALL=C.
+subprojects {
+    tasks.withType<JavaCompile>().configureEach {
+        options.encoding = "UTF-8"
+    }
+    tasks.withType<Javadoc>().configureEach {
+        (options as StandardJavadocDocletOptions).apply {
+            encoding = "UTF-8"
+            docEncoding = "UTF-8"
+            charSet = "UTF-8"
+        }
+    }
+}
+
 // The most recent available documentation is 4.35.1, for some reason?
 val protobufJavadocVersion = "4.35.1"
 
@@ -46,6 +62,9 @@ tasks.register<Exec>("javadoc") {
         "-d", destDir.absolutePath,
         "-sourcepath", sourceRoots.joinToString(File.pathSeparator) { it.absolutePath },
         "-classpath", classpath.asPath,
+        "-encoding", "UTF-8",
+        "-docencoding", "UTF-8",
+        "-charset", "UTF-8",
         "-link", "https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/",
         "-subpackages", "org.rapidcow",
     )
