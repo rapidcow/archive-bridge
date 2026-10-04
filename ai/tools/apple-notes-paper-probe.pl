@@ -40,8 +40,8 @@
 # proto/notestore.proto). Option --show-text prints the recognized
 # handwriting summary in --pk output.
 #
-# Mac::PropertyList: needs the patched ReadBinary (64-bit trailer fields),
-# e.g.  perl -I$HOME/net/github.com/briandfoy/mac-propertylist/lib ...
+# Mac::PropertyList: needs the patched ReadBinary (64-bit trailer fields);
+# installed into ~/perl5 here, so no -I is needed.
 
 use 5.010;
 use strict;
