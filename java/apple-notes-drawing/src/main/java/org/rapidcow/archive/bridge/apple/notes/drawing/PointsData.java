@@ -429,7 +429,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code x} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code x} field
@@ -442,7 +442,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code y} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code y} field
@@ -466,7 +466,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code timestamp} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code timestamp} field
@@ -495,7 +495,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code radius} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code radius} field
@@ -524,7 +524,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code aspect_ratio} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code aspect_ratio} field
@@ -553,7 +553,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code edge_width} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code edge_width} field
@@ -582,7 +582,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code force} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code force} field
@@ -611,7 +611,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code azimuth} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code azimuth} field
@@ -640,7 +640,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code altitude} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code altitude} field
@@ -669,7 +669,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code opacity} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code opacity} field
@@ -698,7 +698,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code radius2} field of the point at {@code index}.
-	 * This field is of type {@code f32} (4 bytes).
+	 * This field is of type {@code f32 <} (4 bytes).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code radius2} field
@@ -727,7 +727,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code threshold} field of the point at {@code index}.
-	 * This field is of type {@code u16} (2 bytes, unscaled).
+	 * This field is of type {@code u16 <} (2 bytes, unscaled).
 	 *
 	 * @param index the zero-based point index
 	 * @return the {@code threshold} field

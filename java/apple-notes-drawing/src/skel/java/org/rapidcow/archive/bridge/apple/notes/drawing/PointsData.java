@@ -191,7 +191,7 @@ public class PointsData
 
 	/**
 	 * Returns the {@code [% chan.name.snake %]} field of the point at {@code index}.
-	 * This field is of type {@code [% chan.type %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
+	 * This field is of type {@code [% chan.type %] [% chan.endian %]} ([% chan.width %] byte[% "s" UNLESS chan.width == 1 %]
 [%-  IF chan.rescale %], unscaled[% END %]).
 	 *
 	 * @param index the zero-based point index
