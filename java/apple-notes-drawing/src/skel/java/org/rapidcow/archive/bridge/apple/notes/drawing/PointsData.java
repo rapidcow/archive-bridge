@@ -222,7 +222,7 @@ public class PointsData
 [% END -%]
 
 	/** Every {@code points_flags} bit this decoder understands. */
-	private static final int KNOWN_FLAGS = [% StrokeChannel.mask | format("%#x") %];
+	private static final int KNOWN_POINTS_FLAGS = [% StrokeChannel.mask | format("%#x") %];
 
 	/**
 	 * Decodes the points of a stroke.
@@ -259,7 +259,7 @@ public class PointsData
 		 * It doesn't hurt if the points are empty though, so we
 		 * gave that a generous exception above!
 		 */
-		int unknown = flags & ~KNOWN_FLAGS;
+		int unknown = flags & ~KNOWN_POINTS_FLAGS;
 		if (unknown != 0) {
 			throw new StrokeDataFormatException(
 				"Unknown points_flags bits 0x"
