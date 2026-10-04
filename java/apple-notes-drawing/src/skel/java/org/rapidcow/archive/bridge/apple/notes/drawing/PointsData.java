@@ -309,8 +309,22 @@ public class PointsData
 [%   ELSIF chan.name == "edgeWidth" -%]
 
 	/**
+	 * Returns the edge width of the point at {@code index}.
+	 * Derived from {@link #rawEdgeWidth(int)} divided by 10.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the edge width
+	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
+	 * @see #lateralJitter(int)
+	 */
+	public double edgeWidth(int index)
+	{
+		return (double) rawEdgeWidth(index) / 10.0;
+	}
+
+	/**
 	 * Returns the lateral jitter of the point at {@code index}.
-	 * Derived from {@link #rawEdgeWidth(int)} by dividing by {@code 10.0}.
+	 * Same as {@link #edgeWidth(int)}.
 	 *
 	 * <p>This name is consistent with the {@code PKStrokePoint}
 	 * class’s eponymous public attribute added in iOS 27.0,
@@ -323,7 +337,96 @@ public class PointsData
 	 */
 	public double lateralJitter(int index)
 	{
-		return (double) rawEdgeWidth(index) / 10.0;
+		return edgeWidth(index);
+	}
+[%   ELSIF chan.name == "force" -%]
+
+	/**
+	 * Returns the force of the point at {@code index}.
+	 * Derived from {@link #rawForce(int)} divided by 1000.0.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 14.0,
+	 * MacOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the force
+	 * @throws NoSuchElementException if the {@code force} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/force">-[PKStrokePoint force]</a>
+	 */
+	public double force(int index)
+	{
+		return (double) rawForce(index) / 1000.0;
+	}
+[%   ELSIF chan.name == "azimuth" -%]
+
+	/**
+	 * Returns the azimuth of the point at {@code index}.
+	 * Derived from {@link #rawAzimuth(int)} scaled by 2π/65535,
+	 * then offset by −π, giving a value in [−π, π].
+	 *
+	 * <p>An azimuth of 0 points along +<var>x</var> (right),
+	 * and π/2 along +<var>y</var> (down).
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 14.0,
+	 * MacOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the azimuth in radians
+	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/azimuth">-[PKStrokePoint azimuth]</a>
+	 */
+	public double azimuth(int index)
+	{
+		return (double) rawAzimuth(index) * (2.0 * Math.PI / 65535.0) - Math.PI;
+	}
+[%   ELSIF chan.name == "altitude" -%]
+
+	/**
+	 * Returns the altitude of the point at {@code index}.
+	 * Derived from π/2 minus {@link #rawAltitude(int)} scaled
+	 * by (π/2)/65535, giving a value in [0, π/2].
+	 *
+	 * <p>An altitude of 0 means the pen lies flat, and π/2
+	 * means it stands upright.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 14.0,
+	 * MacOS 11.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the altitude in radians
+	 * @throws NoSuchElementException if the {@code altitude} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/altitude">-[PKStrokePoint altitude]</a>
+	 */
+	public double altitude(int index)
+	{
+		return Math.PI / 2.0 - (double) rawAltitude(index) * (Math.PI / 2.0 / 65535.0);
+	}
+[%   ELSIF chan.name == "opacity" || chan.name == "threshold" -%]
+
+	/**
+	 * Returns the [% chan.name %] of the point at {@code index}.
+	 * Derived from {@link #raw[% chan.name.ucfirst %](int)} divided by
+	 * 65535/2, giving a value in [0, 2].
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in
+[%-    IF chan.name == "threshold" %] iOS 26.0,
+	 * MacOS 26.0.
+[%-    ELSE %] iOS 14.0,
+	 * MacOS 11.0.
+[%-    END %]
+	 *
+	 * @param index the zero-based point index
+	 * @return the [% chan.name %]
+	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/[% chan.name %]">-[PKStrokePoint [% chan.name %]]</a>
+	 */
+	public double [% chan.name %](int index)
+	{
+		return 2.0 * raw[% chan.name.ucfirst %](index) / 65535.0;
 	}
 [%   ELSIF chan.name == "radius2" -%]
 
@@ -346,6 +449,8 @@ public class PointsData
 	{
 		return (double) rawRadius2(index) / rawRadius(index);
 	}
+[%   ELSIF chan.name == "elevation" -%]
+[%#    No public PencilKit API for this, so leave it raw only. -%]
 [%   ELSIF not chan.rescale -%]
 
 [%-    IF chan.name == "x" %]
