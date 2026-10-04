@@ -178,7 +178,7 @@ public final class NoteStore implements AutoCloseable {
 			st = connection.prepareStatement(sql);
 			source.bind(st);
 			ResultSet rs = st.executeQuery();
-			StoreRowSpliterator spliterator = new StoreRowSpliterator(source.table, st, rs);
+			NoteStoreRowSpliterator spliterator = new NoteStoreRowSpliterator(source.table, st, rs);
 			return StreamSupport.stream(spliterator, false).onClose(spliterator::close);
 		} catch (SQLException e) {
 			closeQuietly(st);
@@ -196,13 +196,13 @@ public final class NoteStore implements AutoCloseable {
 		}
 	}
 
-	private final class StoreRowSpliterator extends Spliterators.AbstractSpliterator<NoteStoreRow> {
+	private final class NoteStoreRowSpliterator extends Spliterators.AbstractSpliterator<NoteStoreRow> {
 		private final String table;
 		private final PreparedStatement statement;
 		private final ResultSet results;
 		private boolean done;
 
-		StoreRowSpliterator(String table, PreparedStatement statement, ResultSet results) {
+		NoteStoreRowSpliterator(String table, PreparedStatement statement, ResultSet results) {
 			super(Long.MAX_VALUE, ORDERED | NONNULL);
 			this.table = table;
 			this.statement = statement;
