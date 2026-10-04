@@ -219,6 +219,48 @@ public class PointsData
 		return channel[% chan.name.ucfirst %][index];
 [%   END -%]
 	}
+
+[%- IF chan.name == "edgeWidth" -%]
+
+	/**
+	 * Returns the lateral jitter of the point at {@code index}.
+	 * Derived from {@link #edgeWidth(int)} by dividing by {@code 10.0}.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 27.0,
+	 * MacOS 27.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the lateral jitter
+	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/lateraljitter">-[PKStrokePoint lateralJitter]</a>
+	 */
+	public double lateralJitter(int index)
+	{
+		return (double) edgeWidth(index) / 10.0;
+	}
+[%   ELSIF chan.name == "radius2" -%]
+
+	/**
+	 * Returns the secondary scale of the point at {@code index}.
+	 * Derived from the quotient of {@link #radius2(int)} and
+	 * {@link #radius(int)}.
+	 *
+	 * <p>This name is consistent with the {@code PKStrokePoint}
+	 * class’s eponymous public attribute added in iOS 17.0,
+	 * MacOS 14.0.
+	 *
+	 * @param index the zero-based point index
+	 * @return the secondary scale
+	 * @throws NoSuchElementException if the {@code radius2}
+	 *    or the {@code radius} channel is absent
+	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/secondaryscale">-[PKStrokePoint secondaryScale]</a>
+	 */
+	public double secondaryScale(int index)
+	{
+		return (double) radius2(index) / (double) radius(index);
+	}
+[%   END -%]
 [% END -%]
 
 	/** Every {@code points_flags} bit this decoder understands. */
