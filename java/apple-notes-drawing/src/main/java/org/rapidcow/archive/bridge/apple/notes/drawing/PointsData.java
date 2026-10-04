@@ -892,6 +892,7 @@ public class PointsData
 	 * @return the azimuth in π radians
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
+	 * @see #rawAzimuth(int)
 	 */
 	public Fraction azimuthExact(int index)
 	{
@@ -958,6 +959,7 @@ public class PointsData
 	 * @return the altitude in π/2 radians
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
+	 * @see #rawAltitude(int)
 	 */
 	public Fraction altitudeExact(int index)
 	{
