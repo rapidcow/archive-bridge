@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.protobuf)
 }
 
+val fractionVersion = libs.versions.commons.numbers.fraction.get()
 // Need to explicitly specify that we want to reference protobuf
 // itself, since "protobuf" is a substring of "protobuf-plugin".
 // See <https://docs.gradle.org/9.8.0/userguide/version_catalogs.html#sec:avoiding_subgroup_accessors>
@@ -54,6 +55,7 @@ tasks.javadoc {
         encoding = "UTF-8"
         charSet = "UTF-8"
         docEncoding = "UTF-8"
+        links("https://commons.apache.org/proper/commons-numbers/commons-numbers-fraction/javadocs/api-${fractionVersion}/")
         links("https://javadoc.io/doc/com.google.protobuf/protobuf-java/${protobufJavadocVersion}/")
     }
 }
