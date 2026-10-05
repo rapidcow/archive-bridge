@@ -51,14 +51,13 @@ use File::Basename;  # qw(dirname)
 use File::Copy;      # qw(copy)
 use File::Spec;
 use File::Temp;      # qw(tempdir)
-use Encode ();
 use IO::Uncompress::Gunzip qw($GunzipError);
 
 use DBD::SQLite::Constants qw(:file_open);
 use DBI;
 use URI::file;
 use JSON::XS;
-use Google::ProtocolBuffers;
+use Google::ProtocolBuffers::Dynamic;
 use Mac::PropertyList qw(parse_plist);
 
 use constant TYPE_UTI => 'com.apple.paper';
@@ -86,9 +85,17 @@ my $root = dirname($db_path);
 
 $proto_path //= $ENV{APPLE_NOTES_PROTO}
 	// "$ENV{HOME}/net/github.com/threeplanetssoftware/apple_cloud_notes_parser/proto/notestore.proto";
-Google::ProtocolBuffers->parsefile($proto_path, {
-	create_accessors => 1, follow_best_practice => 0,
-});
+{
+	# Dynamic parses .proto text itself (proto2 and proto3), but resolves
+	# the file relative to an include directory, and wants every message
+	# it refers to mapped to a Perl class before resolve_references().
+	my $dyn = Google::ProtocolBuffers::Dynamic->new(dirname($proto_path));
+	$dyn->load_file(basename($proto_path));
+	open my $pf, '<', $proto_path or die "$proto_path: $!\n";
+	$dyn->map_message($_, "NoteStore::$_")
+		for map { /^message\s+(\w+)/ ? $1 : () } <$pf>;   # top-level messages
+	$dyn->resolve_references;
+}
 
 my $dbh = connect_main($db_path);
 my $ent = attachment_entity($dbh);
@@ -213,17 +220,19 @@ sub note_link {
 	my $raw;
 	IO::Uncompress::Gunzip::gunzip(\$blob => \$raw)
 		or return { error => "gunzip: $GunzipError" };
-	my $msg = eval { NoteStoreProto->decode($raw) }
+	# Messages are plain hashes (absent optional fields are missing keys)
+	# and strings come back already decoded to characters.
+	my $msg = eval { NoteStore::NoteStoreProto->decode($raw) }
 		or return { error => "protobuf: " . ($@ =~ s/\n.*//sr) };
-	my $note = $msg->document->note;
-	my @runs = @{ $note->attribute_run // [] };
+	my $note = $msg->{document}{note} // {};
+	my @runs = @{ $note->{attribute_run} // [] };
 	my $found = grep {
-		my $ai = $_->attachment_info;
-		$ai && ($ai->attachment_identifier // '') eq $r->{ZIDENTIFIER}
-		    && ($ai->type_uti // '') eq TYPE_UTI;
+		my $ai = $_->{attachment_info};
+		$ai && ($ai->{attachment_identifier} // '') eq $r->{ZIDENTIFIER}
+		    && ($ai->{type_uti} // '') eq TYPE_UTI;
 	} @runs;
 	return { found => $found, runs => scalar(@runs),
-	         text => length(Encode::decode('UTF-8', $note->note_text // '')) };
+	         text => length($note->{note_text} // '') };
 }
 
 # --- metadata --------------------------------------------------------------
