@@ -1,3 +1,5 @@
+.DELETE_ON_ERROR:
+
 IPSW ?= ipsw
 
 A2S := NotesEditor.a2s NotesShared.a2s PencilKit.a2s
