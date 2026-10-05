@@ -63,3 +63,26 @@ established by the round-trip sweep.
   `CROrderedSet`, whose functions are stripped). Probable rule: member `added_by`
   counter == position counter, per skeleton.md; unverified for multi-replica bundles.
 - How replica identity enters ordering (merge uses `TopoID` including replica).
+
+## Check against the 52 bundles of cloud-ethan-1 (2026-10-05; copies, structure only)
+
+Rule applied: the `traverseIterative` order above over `Subsequence.child`; pairing
+tested: member `added_by` counter == live run content counter (`sequence_start_id` +
+offset within the run). Findings (counts from the dump JSON, not from the binary):
+
+- The traversal reaches every run in all 52 bundles. Exactly one bundle (`4AB3CD6B`) has
+  a run with in-degree 2, so the join rule is exercised once, not in the others.
+- Every bundle has exactly ONE member replica (all `Set` `added_by` on one replica).
+  `Sequence.added_by_version` has the same size as `Set.version` in the bundles checked:
+  content counters and member counters are one clock.
+- Counter-equality pairing: 28/52 bundles match exactly. 4,774 of 28,496 members have no
+  counter match overall, of which about 3,661 are in the 10 bundles whose live runs carry
+  content ids from 2-4 replicas (several writers); the other ~1,113 are in 13
+  single-replica bundles with 1-346 unmatched each (member counter and content counter
+  off by small amounts, e.g. 169 vs 167).
+- Rank pairing (k-th smallest member counter to k-th smallest content counter) is NOT
+  consistent (offsets not monotone), so it is rejected.
+- `OrderedSet.timestamps` is one distinct `Constants.uuids` index per member (6, 7, 8,
+  ...), contiguous; it identifies members, not positions.
+- Ground truth so far: pen-test fixture (one replica, no tombstones) where Set order,
+  counter order and colour order agree. No ground truth exists yet for the unmatched cases.
