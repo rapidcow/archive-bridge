@@ -30,7 +30,15 @@ dependencies {
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+        // The com.google.protobuf:protoc artifact ships no FreeBSD
+        // binary, so Gradle's download-the-artifact path 404s there.
+        // Fall back to whatever `protoc` is on PATH (e.g. the
+        // FreeBSD ports/pkg build) instead.
+        if (System.getProperty("os.name").contains("BSD", ignoreCase = true)) {
+            path = "protoc"
+        } else {
+            artifact = "com.google.protobuf:protoc:${protobufVersion}"
+        }
     }
 }
 
