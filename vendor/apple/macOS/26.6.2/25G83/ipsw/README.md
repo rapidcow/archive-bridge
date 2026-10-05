@@ -32,9 +32,3 @@ ipsw dyld extract /System/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_arm
 | `NotesShared` | `/System/Library/PrivateFrameworks/NotesShared.framework/Versions/A/NotesShared` |
 | `NotesSupport` | `/System/Library/PrivateFrameworks/NotesSupport.framework/Versions/A/NotesSupport` |
 | `PencilKit` | `/System/Library/Frameworks/PencilKit.framework/Versions/A/PencilKit` |
-
-These binaries are committed as-is (small enough not to need git-annex, unlike
-the full dyld shared cache). Everything else that can be *derived* from them
-(`.a2s` addr→symbol caches, swift-dump headers, etc.) is **not** committed —
-see `Makefile` for the `.a2s` caches specifically; the swift-dump/header
-output is left alone for now.
