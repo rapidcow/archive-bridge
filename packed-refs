@@ -1,5 +1,5 @@
 # pack-refs with: peeled fully-peeled sorted 
-ed993878e1a2c03b89f59cdd7936062343424df9 refs/heads/git-annex
+fc6b2fcf232663358f60a35421ac3142ad06b2ec refs/heads/git-annex
 59a56999d73d2047594350283745944e31302ba6 refs/heads/master
 496456ef997fdcb31e5ee176253c9f2b5247921e refs/notes/amends
 3bb4b3a8ff3b17d597025e93572813b8da200a1f refs/notes/commits
