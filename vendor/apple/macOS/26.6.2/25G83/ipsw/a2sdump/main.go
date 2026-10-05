@@ -11,9 +11,9 @@
 // randomizes map iteration order per process, so the raw bytes of two
 // otherwise-identical caches never match. The sorted text form is the
 // canonical, diffable representation; -R is for regenerating a loadable
-// .a2s blob (its bytes are still gob's usual non-deterministic map
-// encoding - that's inherent to the format, not something this tool tries
-// to fix).
+// .a2s blob. Since encoding/gob can't be asked to sort, -R writes gob's
+// (tiny, fixed) wire format for map[uint64]string by hand, with entries in
+// ascending key order, so the bytes are canonical; stock gob decodes it.
 package main
 
 import (
@@ -194,12 +194,60 @@ func decodeText(body []byte) (map[uint64]string, error) {
 	return m, nil
 }
 
+// mapTypeDef is the gob type-definition message for map[uint64]string: the
+// first user-defined type id (64) described as a wireType whose MapT has an
+// empty name, Key uint (6) and Elem string (12). It never varies.
+var mapTypeDef = []byte{
+	0x0d, 0x7f, 0x04, 0x01, 0x02, 0xff, 0x80, 0x00,
+	0x01, 0x06, 0x01, 0x0c, 0x00, 0x00,
+}
+
+// encodeRaw writes m as a gob stream that encoding/gob decodes back into a
+// map[uint64]string, but with entries in ascending key order. (gob's own
+// Encoder ranges over the map, so its output is non-deterministic.)
 func encodeRaw(m map[uint64]string) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(m); err != nil {
-		return nil, err
+	// Value message body: type id 64, singleton marker 0, entry count,
+	// then key/string pairs.
+	var body []byte
+	body = appendGobInt(body, 64)
+	body = append(body, 0)
+	body = appendGobUint(body, uint64(len(m)))
+	for _, k := range sortedKeys(m) {
+		body = appendGobUint(body, k)
+		body = appendGobUint(body, uint64(len(m[k])))
+		body = append(body, m[k]...)
 	}
-	return buf.Bytes(), nil
+	out := append([]byte(nil), mapTypeDef...)
+	out = appendGobUint(out, uint64(len(body)))
+	return append(out, body...), nil
+}
+
+// appendGobUint appends gob's unsigned integer encoding: values below 128
+// are one byte; otherwise a negated byte count followed by big-endian bytes.
+func appendGobUint(b []byte, u uint64) []byte {
+	if u < 128 {
+		return append(b, byte(u))
+	}
+	var tmp [8]byte
+	n := 0
+	for ; u != 0; u >>= 8 {
+		tmp[7-n] = byte(u)
+		n++
+	}
+	b = append(b, byte(-n))
+	return append(b, tmp[8-n:]...)
+}
+
+// appendGobInt appends gob's signed integer encoding: the sign goes in the
+// low bit, with negative values complemented.
+func appendGobInt(b []byte, i int64) []byte {
+	var u uint64
+	if i < 0 {
+		u = (uint64(^i) << 1) | 1
+	} else {
+		u = uint64(i) << 1
+	}
+	return appendGobUint(b, u)
 }
 
 func decodeRaw(body []byte) (map[uint64]string, error) {
