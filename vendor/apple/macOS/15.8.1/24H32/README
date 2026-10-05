@@ -1,0 +1,29 @@
+This is the shared cache of my Mac mini on Sequoia.
+
+sw_vers shows the following properties:
+
+ProductName:		macOS
+ProductVersion:		15.8.1
+BuildVersion:		24H32
+
+The dyld directory originates from "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld":
+
+total 10847920
+-rwxr-xr-x  1 root  admin   844721051 Sep 22 21:33 aot_shared_cache.0
+-rwxr-xr-x  1 root  admin   910587419 Sep 22 21:33 aot_shared_cache.1
+-rwxr-xr-x  1 root  admin   897856667 Sep 22 21:33 aot_shared_cache.2
+-rwxr-xr-x  1 root  admin   785872283 Sep 22 21:33 aot_shared_cache.3
+-rwxr-xr-x  1 root  admin   896172443 Sep 22 21:33 aot_shared_cache.4
+-rwxr-xr-x  1 root  admin   713516699 Sep 22 21:33 aot_shared_cache.5
+-rwxr-xr-x  1 root  admin  2713059328 Sep 22 21:33 dyld_shared_cache_arm64e
+-rwxr-xr-x  1 root  admin  2202419200 Sep 22 21:33 dyld_shared_cache_arm64e.01
+-rwxr-xr-x  1 root  admin     2023899 Sep 22 21:33 dyld_shared_cache_arm64e.atlas
+-rwxr-xr-x  1 root  admin     1140220 Sep 22 21:33 dyld_shared_cache_arm64e.map
+-rwxr-xr-x  1 root  admin   877887488 Sep 22 21:33 dyld_shared_cache_x86_64
+-rwxr-xr-x  1 root  admin   804913152 Sep 22 21:33 dyld_shared_cache_x86_64.01
+-rwxr-xr-x  1 root  admin   790036480 Sep 22 21:33 dyld_shared_cache_x86_64.02
+-rwxr-xr-x  1 root  admin   776454144 Sep 22 21:33 dyld_shared_cache_x86_64.03
+-rwxr-xr-x  1 root  admin   782630912 Sep 22 21:33 dyld_shared_cache_x86_64.04
+-rwxr-xr-x  1 root  admin   850149376 Sep 22 21:33 dyld_shared_cache_x86_64.05
+-rwxr-xr-x  1 root  admin     1155402 Sep 22 21:33 dyld_shared_cache_x86_64.atlas
+-rwxr-xr-x  1 root  admin      959702 Sep 22 21:33 dyld_shared_cache_x86_64.map
