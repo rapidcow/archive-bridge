@@ -86,7 +86,8 @@ a drawing: text is exactly `￼`). So resolution is by UUID, not by
    read-write-capable (SQLite then checkpoints it; `integrity_check` = ok).
    The per-bundle `data.sqlite3-wal` files, by contrast, are all 0 bytes in
    this sample, so `immutable=1` is fine there, but should be re-checked per
-   archive, not assumed.
+   archive, not assumed. See `wal-and-working-copies.md` for the JDBC
+   behavior and the strategy for the library (working copy per store/bundle).
 2. `ZTYPEUTI` is NULL on 162 of 214 rows (other entities); filter on
    `Z_ENT = 4` as well so the query stays valid if another entity reuses the
    column.
