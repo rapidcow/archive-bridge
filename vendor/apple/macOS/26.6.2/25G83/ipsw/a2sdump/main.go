@@ -116,7 +116,7 @@ func resolveOutput(outPath string, raw bool) (io.Writer, string, error) {
 		return os.Stdout, "stdout", nil
 	case "":
 		if raw && isTerminal(os.Stdout) {
-			return nil, "", fmt.Errorf("refusing to write raw .a2s bytes to a terminal; use -o <file> or -o - to confirm")
+			return nil, "", fmt.Errorf("refusing to write raw .a2s bytes to a terminal.\neither use -o <file> to write to a file, or `-o -'\nif you really mean to use stdout.")
 		}
 		return os.Stdout, "stdout", nil
 	default:
