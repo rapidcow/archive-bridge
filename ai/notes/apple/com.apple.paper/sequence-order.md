@@ -38,11 +38,27 @@ first), except a node with in-degree k >= 2 is deferred until its k-th parent ha
 visited** (topological join). Visit order of runs = document order of positions;
 positions inside a run are in counter order (`splitAt`, `isSequentialWith`).
 
+## Decode keeps the wire order (CONFIRMED, `decodeSubstrings` 0x22df5f978)
+
+`decodeSubstrings` loops over the substrings in wire order. Per substring it reads, via
+the `CRStringDecoderProtocol` selectors: char replica + clock, length, the addedBy list,
+the removedAddedBy list (never seen on our wire), `substringContentOptions`, then the
+children: for i in 0..<`substringChildCount`: `idx = substringChild:i`, then
+`parent.addChild(substrings[idx])`. So `Subsequence.child` entries are indices into the
+`subsequence` array and the list order is preserved verbatim; nothing sorts them, and
+`TopoID` comparison is not used at load. Error strings (logged via NSLog): "child
+substring index > number of substrings", "substring max > string max", "length of
+substrings != attributedString length" (the last is the Swift-side counterpart of our
+rule: summed live run length == element count). `contentOptions == 2` marks a node with
+no content (its char offset is set to -1); whether the Swift decoder derives that from
+the missing field 3 is unverified.
+
+The Swift side (`CRStringDecoder`, `CRSequenceDecoder`) has no named code symbols and I
+did not read its field getters (a symbol lookup failed). Field numbers stay as
+established by the round-trip sweep.
+
 ## Not yet established
 
-- Whether decode (`decodeSubstrings` 0x22df5f978) preserves the wire `child` order or
-  rebuilds children by another rule (e.g. `TopoID` comparison, `TopoID::operator<`
-  0x22df62558, `minimumPermenantID` 0x22df62480).
 - The pairing between a `Set` member and a position (the `Set` side lives in Swift
   `CROrderedSet`, whose functions are stripped). Probable rule: member `added_by`
   counter == position counter, per skeleton.md; unverified for multi-replica bundles.
