@@ -39,6 +39,21 @@
 //     message this pattern demonstrably breaks for, most likely because as
 //     the root/manifest envelope it's the most schema-edited message here).
 //
+// UPDATE 2026-10-05 (see notes/apple/com.apple.paper/skeleton.md): re-checked
+// against all 114,290 Reference rows of the 52 bundles of one account
+// (synced Notes data, notes dated 2024-09 .. 2026-08), schema-less first, then with this file.
+// Several `// assumed` field numbers were resolved, and SIX were found WRONG
+// and corrected: RLE.runs (1 -> 2), Set (insertions/version),
+// Sequence (version/added_by_version), Subsequence (all four observed
+// fields), CustomCRDT.Sibling.data (is a Version, not bytes) and
+// RetainCounts (reference_keys 1 -> 2, retain_counts -> 3). The Swift struct
+// property order (coherence-proto-types.txt) is NOT the field-number order
+// for Set/Sequence/Subsequence/RetainCounts/RLE - declaration order == number
+// held only for the messages listed as validated in proto-schema.md.
+// Fields that never occur in the data are no longer declared with guessed
+// numbers where the guess collides with an observed number; they are
+// listed in comments instead.
+//
 // Message names below keep Apple's real `Proto_` prefix (a hard fact, not
 // invented) but drop the module qualifier (`Coherence.`).
 
@@ -51,25 +66,26 @@ message Timestamp {  // validated (CRDT > Register.timestamp)
   int64 counter = 2;   // validated - logical clock
 }
 
-message Version {  // field NUMBER 5 (as Document.version) validated on all
-                    // 21 sampled root rows; this message's OWN field
-                    // numbers below are a mix - see per-field notes
-  repeated uint64 uuids = 1;  // validated - decodes as a real scalar value
-                               // on every root row (not just "doesn't crash")
-  repeated RLE index_sets = 2;  // assumed - decodes without crashing, but
-                                 // its own inner content doesn't parse as
-                                 // RLE below (see runs), so this name/type
-                                 // pairing isn't confirmed either
+message Version {  // validated on every row: Document.version(5) of the 0xFF
+                    // root row, the Reference.Version sqlite column (a
+                    // Document whose root is Value.version), every
+                    // Sibling.version, Set.version, and the Sequence versions.
+                    // A version vector: for replica uuids[k], the set of
+                    // counters seen is index_sets[k].
+  repeated uint64 uuids = 1;     // validated - packed varints; each is an INDEX
+                                  // into the enclosing Document's
+                                  // Constants.uuids (16 bytes per replica)
+  repeated RLE index_sets = 2;   // validated - parallel to uuids
 }
 
-message RLE {  // CONFIRMED WRONG, not just unconfirmed: every sampled
-                // root row's Version.index_sets payload puts its content
-                // at raw field tag 2, and protoc's decoder reports it as
-                // an unmapped/unknown field against `runs = 1` below - a
-                // clean, reproducible mismatch across all 21 samples, not
-                // a one-off. Field number left as the declaration-order
-                // guess since no better candidate is known yet.
-  repeated int64 runs = 1;
+message RLE {  // CORRECTED 2026-10-05: the payload is field 2, not 1.
+  // Packed varints read as alternating (gap, length) pairs over counters,
+  // starting at 0: [0, 24] = {0..23}; [38, 1] = {38}; [0,2, 1,1, 1,2, 4,1] =
+  // {0,1, 3, 5,6, 11}. Evidence: Sequence.version for replica 2 is [0, 24]
+  // and its runs' lengths sum to 24; element added_by sets [38,1],[39,1]...
+  // are single counters. Consistent on every sampled row; no counter-example
+  // found, but no independent decoder was disassembled.
+  repeated int64 runs = 2;
 }
 
 message KeyPath {  // validated (Reference.keyPath)
@@ -111,20 +127,22 @@ message CustomCRValue {  // assumed
 // reference to another row's Id). See proto-schema.md for the full trace.
 message Value {
   oneof tagged {
-    uint64 uint = 1;               // validated (position in the chain)
+    uint64 uint = 1;               // validated
     double double = 2;              // assumed
     uint64 string = 3;               // assumed - index into a Constants.strings table?
     bytes data = 4;                  // validated - seen as 4x float64 CGRect payload
-    int64 sint = 5;                  // assumed
-    uint64 uuid = 6;                 // assumed
-    Version version = 7;             // assumed
+    int64 sint = 5;                  // validated (always 0 as Stroke.properties tag 2; plain int64, zigzag not evidenced)
+    uint64 uuid = 6;                 // observed as a varint (value 2) under
+                                     // Stroke.properties tag 7, 32 times; meaning
+                                     // (index into Constants.uuids?) unconfirmed
+    Version version = 7;             // validated - root of the Reference.Version column
     Reference reference = 8;         // validated
     Optional optional = 9;           // validated
     Timestamp timestamp = 10;        // assumed
     RepeatedValue repeated_value = 11; // assumed
-    TaggedValue tagged_value = 12;   // assumed
+    TaggedValue tagged_value = 12;   // validated - wraps every Set element reference
     Asset asset = 13;                // assumed
-    CustomCRValue custom = 14;       // assumed
+    CustomCRValue custom = 14;       // validated - Stroke 'properties'
     float float = 15;                // assumed
     uint64 weak_reference = 16;      // assumed
     uint64 strong_reference = 17;    // assumed
@@ -135,7 +153,9 @@ message Optional {  // validated (see Value chain above)
   Value wrapped = 1;  // validated
 }
 
-message TaggedValue {  // assumed
+message TaggedValue {  // validated: tag 0 (absent) = stroke, tag 1 = group
+                        // (a Sequence of strokes) in the strokes ordered set
+
   int64 tag = 1;
   Value wrapped = 2;
 }
@@ -157,66 +177,91 @@ message Struct {  // validated (Proto_Struct - the self-describing
   repeated uint64 int_keys = 3;  // assumed
 }
 
-message Set {  // assumed
-  message Element {
+message Set {  // numbers re-derived 2026-10-05 from OrderedSet.set on 52 bundles
+  message Element {  // validated: key(1), added_by(3) on all 28,496 elements.
+                      // value(2)/partial_value(4) never occur (the key IS the
+                      // payload here: a reference to a row).
     Value key = 1;
-    CRDT value = 2;
+    CRDT value = 2;          // unobserved (number follows Swift order, which
+                              // matched for this message)
     Version added_by = 3;
-    CRDT partial_value = 4;
+    CRDT partial_value = 4;  // unobserved
   }
-  uint64 uuid = 1;
-  repeated Element insertions = 2;
-  repeated Element removed = 3;
-  Version version = 4;
-  Timestamp timestamp = 5;
-  Version min_version = 6;
+  uint64 uuid = 1;                    // validated (always present; varint)
+  Version version = 2;                // validated (always present)
+  repeated Element insertions = 4;    // validated - the live set members.
+  // NO removed-element list was ever observed: not in 52 bundles, though
+  // 49 of them have tombstoned sequence positions. Deleted members' payloads
+  // are therefore NOT in these files (see skeleton.md, TOMBSTONES).
+  // Swift also lists `removed`, `timestamp`, `min_version`; their numbers are
+  // unknown (3, 5, 6 are unused on the wire) and they are left undeclared.
 }
 
-message Sequence {  // assumed - rich-text / ordered-element runs
-  message AttributeRun {
-    message Attribute {
-      uint32 key = 1;
-      Value value = 2;
-    }
-    uint32 length = 1;
-    repeated Attribute attributes = 2;
-    Timestamp timestamp = 3;
-  }
-  string string = 1;
-  repeated Value elements = 2;
-  repeated Subsequence subsequence = 3;
-  repeated AttributeRun attribute_runs = 4;
-  Version version = 5;
-  Version added_by_version = 6;
-  Version from_version = 7;
-  Version from_added_by_version = 8;
+message Sequence {  // numbers re-derived 2026-10-05 (OrderedSet.sequence on 52
+                     // bundles; Value-element Sequences = CRDT case 6, 38 rows)
+  // string = 1 and attribute_runs: never observed; numbers unknown
+  // (Swift order would give string=1, attribute_runs=4 - but 4 is a Version
+  // on the wire, so Swift order is NOT field order here).
+  repeated Value elements = 2;            // validated for CRDT case 6 (group of
+                                           // stroke references); absent in the
+                                           // OrderedSet's own Sequence
+  repeated Subsequence subsequence = 3;   // validated
+  Version version = 4;                    // validated - every position id that
+                                           // exists, live or tombstoned
+                                           // (e.g. replica 2 [0,24] = 24 positions)
+  Version added_by_version = 5;           // validated number; semantics inferred
+                                           // (covers the content ids of fields
+                                           // Subsequence.sequence_start_id)
+  // from_version / from_added_by_version: never observed.
 }
 
-message Subsequence {  // assumed - RGA/Fugue-style ordered-list run, see
-                        // envelope.md "Possible ordered-sequence CRDT
-                        // structure" for the byte-level shape this likely
-                        // explains (position-pair + monotonic tie-break tag)
-  enum ContentOptions {
-    DEFAULT = 0;      // validated name (Swift enum, raw value unconfirmed)
+message Subsequence {  // CORRECTED 2026-10-05: all four observed numbers differ
+                        // from the previous Swift-order guess.
+  // A node of an RGA-style tree of runs. Observed fields:
+  //   1  on all 8,841 subsequences          (Timestamp)
+  //   2  on 8,737 (all but the two sentinels) (varint)
+  //   3  on 3,397 - EXACTLY the live runs: summed `length` of runs with field 3
+  //      equals the number of live Set elements in all 52 bundles
+  //   4  on 8,789 (all but the end sentinel) (packed varints)
+  // Never observed: contentOptions, removedAddedBy, any other number.
+  repeated Timestamp added_by = 1;          // validated shape; one entry on
+                                             // every run: the position id of the
+                                             // run's first position. Positions
+                                             // are (replica, counter..counter+length-1).
+                                             // Sentinels: (replica idx of the all-zero
+                                             // uuid, 0) start and (.., 4294967295) end.
+  uint32 length = 2;                        // validated
+  Timestamp sequence_start_id = 3;          // PROBABLE name (Swift's only singular
+                                             // Timestamp); validated PRESENCE rule: set
+                                             // iff the run holds live content.
+                                             // ABSENT => TOMBSTONE run (positions that
+                                             // exist but whose element was deleted).
+  repeated uint32 child = 4;                // validated shape; indices into
+                                             // Sequence.subsequence. Forms a tree rooted at
+                                             // index 0 (51 of 52 bundles: every other index
+                                             // appears exactly once; max 2 children).
+  // content_options (Swift enum default/hasContent/noContent): never on
+  // the wire; "noContent" is represented by omitting field 3 instead.
+  // removed_added_by (repeated Timestamp): never observed.
+  enum ContentOptions {   // kept for the Swift names only
+    DEFAULT = 0;
     HAS_CONTENT = 1;
     NO_CONTENT = 2;
   }
-  uint32 length = 1;
-  repeated Timestamp added_by = 2;
-  repeated uint32 child = 3;
-  repeated Timestamp removed_added_by = 4;
-  ContentOptions content_options = 5;
-  Timestamp sequence_start_id = 6;
 }
 
-message OrderedSet {  // validated struct shape; assumed field numbers
+message OrderedSet {  // validated 2026-10-05: set(1), sequence(2), timestamps(3);
+                       // type(4) never present (= ORDERED_SET)
   enum TypeEnum {
     ORDERED_SET = 0;         // validated name
     ORDERED_DICTIONARY = 1;
   }
   Set set = 1;
   Sequence sequence = 2;
-  repeated Timestamp timestamps = 3;
+  repeated Timestamp timestamps = 3;   // validated: exactly one per Set element
+                                        // (Timestamp.uuid only; counter absent=0;
+                                        // uuid indexes Constants.uuids and looks like
+                                        // a per-element identity UUID)
   TypeEnum type = 4;
 }
 
@@ -226,26 +271,20 @@ message Counter {  // assumed
   Version negative = 3;
 }
 
-message CustomCRDT {  // validated struct SHAPE (field 1 = repeated Sibling)
-                       // via CRDT.custom_crdt(10). Confirmed (proto-schema.md,
-                       // "custom_crdt embeds drawing::StrokeData verbatim"):
-                       // Sibling.version_or_payload's real content, when it's
-                       // not a genuine Proto_Version (Swift's own static
-                       // type for that field), is Apple's own pre-Coherence
-                       // com.apple.drawing.2 `StrokeData` protobuf message
-                       // (../tools/apple-notes-drawing-2.proto), byte-for-
-                       // byte unchanged - point count/flags/stride/channel
-                       // data all reusable as-is with that file's own
-                       // decoder. Kept `bytes` here (rather than importing
-                       // that message type) so this .proto never fails to
-                       // parse real data and stays independent of that
-                       // file; decode as StrokeData by hand/separately when
-                       // the shape looks right.
+message CustomCRDT {  // validated 2026-10-05: all 28,496 rows have exactly ONE
+                       // sibling. See "custom_crdt embeds drawing::StrokeData
+                       // verbatim" in proto-schema.md: every payload is a
+                       // drawing::StrokeData message - re-verified on all
+                       // 28,496 (wire types, field numbers 1-9, no dups, and
+                       // len(points_data) == points_count * stride exactly).
+                       // Kept `bytes` so this file stays independent of
+                       // apple-notes-drawing-2.proto; apple-notes-paper-
+                       // drawing.proto defines StrokeData for the second
+                       // decoding step.
   message Sibling {
-    bytes data = 1;               // validated (shape); semantics unknown -
-                                   // possibly a per-sibling/branch tag, see
-                                   // proto-schema.md
-    bytes version_or_payload = 2;  // validated - see above
+    Version version = 1;   // CORRECTED: it IS a Version (it was `bytes data`)
+                            // - the version vector of this sibling
+    bytes payload = 2;     // validated - a serialized drawing::StrokeData
   }
   repeated Sibling siblings = 1;  // validated
 }
@@ -293,15 +332,13 @@ message Reference {  // validated - this is the sqlite `Reference` table's
   KeyPath key_path = 5;      // validated
 }
 
-message RetainCounts {  // assumed - matches sqlite RetainCount/
-                         // ChildRetainCounts columns from envelope.md
-  repeated KeyPath reference_keys = 1;
-  repeated int64 reference_retain_counts = 2;
-  bytes asset_digests = 3;
-  repeated int64 asset_retain_counts = 4;
-  repeated KeyPath subcapsule_keys = 5;
-  repeated int64 subcapsule_retain_counts = 6;
-  Constants constants = 7;
+message RetainCounts {  // the Reference.ChildRetainCounts column's blob.
+                         // Numbers CORRECTED 2026-10-05: only fields 2 and 3
+                         // occur (57,245 non-empty blobs); field 1 never.
+  repeated KeyPath reference_keys = 2;          // validated - the rows this row refers to
+  repeated int64 reference_retain_counts = 3;   // validated - packed, parallel to the keys
+  // asset_digests, asset_retain_counts, subcapsule_keys,
+  // subcapsule_retain_counts, constants: never observed; numbers unknown.
 }
 
 message Selection {  // assumed - not yet seen in sample data
@@ -329,9 +366,8 @@ message Selection {  // assumed - not yet seen in sample data
 message Document {
   oneof root {
     CRDT crdt = 1;          // validated - the payload of ordinary content rows
-    Value value = 2;         // assumed (never observed, but 3rd case = 3 is
-                              // validated, and cases are contiguous, so
-                              // this middle one almost has to be 2)
+    Value value = 2;         // validated 2026-10-05: the root of the Reference.Version
+                              // sqlite column's blob (value -> Value.version)
     Reference reference = 3;  // validated - the 0xFF root/manifest row's
                                // pointer at the "default"-named row
   }

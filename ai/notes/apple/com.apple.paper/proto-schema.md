@@ -396,3 +396,12 @@ either way - see the open question this raises for `Ink`/`Transform`/
   boilerplate), `protoc` 36.1, Python 3's `sqlite3` stdlib module.
 - Sample data: the same 21 `*.bundle/Database/data.sqlite3` files as
   `envelope.md`, all already present locally via `git-annex`.
+
+## Update 2026-10-05: superseded in places
+
+`skeleton.md` re-checks this file's `.proto` against all 114,290 rows of 52
+bundles. It resolves the open questions above about `RLE`, `Set`/`Sequence`/
+`Subsequence`/`OrderedSet`, `CustomCRDT.Sibling` and the 38 failing rows, and
+corrects six field numbers in `apple-notes-paper.proto` (Swift's struct order
+is not the field order for those messages). Where this file and `skeleton.md`
+disagree on a number, `skeleton.md` and the current `.proto` win.
