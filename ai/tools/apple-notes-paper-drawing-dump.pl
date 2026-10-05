@@ -509,6 +509,9 @@ sub run_check {
 # --- main -------------------------------------------------------------------
 
 my @paths = bundle_paths();
+if (defined $bundles_dir) {
+	@paths or die "no *.bundle under $bundles_dir (did you mean --bundle PATH?)\n";
+}
 
 if ($check) { run_check(@paths); exit 0 }
 
