@@ -1,0 +1,51 @@
+no trailing comma!
+
+i also think it is hanging over too much
+
+$ ~/tree/utils/diff-range 2e4a9d6 10 rpi/master
+ORIG = 2e4a9d68c47f2e052c1dccd90395bfd0ee821b25
+HEAD = 74e0b5c69fe222057c7f23aaae6711fa36971036 (rpi/master)
+ 0:  2e4a9d6 =  0:  74e0b5c Fall back to protoc(1) for protobuf generation on BSD
+ 1:  c905595 =  1:  3747dea Prefix the NoteStore Spliterator too with "Note"
+ 2:  596a83f =  2:  0656111 NoteStore java draft
+ 3:  70fda2f =  3:  c1b2720 gitignore perl local::lib
+ 4:  b3bc48f =  4:  4c878a5 General-purpose probe
+ 5:  ce77fc7 =  5:  e547f0c NoteStore.sqlite probe
+ 6:  06f0bc9 =  6:  5f5a7df Begin initial research
+ 7:  eb8bf69 =  7:  a4fda74 Javadoc coverage
+ 8:  f473382 =  8:  475f4f4 Delete the classes designed by Claude
+ 9:  3fc3dc2 !  9:  e8b4a5e Implement exact versions for aspectRatio/force, edgeWidth, and opacity/threshold
+--- a/3fc3dc2ecd3547dbf67e0a2334fa58fb892bfe9d	2026-10-04 12:38:34.000000000 +0000
++++ b/e8b4a5e040be3a97076fd83bcc43f545dcec847c	2026-10-04 12:38:34.000000000 +0000
+@@ -2,8 +2,8 @@
+ parent fd310ee512cd92a67100f6169b8ff0639b0c1137
+ author Claude Opus 5.5 <claude@anthropic.com> 1791117367 -0500
+ committer Ethan Meng <rapidcow@RCs-Mac-mini.local> 1791117514 -0500
+
+-Implement exact versions for aspectRatio/force,
+-edgeWidth, and opacity/threshold
++Implement exact versions for aspectRatio/force, edgeWidth,
++and opacity/threshold,
+
+ fast and terse! 😮 thanks....
+$ git push -f rpi 2e4a9d6:master
+Enumerating objects: 176, done.
+Counting objects: 100% (176/176), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (78/78), done.
+Writing objects: 100% (144/144), 36.03 KiB | 3.60 MiB/s, done.
+Total 144 (delta 37), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (37/37), completed with 11 local objects.
+remote: update c2b47b975ec63fea12cd9f081e9e478339b4d3bf refs/info/rpi-self
+To rpi-4b:~ethan/my/project/trivnote-rescues/apple-notes.git
+ + 74e0b5c...2e4a9d6 2e4a9d6 -> master (forced update)
+$ git fetch rpi
+remote: Enumerating objects: 44, done.
+remote: Counting objects: 100% (44/44), done.
+remote: Compressing objects: 100% (40/40), done.
+remote: Total 40 (delta 27), reused 0 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (40/40), 4.59 KiB | 670.00 KiB/s, done.
+From rpi-4b:~ethan/my/project/trivnote-rescues/apple-notes
+   32cc8ec..c2b47b9  refs/info/rpi-self -> refs/info/rpi-self
+
+i'm gonna migrate the commit notes after this...
