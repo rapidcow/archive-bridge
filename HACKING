@@ -1,0 +1,48 @@
+(contributing guides)
+
+Do not use GitHub/GitLab pull/merge requests. I have enough
+headache trying to deal with proprietary schemas already.
+There is not a mailing list, and we can't use lists.sr.ht
+since SourceHut probably hates me for using AI at all in
+this project.  Email foss at rapidcow.org and I will update
+the web site to "track" such changes.  I will publish a
+monthly mbox (skipping months where I receive no mail) so
+you should tell me if you want to be anonymized.
+
+    N.B. While I don't like "pull request", you can still
+         send me an email containing a "request to pull".
+         Read git-request-pull(1) to find out how!
+
+         Otherwise git-format-patch(1) is fine.  (diff -u
+         is fine but only if the patch is small enough...)
+
+You should use your Internet domain name, or a name
+allocated to you by your e-mail provider, in the patches
+you submit.  I don't care if you can receive at that
+address as long as it's yours.  The *.local mDNS domain is
+for myself; you cannot use it unless you are friend/family
+(although feel free to use any RFC 2606 top-level domains.)
+You can always request to have your mail corrected in
+.mailmap; getting names and mails right is my gratitude
+to your contribution! :)  (Note that correction does not
+equal redaction; people can and will find your old name
+and email.  So pick carefully! o_o)
+
+Also, regarding talk of the decade -- AI is okay provided
+that *I* understand it.  If you can't convince me it is
+a good idea, I probably don't want accept it.  You should
+credit the *specific* AI model you use, such as "Claude
+Sonnet 5" or "GPT-6 Astra".  I will make it so that your
+patches, even if authored by AI, have you as the author,
+and the AI model as the co-author.  (I am exempt from this
+rule, but that doesn't mean you are!)
+
+Lastly, respect my choices and my time.  I try not to
+use up your time if it's something I can fix without
+breaking a sweat, but if it's too much work for me I'll
+have to ask you to improve it or not accept it at all...
+To save as much time for yourself, try letting me see
+your rough idea ASAP so I can see if it is a good idea!
+instead of sending everything all at once after you are
+done with it all...  (Again, if I don't understand it,
+I unfortunately have to lump it into "AI slop". :<)

@@ -1,0 +1,158 @@
+Welcome to the archive-bridge toolkit!
+
+    BUGS?  Email me at foss at rapidcow.org. :(
+           (I'll make a bug tracker when this gets big enough.)
+    DEVELOPER?  Read HACKING.
+
+   (if you use this & like it you should also send me
+      positiv vibes my way yup!!! :)
+
+                    === catatlogue ===
+
+We have the following bridge(s):
+
+   (none; they aren't merged yet)
+
+                    === long stuff ===
+
+Data hoarding has been my primary obsession the since
+early 2024, not barring how debiliating it is when I
+lose something.  Before this was officially a thing,
+I backed up my Perspective diaries after losing a few
+entries to iCloud sync.  The code isn't available
+not because I don't believe open source but because
+I deemed it to be "too personal" for GitHub.  (Yes,
+you'll probably find this inconceivable, but code and
+git are my continued diary; but if you try to believe
+it, you'll see just how important it is to get people
+who actually care to read it.)
+
+When I discovered that Git (with git-annex) was a good
+idea for tracking terabytes of files associated with
+provenance information (fancy word for "where-stuff-
+comes-from", which is just git log).  Thus began the
+grand unofficial "archive project", a race to back up
+everything I've made offline...
+
+That has mostly been a success, but with a few issues.
+BIG issues that undermine the whole thing, really.
+
+  * Backups are dead files.  You can't interact with
+    them (or at least, not in a plesant way; like if you
+    long for the convenient interface of Google Drive or
+    social media... well you don't have any of that. :D)
+
+  * Backups are not verifiable.  You won't get a checksum
+    of every tweet you made on Twitter; a checksum of every
+    photo on Google Photos.  You won't get a checksum at
+    all with Google Takeout! (save from the massive archive-
+    browser.html...)  Because of this I only trust something
+    when I can verify it visually against the user interface
+    of the host service.  That means (at minimum) a faithful
+    recreation of the interface is necessary.
+
+(These have been the same problems I had been trying to
+address with Project Perspective, but that was more of
+a niche thing.  I hand-copied and formatted those into
+JSON entries that you wouldn't get from the actual app.)
+
+So the "steps" (not sure how to call this) of an ideal
+process to data reclaim I figured are as follows.
+
+  * Acquisition:  When and where did I obtain this thing?
+    (URL) What lens did I observe this thing through?
+    (Protocol)  Is it complete?  Is it the "original"
+    and not a derived copy? (Canonicalization)
+
+  * Structure:  Is it encoded in Apple bplist, msgpack, or
+    Google Protobuf?  Is it a float or an int?  Big endian
+    or little endian?  Mostly a problem with proprietary
+    formats only.  (JSON, YAML, EDN/S-expr don't have this
+    issue, as they are self-documenting.)
+
+  * Interpretation:  What are the semantic meanings of the
+    fields parsed according to the schema?  Does it have a
+    canonical form?  How certain are we that this is correct?
+
+  * Representation:  How to load all this stuff into memory?
+    (Parsing)  What states to store, with which data type?
+    What operations are useful for retrieving information
+    from said states?  (Interface for programmers/API)
+
+  * View/Presentation:  The interface with prettier stuff.
+
+Acquisition is assumed because archive-bridge is strictly
+an analytic tool of static files -- dead stuff that doesn't
+change.  (By proxy, archive-bridge runs completely offline.)
+
+Presentation is a non-goal of archive-bridge, because
+it is in my belief an intrinsically *opinionated* step.
+Some people want a static-site generator (11ty Twitter),
+others want a REST API (i.e. make everything JSON), and
+non-techy people like my family just want to install an
+app and call it a day.  Then there's freaks like me who
+are obsessed with S-expressions to death and, like the
+Rust rewrite craze, want to turn all the data into one.
+
+Even if we take a step back and make a compromise and say,
+"OK, let's all just use JSON."  We still lose possibly
+the most important thing: policy and mechanism.  You can't
+choose what to do with faulty/inconsistent data, whether
+to preserve the exact value or use lossy floating-point
+arithmetic.  And serialization formats like JSON may be
+self-documenting, but they are not self-runnable --- it's
+not *programmable*, I guess you could say.  And you lose
+the mechanism that operates on the data, which is no less
+important than the data themselves to me.  (A JSON file
+or a static website with no code to interpret it is just
+as dead as the source files they were generated from.  It
+is my belief that they cannot stand on its own, no matter
+how good you are at naming the fields, if you cannot run
+it and observe its behavior as it (in)validates itself.)
+
+There is a line of Unix philosphy that is, in ESR's words,
+"Separate policy from mechanism; separate interfaces from
+engine".  You provide the input, archive-bridge provides
+the engine, so that you or someone else can provide the
+code on top of archive-bridge that outputs JSON, HTML, or
+displays it as an archive viewer app... :)
+
+                    === languages ===
+
+The archive-bridge library itself will be developed
+uniformly in Java 17 (using the gradle build system),
+though you should expect to see other languages used
+for experimentation and prototyping.  (Perl Template
+Toolkit namely is used in the apple-notes bridge to
+generate boilerplate accessors, though you do not need
+to know either to understand the code it generates!)
+
+                    === impressum ===
+
+The archive-bridge library is licensed under LGPL,
+version 3 or later (with exception of any perl code,
+which is under the same license as perl 5 itself.)
+Heavily AI-generated research notes and experimental
+code/prototypes are NOT licensed (though you should
+not treat them as public domain either.)
+
+All test fixtures are mine and licensed under the
+usual artsy license (CC BY-SA-NC 4.0).  All "vendor/"
+stuff is proprietary and I cannot distribute or bad
+stuff happen.
+
+I'm not sure about how the license-ability on the
+protobuf files but if you want to copy them, sure.
+(I myself will base my work on Ciofeca Forensics'
+apple-cloud-notes-parser schema, I think it should
+be allowed to copy/share schema.  If i must name a
+license, consider it public domain (with no attri-
+bution required). ;)
+
+If you want to reference this project, include the
+following WWW link:
+
+    https://foss.rapidcow.org/project/archive/bridge/
+
+Documentation will go on javadoc.rapidcow.org when
+they get mature enogh (i.e. at least one test case).
