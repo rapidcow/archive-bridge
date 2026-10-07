@@ -127,6 +127,21 @@ Toolkit namely is used in the apple-notes bridge to
 generate boilerplate accessors, though you do not need
 to know either to understand the code it generates!)
 
+                    === cool stuff! ===
+
+see also! mostly motivations for me >w<
+
+   * HPI <https://beepb00p.xyz/hpi.html> -- found via
+     Hacker News <https://news.ycombinator.com/item?id=22801362>.
+     it's what gave me this idea of merging every
+     disgusting code i have written for this into
+     one thing.  oh, and this map is dope:
+     <https://beepb00p.xyz/myinfra.html>
+
+   * Ciofeca Forensics' apple notes parser --
+     <https://github.com/threeplanetssoftware/apple_cloud_notes_parser>.
+     His write-up on ciofecaforensics.com is amazing.
+
                     === impressum ===
 
 The archive-bridge library is licensed under LGPL,
