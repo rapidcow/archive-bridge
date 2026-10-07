@@ -16,17 +16,17 @@ you should tell me if you want to be anonymized.
          Otherwise git-format-patch(1) is fine.  (diff -u
          is fine but only if the patch is small enough...)
 
-You should use your Internet domain name, or a name
-allocated to you by your e-mail provider, in the patches
-you submit.  I don't care if you can receive at that
-address as long as it's yours.  The *.local mDNS domain is
-for myself; you cannot use it unless you are friend/family
-(although feel free to use any RFC 2606 top-level domains.)
-You can always request to have your mail corrected in
-.mailmap; getting names and mails right is my gratitude
-to your contribution! :)  (Note that correction does not
-equal redaction; people can and will find your old name
-and email.  So pick carefully! o_o)
+Should you use your Internet domain name, use one that
+you own or a name allocated to you by your e-mail provider
+in the patches you submit.  I don't care if you can receive
+at that address as long as it's yours.  Otherwise, mDNS
+*.local is for myself, and you cannot use it unless you
+are friend/family (though feel free to use any RFC 2606
+top-level domains.)  You can always request to have your
+mail corrected in .mailmap; getting names and mails right
+is my gratitude to your contribution! :)  (Note that
+correction does not equal redaction; people can and will
+find your old name and email.  So pick carefully! o_o)
 
 Also, regarding talk of the decade -- AI is okay provided
 that *I* understand it.  If you can't convince me it is
