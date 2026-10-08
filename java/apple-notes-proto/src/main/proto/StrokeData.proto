@@ -6,13 +6,8 @@
 // see ai/notes/apple/com.apple.drawing.2/drawing.md, Update 4, for how each
 // field's name/number/shape was confirmed via PencilKit disassembly.
 //
-// Lives directly in apple-notes-drawing rather than a dedicated proto
-// module - StrokeData is the only message confirmed shared between the
-// v2 and paper decoders, so a whole separate module for it was overkill.
-// This also mirrors how Apple's own `drawing::' C++ namespace makes no
-// generated/hand-written distinction either (contrast Coherence's
-// actually-generated `Proto_*' Swift types - see
-// ai/notes/apple/com.apple.paper/proto-schema.md).
+// Generated Java classes retain the drawing package; its package summary
+// remains in apple-notes-drawing.
 
 syntax = "proto2";
 

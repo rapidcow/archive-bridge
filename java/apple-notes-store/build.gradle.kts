@@ -26,26 +26,40 @@ tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
-// This module's package-info.java {@links} apple-notes-drawing's
-// package, so its javadoc needs that package resolvable. Unlike the
-// old apple-notes-proto <-> apple-notes-drawing pair, this link is
-// one-directional - apple-notes-drawing's own package-info.java does
-// NOT link back here - so there's no javadoc-task cycle to route
-// around via the root `:javadoc' aggregate task; depending directly on
-// apple-notes-drawing's own compile task is enough.
+// Resolve drawing's package documentation using its generated element-list.
 tasks.javadoc {
-    dependsOn(":apple-notes-drawing:compileJava")
+    val drawingDocsUrl = "https://javadoc.rapidcow.org/archive/bridge/apple-notes-drawing/0.0.0/"
+    val schemaDocsUrl = "https://javadoc.rapidcow.org/archive/bridge/apple-notes-proto/0.0.0/"
+    val schemaDocsDir = project(":apple-notes-proto").layout.buildDirectory.dir("docs/javadoc")
+    val storeDocsDir = layout.buildDirectory.dir("docs/javadoc")
+    inputs.dir(schemaDocsDir)
+    dependsOn(":apple-notes-drawing:javadoc")
     (options as StandardJavadocDocletOptions).apply {
         linksOffline(
-            // TODO: confirm the actual published version path once
-            // apple-notes-drawing has a real release; "latest" is a
-            // placeholder.
-            "https://javadoc.rapidcow.org/archive/bridge/apple-notes-drawing/latest/",
-            rootProject.layout.buildDirectory.dir("docs/javadoc").get().asFile.path,
+            drawingDocsUrl,
+            project(":apple-notes-drawing").layout.buildDirectory.dir("docs/javadoc").get().asFile.path,
         )
-        addPathOption("sourcepath").value = listOf(
-            project(":apple-notes-drawing").projectDir.resolve("src/main/java"),
-            project(":apple-notes-drawing").layout.buildDirectory.dir("generated/sources/proto/main/java").get().asFile,
-        )
+    }
+
+    // linkoffline maps packages, not individual classes. Both artifacts share
+    // a package, so redirect generated-class links using proto's actual pages,
+    // while keeping package-summary links pointed at drawing.
+    doLast {
+        val schemaPages = schemaDocsDir.get().asFile.walkTopDown()
+            .filter { it.isFile && it.extension == "html" &&
+                it.relativeTo(schemaDocsDir.get().asFile).invariantSeparatorsPath.startsWith("org/") &&
+                !it.name.startsWith("package-") && !it.name.startsWith("class-use") }
+            .map { it.relativeTo(schemaDocsDir.get().asFile).invariantSeparatorsPath }
+            .toList()
+        storeDocsDir.get().asFile.walkTopDown()
+            .filter { it.isFile && it.extension == "html" }
+            .forEach { page ->
+                val original = page.readText(Charsets.UTF_8)
+                var updated = original
+                schemaPages.forEach { path ->
+                    updated = updated.replace(drawingDocsUrl + path, schemaDocsUrl + path)
+                }
+                if (updated != original) page.writeText(updated, Charsets.UTF_8)
+            }
     }
 }
