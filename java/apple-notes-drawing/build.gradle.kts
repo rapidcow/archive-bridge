@@ -35,8 +35,7 @@ tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
-// Generated types share this module's package, but their documentation
-// belongs to schema. Build its Javadoc first to supply the element-list.
+// Build protobuf documentation first to supply its element-list.
 tasks.javadoc {
     dependsOn(":apple-notes-proto:javadoc")
     (options as StandardJavadocDocletOptions).apply {

@@ -47,6 +47,7 @@ import java.util.EnumSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import org.apache.commons.numbers.fraction.Fraction;
+import org.rapidcow.archive.bridge.apple.notes.proto.StrokeData;
 
 /**
  * Decoder for StrokeData's {@code points_data}.

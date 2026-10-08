@@ -6,14 +6,13 @@
 // see ai/notes/apple/com.apple.drawing.2/drawing.md, Update 4, for how each
 // field's name/number/shape was confirmed via PencilKit disassembly.
 //
-// Generated Java classes retain the drawing package; its package summary
-// remains in apple-notes-drawing.
+// Generated Java classes live in their own package in apple-notes-proto.
 
 syntax = "proto2";
 
 package apple.notes.drawing;
 
-option java_package = "org.rapidcow.archive.bridge.apple.notes.drawing";
+option java_package = "org.rapidcow.archive.bridge.apple.notes.proto";
 option java_multiple_files = true;
 
 message StrokeData {
