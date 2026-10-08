@@ -1,0 +1,20 @@
+# Point data and interpretation
+
+- Keep `PointsData` as a raw decoder of the per-point `points_data` bytes.
+  Rename `raw*` accessors to `get*`, returning stored values without
+  normalization, constant fallback, or derived calculations. Move interpreted
+  and derived accessors (including `height` and `secondaryScale`) out of it.
+- Add a `drawing.StrokeData` wrapper that retains `proto.StrokeData`, owns
+  the decoded `points_constant_flags` / `points_constant_values`, and holds
+  the raw `PointsData`. Keep point-level interpreted and derived accessors
+  off this wrapper.
+- Provide a separate resolved point view that combines per-point channels
+  with stroke-wide constants and supplies normalized and derived values.
+  Establish the constant-table wire layout, precedence when both masks set
+  a channel, and defaults when neither does before implementing resolution.
+- Test varying-only and constant-only channels, derived values combining
+  both sources, overlapping masks, absent channels, and malformed constant
+  data. Resolve the existing width/height discrepancy against the notes.
+
+Update the sources in `src/skel/java/` and regenerate `src/main/java/` when
+changing generated drawing classes.
