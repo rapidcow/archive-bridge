@@ -1,0 +1,55 @@
+// Apple Notes ink definition, shared by com.apple.drawing.2 and com.apple.paper.
+// Ported from ai/tools/apple-notes-drawing-2.proto.
+
+syntax = "proto2";
+
+package apple.notes.drawing;
+
+import "Color.proto";
+
+option java_package = "org.rapidcow.archive.bridge.apple.notes.proto";
+option java_multiple_files = true;
+
+// Ink used to render a stroke.
+// The six-channel and HDR color fields use the same RGBA message as color;
+// their rendering semantics remain unknown.
+message Ink {
+  // Ink color.
+  optional Color color = 1;
+
+  // Ink identifier, such as "com.apple.ink.pen".
+  optional string identifier = 2;
+
+  // Ink version.
+  optional int32 version = 3;
+
+  // Ink variant, such as "linear" or "fixed-width".
+  optional string variant = 4;
+
+  // sixChannelAddColor.
+  optional Color six_channel_add_color = 5;
+
+  // sixChannelMultiplyColor.
+  optional Color six_channel_multiply_color = 6;
+
+  // requiredContentVersion.
+  optional int32 required_content_version = 7;
+
+  // Tool weight/width class; units and interpretation remain unknown.
+  optional double weight = 8;
+
+  // hdrHeadroom; interpretation remains unknown.
+  optional double hdr_headroom = 9;
+
+  // hdrColor.
+  optional Color hdr_color = 10;
+
+  // hdrAddColor.
+  optional Color hdr_add_color = 11;
+
+  // hdrMultiplyColor.
+  optional Color hdr_multiply_color = 12;
+
+  // Ink-level azimuth, distinct from the per-point azimuth channel.
+  optional double azimuth = 13;
+}
