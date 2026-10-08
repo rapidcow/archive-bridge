@@ -1,0 +1,24 @@
+// Apple Notes ink color, shared by com.apple.drawing.2 and com.apple.paper.
+// Ported from ai/tools/apple-notes-drawing-2.proto.
+
+syntax = "proto2";
+
+package apple.notes.drawing;
+
+option java_package = "org.rapidcow.archive.bridge.apple.notes.proto";
+option java_multiple_files = true;
+
+// RGBA color used by ink definitions.
+message Color {
+  // Red component.
+  optional float r = 1;
+
+  // Green component.
+  optional float g = 2;
+
+  // Blue component.
+  optional float b = 3;
+
+  // Alpha component.
+  optional float a = 4;
+}
