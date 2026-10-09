@@ -1,0 +1,97 @@
+#!/usr/bin/env perl
+
+use 5.006;
+use strict;
+use warnings;
+
+BEGIN {
+	eval { require Template; 1; }
+	or die "E: missing `Template' module\n";
+
+	#
+	# The patch that made assert usable only landed in 3.103
+	# (since v3.103~14^2, commit 258ef174.)  Thank you TODDR!
+	# The CPAN release was on 2026 May 21 -- very recent, so
+	# chances are you need to upgrade...
+	#
+	eval { Template->VERSION(3.103); 1; }
+	or warn "W: Template 3.103 or above is recommended "
+	. "(you only have " . Template->VERSION() . ".)\n";
+}
+
+use Config;
+use File::Basename;
+use File::Temp;
+use Getopt::Long;
+use POSIX ();
+
+use FindBin;
+use lib $FindBin::Bin;
+
+my $me = basename($0);
+my $usage = "usage: $me FILE [-o FILE]\n";
+
+Getopt::Long::Configure(qw( permute bundling ));
+GetOptions('o=s' => \(my $output = '-'))
+	or die $usage;
+
+@ARGV == 1 or die $usage;
+my ($input) = @ARGV;
+
+my $tt = Template->new(PLUGIN_BASE => 'Local::Plugin')
+	or die "$Template::ERROR\n";
+my $fh;
+open $fh, ">", $output
+	or die "$me: open($output): $!\n"
+unless $output eq '-';
+
+{
+	my $cleanup = sub {
+		close $fh if defined $fh;
+		unless ($output eq '-' || unlink $output) {
+			warn <<HUH unless $!{ENOENT};
+$me: unlink($output): $!
+HUH
+		}
+	};
+
+	local %SIG = %SIG;
+	$SIG{__DIE__} = sub { $cleanup->(); goto &CORE::die; };
+	foreach my $name (qw( INT HUP TERM QUIT )) {
+		if (has_sig($name)) {
+			$SIG{$name} = sub {
+				$SIG{$name} = 'DEFAULT';
+				warn <<OOF;
+$me: caught a SIG${name}! shutting down....
+OOF
+				$cleanup->();
+				POSIX::raise($name);
+			};
+		}
+	}
+
+	$tt->process($input, {}, ($fh) x (defined $fh))
+		or die "$me: ", $tt->error(), "\n";
+
+	unless (!defined $fh || close $fh) {
+		undef $fh;
+		die "$me: close($output): $!\n";
+	}
+}
+
+BEGIN {
+	# Taken from Config.pm EXAMPLE
+	my %sig_num;
+	my @sig_name;
+	unless($Config{sig_name} && $Config{sig_num}) {
+	    # No Signals on this system ($^O eq 'Win32'?)
+	} else {
+	    my @names = split ' ', $Config{sig_name};
+	    @sig_num{@names} = split ' ', $Config{sig_num};
+	    foreach my $name (@names) {
+	        $sig_name[$sig_num{$name}] ||= $name;
+	    }
+	}
+
+	sub has_sig { defined $sig_num{$_[0]}; }
+}

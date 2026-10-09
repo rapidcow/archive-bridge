@@ -1,0 +1,10 @@
+This is the Apple Notes decoder for "trivnote".
+It is developed jointly with "trivnote" itself,
+namely due to trivnote's direct utility to me
+being a cheap substitute of Apple Notes that is
+good enough to me.  While nobody should have to
+familiarize themselves with the contents of this
+repository, it may sometimes help to understand
+why certain features in trivnote are implemented;
+it is most certainly to preserve the good stuff
+that I would miss dearly in days without iCloud.

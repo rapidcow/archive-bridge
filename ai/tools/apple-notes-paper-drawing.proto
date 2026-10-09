@@ -1,0 +1,180 @@
+// Paper-layer ("what is drawn") schema for the Coherence-era Apple Notes
+// Paper bundle: the counterpart of apple-notes-drawing-2.proto for
+// com.apple.paper. Companion to apple-notes-paper.proto, which holds the
+// GENERIC Coherence wire messages (Document, CRDT, Value, ...). Read
+// notes/apple/com.apple.paper/skeleton.md for the evidence trail; this
+// file keeps only the conclusions and, per field, how far they are proven.
+//
+// Convention (same as apple-notes-drawing-2.proto, but there only
+// field NUMBERS came from raw decoding): every statement below is tagged
+//   CONFIRMED  - checked against all 114,290 Reference rows of the 52 bundles
+//                of one account (schema-less wire parse, then this schema
+//                with a decode/encode round-trip, see
+//                apple-notes-paper-drawing-dump.pl --check); not a claim
+//                about Apple's source, only about every observed byte.
+//   INHERITED  - true by construction because the message is
+//                apple-notes-drawing-2.proto's own, byte-for-byte; the
+//                disassembly evidence lives in notes/apple/com.apple.drawing.2/.
+//   GUESS/OPEN - not evidenced; kept as a named question in skeleton.md.
+//
+// -------------------------------------------------------------------------
+// WHERE THE DRAWING LIVES (the object graph; NOT protobuf messages)
+// -------------------------------------------------------------------------
+// A bundle's Reference rows form a graph of Coherence "Struct" rows (a Struct
+// is self-describing: its Document.constants.strings holds the property
+// names, Struct.keys are indices into that table). Following references:
+//
+//   0xFF root row  (Document.reference -> KeyPath "\x01default")
+//     "default" row: Struct { bounds, frame, drawing }
+//        bounds, frame : Register(Value.data) = 4 x float64, BIG-endian,
+//                        a CGRect (x, y, width, height)            CONFIRMED
+//        drawing       : Register(Value.optional(Value.reference)) -> row D
+//     row D, the DRAWING: Struct { canvasBounds, strokes }
+//        canvasBounds  : Register(Value.data) 4 x float64 BE; CGRectNull
+//                        (+inf, +inf, 0, 0) in ALL 52 bundles, even with
+//                        strokes: not a content extent here          CONFIRMED
+//        strokes       : CRDT.ordered_set (an OrderedSet, see paper.proto)
+//                        - Set.insertions[i].key = Value.reference -> row E
+//                        - row E : Register(TaggedValue{tag, wrapped=Value.reference -> row S})
+//                            tag 0 (absent)  -> row S is a STROKE      (28,467)
+//                            tag 1           -> row S is a CRDT.sequence of
+//                                               references to rows E', i.e. a
+//                                               GROUP of strokes (29; 38 such
+//                                               sequence rows)        CONFIRMED shape
+//     row S, the STROKE: Struct { inherited, properties }
+//        inherited     : Register(Value.reference) -> row K (the INK row) for a
+//                        top-level stroke (28,467: no hops). For a stroke INSIDE a
+//                        group (41) it points at a Struct { inherited } whose own
+//                        Register(Value.optional(Value.reference)) continues the
+//                        chain; 1-3 such hops (50 rows) end at an ink row.
+//                                                                    CONFIRMED
+//        properties    : Register(Value.custom = CustomCRValue{tag[], value[]})
+//                          tag 0 -> Value.uint   (a 38-bit-plus number, bit 37 always set;
+//                                                 distinct on 28,471 of 28,508; OPEN)
+//                          tag 2 -> Value.sint   (always 0; OPEN)
+//                          tag 3 -> Value.reference -> row P (the STROKEDATA row)
+//                          tag 4 -> Value.data   (ONLY on the 41 group-member strokes;
+//                                                 variable length; OPEN - compare drawing.2
+//                                                 Stroke.mask_points / centerline_slices)
+//                          tag 6 -> Value.data   (13 top-level strokes, 48 bytes = 6 x float64)
+//                          tag 7 -> Value.uuid   (32 top-level strokes; varint 2 in all)
+//                          Present tag sets, all 28,508 strokes:
+//                          {0,2,3} 28,422; {0,2,3,7} 32; {0,2,3,6} 13; {0,2,3,4} 41
+//                                                    CONFIRMED sets, OPEN meanings
+//     row K, the INK: Struct { ink } or Struct { ink, transform }
+//        ink           : Register(Value.optional(Value.data)) - the data is a serialized
+//                        `Ink` (below)                                CONFIRMED
+//        transform     : Register(Value.data) 6 x float64 BE = a CGAffineTransform
+//                        (a, b, c, d, tx, ty); present on 1,448 of 28,496 ink rows
+//                                                                    CONFIRMED shape
+//     row P, the STROKEDATA: CRDT.custom_crdt with exactly one Sibling whose
+//        `payload` is a serialized `StrokeData` (below)               CONFIRMED
+//
+// Every top-level member (28,467 strokes + 29 groups = the 28,496 set elements)
+// reaches exactly one ink row, and there are 28,496 ink rows. 28,488 ink rows
+// are reached by exactly one stroke chain; 8 are shared by 2-4 group-member
+// strokes (so ink is per-stroke, not an array indexed by Stroke.ink_index as
+// in drawing.2, but group members can share their parent's). CONFIRMED counts.
+//
+// Group members: a group (TaggedValue tag 1) wraps a CRDT.sequence whose
+// `elements` are Value.references to Register(TaggedValue) rows E', each
+// again a stroke (tag 0, 41) or a nested group (tag 1, 9). 38 sequence rows:
+// 29 from set elements, 9 nested.  What a group MEANS (a lasso/shape/text
+// grouping?) is OPEN.
+//
+// -------------------------------------------------------------------------
+// STROKE ORDER AND DELETION
+// -------------------------------------------------------------------------
+// There is NO sortID/StrokeID on a stroke here (drawing.2's Stroke.sort_id).
+// Z-order/identity are carried by the OrderedSet around them (paper.proto:
+// Set + Sequence + Subsequence + OrderedSet.timestamps). A deleted stroke
+// leaves a TOMBSTONE run in Sequence.subsequence (a run with no
+// `sequence_start_id`), and NOTHING else: its Set element, its E/S/K/P rows
+// are all gone (every one of the 114,290 rows is reachable from the root, and
+// 28,496 StrokeData rows == 28,496 live members). The tombstone keeps: the
+// position ids, run length and tree links. See skeleton.md.
+
+syntax = "proto3";
+
+// ---------------------------------------------------------------------------
+// drawing::Color  - INHERITED (apple-notes-drawing-2.proto Color)
+// CONFIRMED: floats; seen as e.g. (0,0,0,1) opaque black on 22,474 inks.
+// ---------------------------------------------------------------------------
+message Color {
+  // `optional`: Apple's writer (proto2 semantics) emits explicit zeros -
+  // opaque black is on the wire as r=0,g=0,b=0,a=1 - and proto3 without
+  // presence would drop them, breaking the byte-exact round-trip check.
+  optional float r = 1;
+  optional float g = 2;
+  optional float b = 3;
+  optional float a = 4;
+}
+
+// ---------------------------------------------------------------------------
+// drawing::Ink  - INHERITED, byte-compatible. CONFIRMED against all 28,496
+// payloads: only fields 1,2,3,4,5,6,8 occur; wire types match
+// apple-notes-drawing-2.proto (8 is a double).
+//   field presence: {1,2,3}: 20,400   {1,2,3,8}: 8,032   {1,2,3,4,8}: 32
+//   {1,2,3,4,5,6,8}: 21   {1,2,3,4,5,6}: 10   {1,2,3,4}: 1
+//   identifier: com.apple.ink.pen 28,451 / .marker 32 / .fountainpen 13
+//   version: 3 on all; variant: "linear" 32, "fixed-width" 32
+//   weight: -0.0 (7,267), -0.5 (786), 0.5 (32) - units/meaning as in drawing.md
+// `optional` is used wherever the writer (C++ proto2 semantics) can emit an
+// explicit zero, so decode/encode round-trips byte-for-byte.
+// ---------------------------------------------------------------------------
+message Ink {
+  optional Color color = 1;
+  optional string identifier = 2;
+  optional int32 version = 3;
+  optional string variant = 4;
+  optional Color six_channel_add_color = 5;
+  optional Color six_channel_multiply_color = 6;
+  optional int32 required_content_version = 7;   // never observed here
+  optional double weight = 8;
+  optional double hdr_headroom = 9;              // never observed here
+  optional Color hdr_color = 10;                 // never observed here
+  optional Color hdr_add_color = 11;             // never observed here
+  optional Color hdr_multiply_color = 12;        // never observed here
+  optional double azimuth = 13;                  // never observed here
+}
+
+// ---------------------------------------------------------------------------
+// drawing::StrokeData  - INHERITED, byte-compatible: THE STROKE PAYLOAD.
+// CONFIRMED on all 28,496 payloads (Sibling.payload of every custom_crdt row):
+//   * wire types identical to apple-notes-drawing-2.proto's StrokeData
+//   * field numbers 1-9 only (10, start_index, never occurs); no duplicates
+//   * len(points_data) == points_count * (8 + sum of the 2/4-byte channel
+//     sizes selected by points_flags bits 1..10) EXACTLY, for 28,496/28,496
+//     (the channel table is apple-notes-drawing-2.proto's header comment;
+//      decoding of points_data is NOT redone here)
+//   * points_constant_values: 10 bytes e8030000ff7f0000803f on 7,093 strokes
+//     (the "1000 / 32767" sentinel bytes drawing.2 documented); other
+//     lengths (14, 24, ...) occur with other points_constant_flags values -
+//     the layout of those longer tables is not analysed here.
+// NEW relative to what drawing.md could observe:
+//   created_with_finger (8): present on 2,840 strokes, always 1 - the
+//     field drawing.md had proven to exist but never saw populated.
+//   immutable_points_count (9): present on 6,303, ALWAYS < points_count.
+// ---------------------------------------------------------------------------
+message StrokeData {
+  optional bytes stroke_data_uuid = 1;        // 16 bytes on all
+  optional double timestamp = 2;              // fixed64
+  optional int32 points_count = 3;
+  optional int32 points_flags = 4;            // top values 39, 231, 103, 167, 1, 3
+  optional int32 points_constant_flags = 5;
+  optional bytes points_constant_values = 6;
+  optional bytes points_data = 7;
+  optional bool created_with_finger = 8;
+  optional int32 immutable_points_count = 9;
+  optional int32 start_index = 10;
+}
+
+// ---------------------------------------------------------------------------
+// Not protobuf: CGRect / CGAffineTransform inside Value.data
+// ---------------------------------------------------------------------------
+// bounds, frame, canvasBounds : 32 bytes = float64 x, y, width, height
+// transform                  : 48 bytes = float64 a, b, c, d, tx, ty
+// Both BIG-endian IEEE-754 (0x4088000000000000 = 768.0, 0x7ff0... = +inf,
+// 0x3ff0... = 1.0 as the identity transform's a and d). CONFIRMED by value
+// plausibility on every sampled row; it is the OPPOSITE byte order of the
+// little-endian floats inside StrokeData.points_data - do not mix them up.

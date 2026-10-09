@@ -1,0 +1,65 @@
+// StrokeData.proto - common Apple Notes ink markup stroke data
+//
+// Distilled version of `ai/tools/apple-notes-drawing-2.proto', ported from
+// `perl/apple-notes-schema/share/proto/StrokeData.proto'.  Shared verbatim
+// between the com.apple.drawing.2 and com.apple.paper (Coherence) decoders -
+// see ai/notes/apple/com.apple.drawing.2/drawing.md, Update 4, for how each
+// field's name/number/shape was confirmed via PencilKit disassembly.
+//
+// Lives directly in apple-notes-drawing rather than a dedicated proto
+// module - StrokeData is the only message confirmed shared between the
+// v2 and paper decoders, so a whole separate module for it was overkill.
+// This also mirrors how Apple's own `drawing::' C++ namespace makes no
+// generated/hand-written distinction either (contrast Coherence's
+// actually-generated `Proto_*' Swift types - see
+// ai/notes/apple/com.apple.paper/proto-schema.md).
+
+syntax = "proto2";
+
+package apple.notes.drawing;
+
+option java_package = "org.rapidcow.archive.bridge.apple.notes.drawing";
+option java_multiple_files = true;
+
+message StrokeData {
+  // strokeDataUUID - plausibly what PencilKit's ObjC bridge calls
+  // -[_PKStrokeConcrete _strokeDataUUID]/-[PKStrokePath _strokeDataUUID].
+  // Compare with Stroke.strokeUUID.
+  optional bytes stroke_data_uuid = 1;
+
+  // timestamp - an 8-byte fixed64/double, read directly (no varint decode).
+  optional double timestamp = 2;
+
+  // pointsCount - point count.
+  optional int32 points_count = 3;
+
+  // pointsFlags - PencilKit's per-point channel presence bitmask,
+  // PKStrokePathPointsShared::pointFlags().  Bit 0 (0x1) appears
+  // to be always set.
+  optional int32 points_flags = 4;
+
+  // pointsConstantFlags - a varint-decoded int32/bitmask.
+  optional int32 points_constant_flags = 5;
+
+  // pointsConstantValues - short (~6-10 byte) blob; appears to
+  // always start with bytes "e8 03 00 00" (uint32 1000) and end
+  // with "ff 7f" (uint16 0x7fff/32767).
+  optional bytes points_constant_values = 6;
+
+  // pointsData - flat point table, length = points_count * stride.
+  // Stride varies per stroke (observed: 12,14,16,18,20,22).
+  // The first 8 bytes of every point are little-endian float32 X,
+  // float32 Y.  The remaining (stride-8) bytes are the channels gated
+  // by `points_flags', packed tightly in increasing channel-index
+  // order.  This requires a specialized routine to decode further.
+  optional bytes points_data = 7;
+
+  // createdWithFinger - a single raw byte, decoded as a plain 0/1 bool.
+  optional bool created_with_finger = 8;
+
+  // immutablePointsCount - varint int32.
+  optional int32 immutable_points_count = 9;
+
+  // startIndex - varint int32.
+  optional int32 start_index = 10;
+}

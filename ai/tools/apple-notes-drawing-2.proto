@@ -1,0 +1,416 @@
+// Reverse-engineered schema for the pre-Coherence Apple Notes PencilKit
+// drawing blob (UTI "com.apple.drawing.2"), found in
+// ZICCLOUDSYNCINGOBJECT.ZMERGEABLEDATA1 of NoteStore.sqlite.
+//
+// This is not a published Apple .proto - it was inferred by running
+// `protoc --decode_raw` against a real drawing blob (skipping the envelope
+// described below) and matching field shapes to known PencilKit concepts.
+// Field NUMBERS below come from that raw decode and are reliable (wire
+// tags/lengths are objective, not guesswork). Field/message NAMES have two
+// different confidence levels, noted per-field below:
+//   - names taken from real `drawing::*` C++ class field names, recovered
+//     directly from PencilKit.framework's own `formatText()` string
+//     literals - see notes/apple/com.apple.drawing.2/drawing.md. These are
+//     ground truth, not guesses.
+//   - names not yet matched to a `drawing.md` counterpart are still this
+//     script's own guesses, unconfirmed the way they always were.
+// `drawing.md` also found that `Geometry` below is NOT a real nested message
+// type in Apple's own schema - see that file for why - but its field
+// NUMBERS/shape are kept as-is here since decode_raw's byte-level
+// observation of "a length-delimited sub-message lives at this wire
+// position" is still valid even though the name/structure invented around
+// it was likely wrong. (An earlier guess along the same lines, once called
+// `StrokeSeqInfo`/`StrokeUnknown2`, turned out to be the opposite case - a
+// real embedded message, Apple's own `StrokeID` class - see StrokeID below
+// and drawing.md's later update section.)
+//
+// Per-point auxiliary channel layout (confirmed 2026-09-11/2026-09-12, two
+// independent ways - see notes/apple/com.apple.drawing.2/
+// point-decode-pipeline.md):
+// (a) static disassembly of PencilKit's PKStrokePathPointsShared/
+//     PKStrokePathPointsPrivate found the exact fixed byte size of each of
+//     11 channel slots (sFieldSizes/sFieldOffsets, both literal-constant
+//     tables) and, via PKStrokePathPointsPrivate's named accessors, the
+//     semantic identity of every slot; (b) empirically, decoding real
+//     sample blobs and checking every observed (point_flags, stride) pair
+//     confirmed sum(sFieldSizes[i] for each set bit i in 1..10) == stride-8
+//     exactly, across 9 distinct point_flags values in one real drawing
+//     alone. Channel 0 (location) is the unconditional first 8 bytes of
+//     every point record, X/Y as little-endian float32, and is NOT gated by
+//     a point_flags bit the way channels 1-10 are:
+//
+//   idx | point_flags bit | size | name        | wire encoding
+//   ----|-----------------|------|-------------|---------------------------
+//    0  | (always)        |  8   | location    | float32 x, float32 y
+//    1  |     0x2         |  4   | timestamp   | float32 seconds, no scaling
+//    2  |     0x4         |  4   | radius      | float32, no scaling
+//    3  |     0x8         |  2   | aspectRatio | uint16 / 1000.0
+//    4  |    0x10         |  2   | edgeWidth   | uint16 / 10.0
+//    5  |    0x20         |  2   | force       | uint16 / 1000.0
+//    6  |    0x40         |  2   | azimuth     | uint16*(2*PI/65535) - PI (rad)
+//    7  |    0x80         |  2   | altitude    | PI/2 - uint16*(PI/2/65535) (rad)
+//    8  |   0x100         |  2   | opacity     | uint16 / 32767.5
+//    9  |   0x200         |  4   | radius2     | float32, no scaling
+//   10  |   0x400         |  2   | threshold   | uint16 / 32767.5 (same divisor as opacity)
+//
+// All of the above formulas are confirmed exactly (not just plausible) via
+// disassembly of each channel's own PKStrokePathPointsPrivate::*AtIndex
+// accessor plus (for azimuth/altitude only) its PKStrokePoint-level public
+// wrapper - see point-decode-pipeline.md §7-§9 for the disassembly, the
+// exact IEEE754 constant values, and an empirical cross-check against a
+// real stroke. `uint16` here means a plain fixed-point unsigned 16-bit
+// integer - NOT IEEE754 float16, despite the same 2-byte size; confirmed by
+// the `ucvtf` (unsigned-int-to-float) instruction each accessor uses, which
+// would need to be `fcvt` (float-to-float) for a real float16 reinterpret.
+//
+// Channels 2 (radius) and 3 (aspectRatio) are the raw wire channels; the
+// public `PKStrokePointReference.size: CGSize` Apple actually documents is
+// a derived view over both, not a channel of its own. Confirmed verbatim
+// from `-[PKStrokePoint size]`'s own disassembly (arm64e, macOS 26
+// PencilKit.framework):
+//
+//   -[PKStrokePoint size]:
+//       d8 = radius            ; same raw float32 radiusAtIndex: reads
+//       d0 = aspectRatioAtIndex(0)
+//       return CGSize(width: d0 * d8, height: d8)
+//
+// i.e. `size.height == radius` exactly, and `size.width == radius *
+// aspectRatio` exactly - a circle (aspectRatio 1.0) has size == (radius,
+// radius); an elongated calligraphic nib has aspectRatio != 1 and a
+// correspondingly wider-or-narrower width. No other function (in
+// particular, none of the unrelated `DKDSize*`/`DKDFitOrFill*` aspect-ratio
+// utilities elsewhere in this framework - checked, zero call sites to or
+// from them anywhere in this binary) is involved; this is a two-line inline
+// computation, not a call to a shared geometry helper.
+//
+// Present channels (1-10, gated by their point_flags bit) are packed into
+// the flat per-point record tightly, in increasing channel-index order, with
+// no padding for absent channels - i.e. the wire layout is NOT the fixed
+// sFieldOffsets layout (that's an in-memory decode-time detail internal to
+// PencilKit), it's a variable, presence-driven concatenation. This decoder
+// does not attempt to unpack these bytes into typed values yet, beyond
+// slicing them out per named channel by size (see decode_drawing() in
+// apple-notes-drawing-decode.pl) - the one point checked by hand (a 2-byte
+// "force" slice, raw value 0xfa/250) landed suspiciously close to a
+// plausible normalized-force reading if divided by 1000, and a 2-byte
+// "altitude" slice (raw 0x7a3c) landed close to a plausible altitude angle
+// if divided by 0x7fff (32767, the same sentinel constant - literal bytes
+// "ff 7f" - separately observed inside Geometry.unk6 on every sample
+// checked). Both are suggestive, neither is confirmed across enough samples
+// to trust, and no per-channel scale/bias table has been located in the
+// binary (see point-decode-pipeline.md's "Not concluded" for why - it
+// likely exists somewhere near computeCachedValues()/updateFromCachedValues,
+// not yet disassembled).
+//
+// Envelope (confirmed 2026-09-11 from arm64e disassembly of
+// -[PKDrawingConcrete(PKDrawingPersistenceAdditions)
+//   _initWithUnzippedData:loadNonInkingStrokes:error:] in PencilKit.framework,
+// macOS 26 dyld shared cache):
+//   offset 0, 4 bytes: magic, little-endian uint32 0xF0647277
+//                      (on-wire bytes 77 72 64 F0). If this doesn't match,
+//                      PencilKit instead treats the ENTIRE blob (offset 0)
+//                      as a raw envelope-less protobuf Drawing message -
+//                      an even older fallback format.
+//   offset 4, 1 byte:  format version (uint8). Must be < 6 or PencilKit
+//                      rejects the blob as "format too new"
+//                      (PKProtobufUtilitiesFormatTooNew).
+//   offset 5, 1 byte:  NOT read by this function. Reserved/padding;
+//                      meaning still unconfirmed.
+//   offset 6, 2 bytes: header length, little-endian uint16. Must satisfy
+//                      8 <= header_length < data.length. The protobuf
+//                      Drawing message actually starts at
+//                      `bytes + header_length`, NOT unconditionally at
+//                      byte 8 - it only looks fixed-8 because every sample
+//                      seen so far happens to have header_length == 8.
+
+syntax = "proto2";
+
+// Real class name confirmed as `drawing::Color` (2026-09-21, live
+// disassembly of `drawing::Ink::readFrom` - see the `Ink` message comment
+// below - the vtable literal `"vtable for drawing::Color"` was read
+// directly as a disassembly operand while tracing several of `Ink`'s
+// fields). Field numbers not independently re-derived (this message's
+// r/g/b/a shape and field order were never in doubt - only its name was
+// unconfirmed before now), kept as this file's original guessed numbers.
+message Color {
+  optional float r = 1;
+  optional float g = 2;
+  optional float b = 3;
+  optional float a = 4;
+}
+
+// Real name confirmed as `drawing::Ink` (drawing.md). ALL 13 real fields
+// (from `drawing::Ink::formatText`, `0x1ae6b5f84`) now have confirmed
+// field numbers AND wire shapes, from live disassembly of
+// `drawing::Ink::readFrom` (`0x1ae6b61a4`) - a 13-entry jump table
+// (`0x1ae611f24`), same dispatch shape as `Stroke`/`StrokeData`, each case
+// traced to its target struct offset and cross-referenced against
+// `formatText`'s own offset table (2026-09-21 session, same methodology as
+// `drawing.md`'s Update 4):
+//
+// | field # | real name                 | wire shape |
+// |---------|---------------------------|------------|
+// | 1       | `color`                   | `Color` submessage |
+// | 2       | `identifier`              | string |
+// | 3       | `version`                 | varint int32 |
+// | 4       | `variant`                 | string |
+// | 5       | `sixChannelAddColor`      | `Color` submessage |
+// | 6       | `sixChannelMultiplyColor` | `Color` submessage |
+// | 7       | `requiredContentVersion`  | varint int32 |
+// | 8       | `weight`                  | **double**, direct 8-byte read - NOT int32 as this file used to guess; tool weight/width class, units still unconfirmed |
+// | 9       | `hdrHeadroom`             | double, direct 8-byte read |
+// | 10      | `hdrColor`                | `Color` submessage |
+// | 11      | `hdrAddColor`             | `Color` submessage |
+// | 12      | `hdrMultiplyColor`        | `Color` submessage |
+// | 13      | `azimuth`                 | double, direct 8-byte read - **a real but entirely different field from the per-point `azimuth` channel** in this file's header-comment channel table; do not conflate the two, see `drawing.md` |
+//
+// `sixChannelAddColor`/`sixChannelMultiplyColor`/`hdrColor`/`hdrAddColor`/
+// `hdrMultiplyColor` all reuse the exact same 4-field `Color` submessage as
+// `color` itself (confirmed via the identical `"vtable for drawing::Color"`
+// operand at every one of those five call sites) - i.e. whatever the "six
+// channel"/"HDR" naming implies semantically, it isn't a different wire
+// shape; still just r/g/b/a on the wire. Semantic meaning of all the
+// HDR/multi-channel fields (why an ink needs 6 different color variants)
+// not investigated - out of scope for this pass, which only resolved wire
+// shape/field numbers.
+message Ink {
+  optional Color color                    = 1; // real field name: color
+  optional string identifier              = 2; // real field name: identifier, e.g. "com.apple.ink.pen"
+  optional int32 version                  = 3; // real field name: version
+  optional string variant                 = 4; // real field name: variant
+  optional Color six_channel_add_color    = 5; // real field name: sixChannelAddColor
+  optional Color six_channel_multiply_color = 6; // real field name: sixChannelMultiplyColor
+  optional int32 required_content_version = 7; // real field name: requiredContentVersion
+  optional double weight                  = 8; // real field name: weight; tool weight/width class, units unconfirmed
+  optional double hdr_headroom            = 9; // real field name: hdrHeadroom
+  optional Color hdr_color                = 10; // real field name: hdrColor
+  optional Color hdr_add_color            = 11; // real field name: hdrAddColor
+  optional Color hdr_multiply_color       = 12; // real field name: hdrMultiplyColor
+  optional double azimuth                 = 13; // real field name: azimuth - Ink-level, NOT the per-point azimuth channel, see comment above
+}
+
+// REMOVED (2026-09-21): this message no longer exists here. It was
+// originally guessed to be Drawing.version_vector's element type (repeated
+// IndexEntry, field 3) - live disassembly of `drawing::Drawing::readFrom`
+// this session (see notes/apple/com.apple.drawing.2/drawing.md's latest
+// Update) proved field 3 is actually `repeated StrokeID`, the exact same
+// message `Stroke` reuses for sortID/version/substrokesVersion - not this
+// invented 3-int32 shape at all. Kept as a comment (not a message) purely
+// as a paper trail for why `IndexEntry` briefly existed in this file.
+
+// UPDATE (2026-09-12, later session, see drawing.md's own update section):
+// this was originally named StrokeUnknown2 and guessed to be either a
+// phantom decode_raw grouping artifact, or (before that) StrokeSeqInfo with
+// seq/ink_category fields - both wrong. Disassembling
+// drawing::Stroke::readFrom's real field-number jump table, cross-checked
+// against the struct offsets touched by Stroke's own makeSortID()/
+// makeVersion()/makeSubstrokesVersion() accessors, proved this shape is a
+// genuine embedded message - Apple's real `drawing::StrokeID` class - reused
+// by Stroke at three different real field numbers (2 = sortID, 3 = version,
+// 9 = substrokesVersion), not scalar fields decode_raw misgrouped as this
+// message was long suspected to be.
+//
+// StrokeID's own three real sub-field names, from its own formatText: clock,
+// subclock, replicaIndex - a {replicaID, counter}-shaped logical-clock
+// value, matching this framework's wider CRDT machinery (PKReplicaEntry,
+// PKVectorTimestamp). Field 2 = replicaIndex is empirically solid (constant
+// within one drawing, varies across drawings - see drawing.md Update 4).
+// Fields 1/3 = clock/subclock resolved via a different route - disassembling
+// _PKStrokeIDCompare (the real stroke-ordering comparator) shows a
+// clock-first, replicaIndex-second, subclock-last priority cascade, the
+// textbook Lamport/vector-clock tiebreak convention - see drawing.md
+// Update 5. (Values alone can't distinguish them in a single-writer corpus,
+// since clock and subclock trivially co-vary when there's never a tie to
+// break - this instead reads the *comparator's* priority order, a property
+// of the code rather than the data.)
+message StrokeID {
+  optional int32 clock         = 1; // real field name: clock - resolved via _PKStrokeIDCompare's comparator priority (primary key, compared first), see drawing.md Update 5
+  optional int32 replica_index = 2; // real field name: replicaIndex - empirically solid, see drawing.md Update 4
+  optional int32 subclock      = 3; // real field name: subclock - resolved via _PKStrokeIDCompare's comparator priority (final tiebreak, compared last), see drawing.md Update 5
+}
+
+// Real field name confirmed as `bounds` (drawing.md). Sub-field names AND
+// wire field numbers confirmed 2026-09-20 (live disassembly of
+// `drawing::Rectangle::formatText`/`readFrom` - real class name also
+// confirmed then, see point-decode-pipeline.md's Bounds appendix): field 1
+// = originX, field 2 = originY, field 3 = width, field 4 = height - i.e.
+// the original x/y/w/h guess (from real sample data alone) turned out to
+// be exactly right, now proven rather than just observed.
+message Bounds {
+  optional float origin_x = 1;
+  optional float origin_y = 2;
+  optional float width    = 3;
+  optional float height   = 4;
+}
+
+// Real name confirmed as `drawing::Transform` (2026-09-20 session, live SSH
+// disassembly of PencilKit on cooper.plug.rapidcow.net, same as
+// point-decode-pipeline.md's other live-disassembly sections - see that
+// file's Transform appendix for the full derivation). All six fields/field
+// numbers are directly confirmed two independent ways: `formatText`'s
+// string literals (in exactly this order: a, b, c, d, tx, ty - coincidentally
+// also alphabetical, same ambiguity drawing.md flagged for its own
+// formatText passes, but here independently resolved by (b) below) and, more
+// directly, `readFrom`'s field-number dispatch (field N -> the Nth field in
+// this exact order, no gaps, no reordering). Field names/order are an exact
+// match for Apple's public `CGAffineTransform` struct (`a,b,c,d,tx,ty`), and
+// the ObjC bridge that reads this message's raw bytes to build a stroke's
+// runtime `CGAffineTransform` (see Stroke.transform below) treats it that
+// way too - loading all six as one contiguous 6-float record and widening
+// straight into a `CGAffineTransform`-shaped 6-double record, no reordering.
+// Not confirmed: which mathematical convention `CGAffineTransform`-shaped
+// (a,b,c,d,tx,ty) implies here specifically (Apple's own public docs give
+// x'=a*x+c*y+tx, y'=b*x+d*y+ty, but that's inferred from the name match, not
+// re-derived from this framework's own matrix-multiply code).
+message Transform {
+  optional float a  = 1;
+  optional float b  = 2;
+  optional float c  = 3;
+  optional float d  = 4;
+  optional float tx = 5;
+  optional float ty = 6;
+}
+
+// Real name confirmed as `drawing::StrokeData` (drawing.md's "no
+// drawing::Geometry class exists" finding - this message's payload is
+// really Stroke's own `strokeData` field, field 5). Field NAMES all
+// confirmed 2026-09-21 via `drawing::StrokeData::formatText`'s string
+// literals; field NUMBERS confirmed the same session via live disassembly
+// of `drawing::StrokeData::readFrom`'s jump table (10 entries, one per
+// field number 1-10, same `adrp`/`ldrsw`+`br` pattern as `Stroke::readFrom`
+// - see notes/apple/com.apple.drawing.2/drawing.md's latest Update),
+// tracing each case to the exact struct offset it stores into and cross-
+// referencing against formatText's own offset-to-name table. This closed
+// out all three fields this file used to call unk2/unk5/unk6, AND
+// surfaced three more real fields (8/9/10) nobody had previously guessed
+// existed at all, since real sample data apparently never populates them.
+message StrokeData {
+  // Real field name: strokeDataUUID - plausibly what PencilKit's ObjC bridge
+  // calls -[_PKStrokeConcrete _strokeDataUUID]/-[PKStrokePath
+  // _strokeDataUUID] - a DIFFERENT UUID concept from Stroke.strokeUUID
+  // (field 1 of the Stroke message above), see drawing.md Update 3.
+  optional bytes stroke_data_uuid = 1;
+  // Real field name: timestamp - an 8-byte fixed64/double, read directly
+  // (no varint decode), matching the field's old "unk2, looked timestamp-
+  // ish" guess exactly, now with a real name to back it up.
+  optional double timestamp = 2;
+  // Real field name: pointsCount - point count (confirms this file's old
+  // `npts` guess).
+  optional int32 points_count = 3;
+  // Real field name: pointsFlags - PencilKit's per-point channel presence
+  // bitmask, PKStrokePathPointsShared::pointFlags() (confirms this file's
+  // old `point_flags` guess) - see the channel table in this file's header
+  // comment. Bit 0 (0x1) is set on every sample seen so far; its meaning
+  // independent of channel 0 (location, unconditional) is unconfirmed.
+  optional int32 points_flags = 4;
+  // Real field name: pointsConstantFlags (was this file's `unk5`) - a
+  // varint-decoded int32/bitmask, same decode shape as points_count/
+  // points_flags above. Not independently investigated further this pass;
+  // plausibly a per-channel "this channel is constant across the whole
+  // stroke" bitmask paired with points_constant_values below, given the
+  // name and the fact both are gated by adjacent presence bits, but that's
+  // inference from the name/shape, not a traced mechanism.
+  optional int32 points_constant_flags = 5;
+  // Real field name: pointsConstantValues (was this file's `unk6`) - short
+  // (~6-10 byte) blob; every sample seen starts with bytes "e8 03 00 00"
+  // (uint32 1000) and ends with "ff 7f" (uint16 0x7fff/32767) - both
+  // reproducible across samples. Now that the per-point channel divisors
+  // are confirmed (point-decode-pipeline.md §7-§9: force/aspectRatio
+  // divide by 1000, opacity/threshold divide by 65535/2 ≈ 32767.5), those
+  // two byte patterns are suspiciously exactly those two divisors - this
+  // reads like a fixed default/sentinel table for per-channel "constant
+  // value" overrides, one entry per channel regardless of whether that
+  // channel is actually held constant in this particular stroke. Plausible
+  // reading, not a traced/proven mechanism.
+  optional bytes points_constant_values = 6;
+  // Real field name: pointsData (confirms this file's old `points` name).
+  // Flat point table, length = points_count * stride. Stride varies per
+  // stroke (observed: 12,14,16,18,20,22). The first 8 bytes of every point
+  // are little-endian float32 X, float32 Y (confirmed). The remaining
+  // (stride-8) bytes are the channels gated by `points_flags`, packed
+  // tightly in increasing channel-index order (see the table above) - NOT
+  // expressible as ordinary protobuf fields since which channels are
+  // present, and therefore the stride itself, is implicit per-stroke state
+  // instead of a wire-format construct.
+  optional bytes points_data = 7;
+  // Real field name: createdWithFinger - a single raw byte, decoded as a
+  // plain 0/1 bool. Never seen populated in any real sample checked so
+  // far this file's own way (not empirically surveyed this pass, only
+  // proven to exist and be bool-shaped via disassembly).
+  optional bool created_with_finger = 8;
+  // Real field name: immutablePointsCount - varint int32, same decode
+  // shape as points_count. Not empirically surveyed this pass.
+  optional int32 immutable_points_count = 9;
+  // Real field name: startIndex - varint int32, same decode shape as
+  // points_count. Not empirically surveyed this pass.
+  optional int32 start_index = 10;
+}
+
+// Real name confirmed as `drawing::Stroke` (drawing.md); see that file for
+// the full real field list and, across its three update sections, how each
+// field number below was pinned down: hard disassembly proof (readFrom's
+// jump table cross-referenced against either the makeXXX() accessors'
+// struct offsets, or - for field 1 specifically - the NSUUID-construction
+// bridge in -[_PKStrokeConcrete initWithArchive:...]) for numbers
+// 1/2/3/4/5/6/7/9/11/15; empirical proof only (real sample data - value
+// distributions/co-occurrence counts/bit patterns) for 8/10/12/13/14;
+// field 16 is elimination-only, the one number here still short of either
+// kind of proof.
+//
+// Field 3 here is a real Stroke field (StrokeID-typed, real name `version`)
+// and is UNRELATED to the top-level IndexEntry-shaped field this file's
+// Drawing message also happens to number 3 - the two were only ever linked
+// by sharing an old, since-abandoned guessed shape (IndexEntry), not by any
+// real correspondence. Kept as its own field here to avoid re-introducing
+// that conflation.
+message Stroke {
+  optional bytes stroke_uuid       = 1; // real field name: strokeUUID - proven at disassembly level: -[_PKStrokeConcrete initWithArchive:...]'s NSUUID-construction bridge reads this exact offset (0x78), not just empirically (16 bytes on 100% of 773710 real strokes sampled), see drawing.md
+  optional StrokeID sort_id        = 2; // real field name: sortID - proven, see StrokeID
+  optional StrokeID version        = 3; // real field name: version - proven, see StrokeID
+  optional int32 ink_index         = 4; // real field name: inkIndex - proven; index into Drawing.inks[]
+  optional StrokeData stroke_data  = 5; // real field name: strokeData - proven (absent for empty/zero-point strokes)
+  optional Bounds bounds           = 6; // real field name: bounds - proven
+  optional Transform transform     = 7; // real field name: transform - proven to exist at this number; internal shape now reverse-engineered, see Transform above
+  optional int32 style_flags       = 8; // real field name plausibly styleFlags - empirical (outlier values all share bit 37 set, a flags-field signature, not the small closed enum shapeType would need), see drawing.md
+  optional StrokeID substrokes_version = 9; // real field name: substrokesVersion - proven, see StrokeID
+  repeated bytes centerline_slices = 10; // real field name plausibly centerlineSlices - empirical (rare, always exactly 1 element in real samples), see drawing.md
+  repeated Stroke substrokes       = 11; // real field name: substrokes - proven (readFrom calls PB::PtrVector<drawing::Stroke>::emplace_back directly)
+  repeated float mask_points       = 12; // real field name plausibly maskPoints - empirical (rare, always an even element count = flat x,y pairs in real samples), see drawing.md
+  optional bytes render_group_uuid = 13; // real field name plausibly renderGroupUUID - empirical (16 bytes, rare, occurrence count exactly matches shape_type's), see drawing.md
+  optional int32 shape_type        = 14; // real field name plausibly shapeType - empirical (small closed set of values in real samples: 1,2,3,6,7,10,12; co-occurs exactly with render_group_uuid), see drawing.md
+  optional Transform ink_transform  = 15; // real field name: inkTransform - proven to exist at this number; same Transform shape as field 7 above
+  optional bytes group_uuid        = 16; // real field name plausibly groupUUID - elimination only, see drawing.md (never observed populated in ~774k real strokes sampled)
+}
+
+// Real name confirmed as `drawing::Drawing` (drawing.md), with real fields
+// `bounds`/`boundsVersion`/`inks`/`replicaUUIDs`/`strokes`/`uuid`/
+// `versionVector`. All seven now have confirmed field numbers (2026-09-21,
+// live disassembly of `drawing::Drawing::readFrom` - a simple if/else
+// field-number cascade, not a jump table like Stroke's/StrokeData's, but
+// each branch's target struct offset was traced the same way - see
+// notes/apple/com.apple.drawing.2/drawing.md's latest Update):
+//   field 2: replicaUUIDs  - repeated bytes (16-byte UUIDs each)
+//   field 3: versionVector - repeated StrokeID, NOT the invented
+//            3-int32 `IndexEntry` shape this field used to guess (see
+//            IndexEntry's own removal note above) - same message Stroke
+//            reuses for sortID/version/substrokesVersion
+//   field 4: inks          - repeated Ink
+//   field 5: strokes       - repeated Stroke
+//   field 6: bounds        - singular Rectangle (Bounds message below),
+//            constructed the same lazy-vtable way Stroke.bounds is
+//   field 7: boundsVersion - singular StrokeID (a logical-clock stamp for
+//            when bounds was last (re)computed, by analogy to Stroke's own
+//            StrokeID-typed version fields)
+//   field 8: uuid          - singular bytes (16-byte UUID)
+// Field 1 never appears in this dispatch at all - either unused/reserved,
+// or simply not read by this exact readFrom override; not investigated
+// further.
+message Drawing {
+  repeated bytes replica_uuids     = 2; // real field name: replicaUUIDs
+  repeated StrokeID version_vector = 3; // real field name: versionVector
+  repeated Ink inks                = 4; // real field name: inks
+  repeated Stroke strokes          = 5; // real field name: strokes
+  optional Bounds bounds           = 6; // real field name: bounds
+  optional StrokeID bounds_version = 7; // real field name: boundsVersion
+  optional bytes uuid              = 8; // real field name: uuid
+}

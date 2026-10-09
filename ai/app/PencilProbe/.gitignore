@@ -1,0 +1,15 @@
+# Based on <https://github.com/github/gitignore/blob/main/Swift.gitignore>
+
+# Xcode
+
+## User settings
+xcuserdata/
+
+## Obj-C/Swift
+*.hmap
+
+## App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+

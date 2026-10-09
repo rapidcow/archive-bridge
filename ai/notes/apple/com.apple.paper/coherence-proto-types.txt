@@ -1,0 +1,381 @@
+# Raw `ipsw swift-dump` output for Coherence.framework's Proto_*/Peer_*
+# types, curated from several separate invocations (see proto-schema.md
+# "Methodology" for exact commands). Captured 2026-09-20 against macOS
+# 26.6.2 (build 25G83) Coherence.framework via the live dyld shared cache.
+#
+# This is primary evidence, not narrative - kept verbatim/near-verbatim so
+# a future session doesn't have to redo the SSH round-trip. See
+# proto-schema.md for the analysis built on top of this.
+
+## Top-level Proto_* structs/classes (fully expanded types) ##
+## ipsw swift-dump $DSC $DYLIB --type 'Proto_.*' --demangle ##
+
+struct Coherence.Proto_OrderedSet {
+    var _storage: Coherence.Proto_OrderedSet._StorageClass
+}
+
+struct Coherence.Proto_KeyPath {
+    var components: Array -> Coherence.Proto_Value
+    var data: Foundation.Data
+}
+
+struct Coherence.Proto_Version {
+    var uuids: Array -> Swift.UInt64
+    var indexSets: Array -> Coherence.Proto_RLE
+}
+
+struct Coherence.Proto_CustomCRValue {
+    var tag: Array -> Swift.UInt64
+    var value: Array -> Coherence.Proto_Value
+}
+
+struct Coherence.Proto_Subsequence {
+    var length: Swift.UInt32
+    var addedBy: Array -> Coherence.Proto_Timestamp
+    var child: Array -> Swift.UInt32
+    var removedAddedBy: Array -> Coherence.Proto_Timestamp
+    var contentOptions: Coherence.Proto_Subsequence.ContentOptions
+    var _sequenceStartID: Coherence.Proto_Timestamp ?
+}
+
+struct Coherence.Proto_Reference {
+    var _storage: Coherence.Proto_Reference._StorageClass
+}
+
+struct Coherence.Proto_CRDT {
+    var _storage: Coherence.Proto_CRDT._StorageClass
+}
+
+struct Coherence.Proto_Timestamp {
+    var uuid: Swift.UInt64
+    var counter: Swift.Int64
+}
+
+struct Coherence.Proto_Value {
+    var _storage: Coherence.Proto_Value._StorageClass
+}
+
+struct Coherence.Proto_CustomCRDT {
+    var siblings: Array -> Coherence.Proto_CustomCRDT.Sibling
+}
+
+struct Coherence.Proto_Asset {
+    var type: Swift.UInt64
+    var digest: Foundation.Data
+    var data: Foundation.Data
+}
+
+struct Coherence.Proto_Document {
+    var root: Coherence.Proto_Document.OneOf_Root ?
+    var consumeReferences: Coherence.Proto_Document _$szKcSg ->   // closure, NOT a protobuf field - demangle was incomplete
+    var references: Array -> Coherence.Proto_Reference
+    var assets: Array -> Coherence.Proto_Asset
+    var versionUuid: Foundation.Data
+    var deltaReferences: Array -> Coherence.Proto_Reference
+    var _version: Coherence.Proto_Version ?
+    var _constants: Coherence.Proto_Constants ?
+    var _minVersion: Coherence.Proto_Version ?
+}
+
+struct Coherence.Proto_Set {
+    var uuid: Swift.UInt64
+    var insertions: Array -> Coherence.Proto_Set.Element
+    var removed: Array -> Coherence.Proto_Set.Element
+    var _version: Coherence.Proto_Version ?
+    var _timestamp: Coherence.Proto_Timestamp ?
+    var _minVersion: Coherence.Proto_Version ?
+}
+
+struct Coherence.Proto_Sequence {
+    var string: String
+    var elements: Array -> Coherence.Proto_Value
+    var subsequence: Array -> Coherence.Proto_Subsequence
+    var attributeRuns: Array -> Coherence.Proto_Sequence.AttributeRun
+    var _version: Coherence.Proto_Version ?
+    var _addedByVersion: Coherence.Proto_Version ?
+    var _fromVersion: Coherence.Proto_Version ?
+    var _fromAddedByVersion: Coherence.Proto_Version ?
+}
+
+struct Coherence.Proto_RetainCounts {
+    var referenceKeys: Array -> Coherence.Proto_KeyPath
+    var referenceRetainCounts: Array -> Swift.Int64
+    var assetDigests: Foundation.Data
+    var assetRetainCounts: Array -> Swift.Int64
+    var subcapsuleKeys: Array -> Coherence.Proto_KeyPath
+    var subcapsuleRetainCounts: Array -> Swift.Int64
+    var _constants: Coherence.Proto_Constants ?
+}
+
+struct Coherence.Proto_Selection {
+    var replicaUuid: Array -> Foundation.Data
+    var range: Array -> Coherence.Proto_Selection.Range
+    var affinity: Coherence.Proto_Selection.Affinity
+}
+
+struct Coherence.Proto_Counter {
+    var uuid: Swift.UInt64
+    var _positive: Coherence.Proto_Version ?
+    var _negative: Coherence.Proto_Version ?
+}
+
+struct Coherence.Proto_Struct {
+    var keys: Array -> Swift.UInt64
+    var values: Array -> Coherence.Proto_CRDT
+    var intKeys: Array -> Swift.UInt64
+}
+
+struct Coherence.Proto_Register {
+    var _storage: Coherence.Proto_Register._StorageClass
+}
+
+struct Coherence.Proto_TaggedValue {
+    var _storage: Coherence.Proto_TaggedValue._StorageClass
+}
+
+struct Coherence.Proto_RepeatedValue {
+    var values: Array -> Coherence.Proto_Value
+}
+
+struct Coherence.Proto_Optional {
+    var _storage: Coherence.Proto_Optional._StorageClass
+}
+
+struct Coherence.Proto_RLE {
+    var runs: Array -> Swift.Int64
+}
+
+struct Coherence.Proto_Constants {
+    var uuids: Foundation.Data
+    var strings: [String]
+    var datas: Array -> Foundation.Data
+}
+
+## _StorageClass indirections (COW storage for larger messages) ##
+## ipsw swift-dump $DSC $DYLIB --type 'StorageClass' --demangle          ##
+## (includes Proto4_* siblings too - kept in, clearly namespaced)        ##
+
+class Coherence.Proto4_Value._StorageClass {
+    var _taggedOneOf: Coherence.Proto4_Value.OneOf_TaggedOneOf ?
+}
+
+class Coherence.Proto4_CRDT._StorageClass {
+    var _taggedOneOf: Coherence.Proto4_CRDT.OneOf_TaggedOneOf ?
+}
+
+class Coherence.Proto4_Register._StorageClass {
+    var _uuid: Foundation.Data
+    var _timestamp: Coherence.Proto4_Timestamp ?
+    var _value: Coherence.Proto4_Value ?
+}
+
+class Coherence.Proto4_Reference._StorageClass {
+    var _uuid: Foundation.Data
+    var _version: Coherence.Proto4_Version ?
+    var _crdt: Coherence.Proto4_CRDT ?
+    var _keyPath: Coherence.Proto4_KeyPath ?
+}
+
+class Coherence.Proto4_Optional._StorageClass {
+    var _wrapped: Coherence.Proto4_Value ?
+}
+
+class Coherence.Proto4_TaggedCRDT._StorageClass {
+    var _tag: Swift.Int64
+    var _wrapped: Coherence.Proto4_CRDT ?
+}
+
+class Coherence.Proto4_TaggedValue._StorageClass {
+    var _tag: Swift.Int64
+    var _wrapped: Coherence.Proto4_Value ?
+}
+
+class Coherence.Proto_Value._StorageClass {
+    var _taggedOneOf: Coherence.Proto_Value.OneOf_TaggedOneOf ?
+}
+
+class Coherence.Proto_CRDT._StorageClass {
+    var _taggedOneOf: Coherence.Proto_CRDT.OneOf_TaggedOneOf ?
+}
+
+class Coherence.Proto_Register._StorageClass {
+    var _timestamp: Coherence.Proto_Timestamp ?
+    var _value: Coherence.Proto_Value ?
+    var _crdt: Coherence.Proto_CRDT ?
+    var _partialCrdt: Coherence.Proto_CRDT ?
+}
+
+class Coherence.Proto_Reference._StorageClass {
+    var _uuid: Swift.UInt64
+    var _type: Coherence.Proto_Reference.TypeEnum
+    var _version: Coherence.Proto_Version ?
+    var _crdt: Coherence.Proto_CRDT ?
+    var _keyPath: Coherence.Proto_KeyPath ?
+}
+
+class Coherence.Proto_Optional._StorageClass {
+    var _wrapped: Coherence.Proto_Value ?
+}
+
+class Coherence.Proto_TaggedValue._StorageClass {
+    var _tag: Swift.Int64
+    var _wrapped: Coherence.Proto_Value ?
+}
+
+class Coherence.Proto_OrderedSet._StorageClass {
+    var _set: Coherence.Proto_Set ?
+    var _sequence: Coherence.Proto_Sequence ?
+    var _timestamps: Array -> Coherence.Proto_Timestamp
+    var _type: Coherence.Proto_OrderedSet.TypeEnum
+}
+
+## Nested enums / oneofs / sub-messages, gathered individually because    ##
+## --headers clobbers same-basename nested types across different outer  ##
+## types (see proto-schema.md). Each queried via a tight --type regex.   ##
+
+enum Coherence.Proto_Selection.Affinity {
+    case UNRECOGNIZED: Int
+    case backward
+    case forward
+}
+
+struct Coherence.Proto_Sequence.AttributeRun.Attribute {
+    var key: Swift.UInt32
+    var _value: Coherence.Proto_Value ?
+}
+
+struct Coherence.Proto_Sequence.AttributeRun {
+    var length: Swift.UInt32
+    var attributes: Array -> Coherence.Proto_Sequence.AttributeRun.Attribute
+    var _timestamp: Coherence.Proto_Timestamp ?
+}
+
+enum Coherence.Proto_Subsequence.ContentOptions {
+    case UNRECOGNIZED: Int
+    case default
+    case hasContent
+    case noContent
+}
+
+struct Coherence.Proto_Set.Element {
+    var _key: Coherence.Proto_Value ?
+    var _value: Coherence.Proto_CRDT ?
+    var _addedBy: Coherence.Proto_Version ?
+    var _partialValue: Coherence.Proto_CRDT ?
+}
+
+enum Coherence.Proto_Document.OneOf_Root {
+    case crdt: Coherence.Proto_CRDT
+    case value: Coherence.Proto_Value
+    case reference: Coherence.Proto_Reference
+}
+
+struct Coherence.Proto_Selection.Range {
+    var _fromChar: Coherence.Proto_Timestamp ?
+    var _toChar: Coherence.Proto_Timestamp ?
+}
+
+struct Coherence.Proto_CustomCRDT.Sibling {
+    var data: Foundation.Data
+    var _version: Coherence.Proto_Version ?
+}
+
+enum Coherence.Proto_Reference.TypeEnum {
+    case UNRECOGNIZED: Int
+    case shared
+    case weak
+}
+
+enum Coherence.Proto_OrderedSet.TypeEnum {
+    case UNRECOGNIZED: Int
+    case orderedSet
+    case orderedDictionary
+}
+
+## ipsw swift-dump $DSC $DYLIB --type 'OneOf_TaggedOneOf$' --demangle    ##
+## (single invocation, all matches printed to stdout - no filename       ##
+## collision this way)                                                   ##
+
+enum Coherence.Proto4_CRDT.OneOf_TaggedOneOf {
+    case register: Coherence.Proto4_Register
+    case set: Coherence.Proto4_Set
+    case dictionary: Coherence.Proto4_Set
+    case composite: Coherence.Proto4_Struct
+    case string: Coherence.Proto4_Sequence
+    case array: Coherence.Proto4_Sequence
+    case counter: Coherence.Proto4_Counter
+    case taggedCrdt: Coherence.Proto4_TaggedCRDT
+    case customCrdt: Coherence.Proto4_CustomCRDT
+}
+
+enum Coherence.Proto4_Value.OneOf_TaggedOneOf {
+    case int: Swift.Int64
+    case double: Double
+    case string: String
+    case data: Foundation.Data
+    case date: InternalSwiftProtobuf.Google_Protobuf_Timestamp
+    case reference: Coherence.Proto4_Reference
+    case optional: Coherence.Proto4_Optional
+    case taggedValue: Coherence.Proto4_TaggedValue
+}
+
+enum Coherence.Peer_MergeResponse.OneOf_TaggedOneOf {
+    case version: Coherence.Proto_Document
+    case referencesSince: Coherence.Peer_KeyPaths
+    case containsReferences: Coherence.Peer_KeyPaths
+    case references: Coherence.Proto_Document
+    case asset: Coherence.Peer_RespondAsset
+}
+
+enum Coherence.Peer_MergeRequest.OneOf_TaggedOneOf {
+    case referencesSince: Coherence.Proto_Document
+    case containsReferences: Coherence.Peer_KeyPaths
+    case references: Coherence.Peer_KeyPaths
+    case assets: Coherence.Peer_RequestAssets
+    case version: Coherence.Peer_RequestVersion
+}
+
+enum Coherence.Peer_Message.OneOf_TaggedOneOf {
+    case wantsToBeSource: Foundation.Data
+    case isDestination: Swift.Bool
+    case deltaMerge: Coherence.Proto_Document
+    case fullModelRequest: Swift.Bool
+    case fullModel: Coherence.Proto_Document
+    case heartbeat: Coherence.Peer_Heartbeat
+    case mergeRequest: Coherence.Peer_MergeRequest
+    case mergeResponse: Coherence.Peer_MergeResponse
+    case done: Swift.Bool
+}
+
+enum Coherence.Proto_CRDT.OneOf_TaggedOneOf {
+    case register: Coherence.Proto_Register
+    case set: Coherence.Proto_Set
+    case dictionary: Coherence.Proto_Set
+    case composite: Coherence.Proto_Struct
+    case string: Coherence.Proto_Sequence
+    case sequence: Coherence.Proto_Sequence
+    case array: Coherence.Proto_OrderedSet
+    case counter: Coherence.Proto_Counter
+    case orderedSet: Coherence.Proto_OrderedSet
+    case customCrdt: Coherence.Proto_CustomCRDT
+}
+
+enum Coherence.Proto_Value.OneOf_TaggedOneOf {
+    case uint: Swift.UInt64
+    case double: Double
+    case string: Swift.UInt64
+    case data: Foundation.Data
+    case sint: Swift.Int64
+    case uuid: Swift.UInt64
+    case version: Coherence.Proto_Version
+    case reference: Coherence.Proto_Reference
+    case optional: Coherence.Proto_Optional
+    case timestamp: Coherence.Proto_Timestamp
+    case repeatedValue: Coherence.Proto_RepeatedValue
+    case taggedValue: Coherence.Proto_TaggedValue
+    case asset: Coherence.Proto_Asset
+    case custom: Coherence.Proto_CustomCRValue
+    case float: Float
+    case weakReference: Swift.UInt64
+    case strongReference: Swift.UInt64
+}

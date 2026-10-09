@@ -1,0 +1,46 @@
+This is the shared cache of the iMac on Tahoe.
+
+sw_vers shows the following properties:
+
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+
+The dyld directory originates from "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld":
+
+total 12906376
+-rwxr-xr-x  1 root  admin   879924635 Aug 13 10:51 aot_shared_cache.0
+-rwxr-xr-x  1 root  admin   942851867 Aug 13 10:51 aot_shared_cache.1
+-rwxr-xr-x  1 root  admin   946699163 Aug 13 10:51 aot_shared_cache.2
+-rwxr-xr-x  1 root  admin   890376731 Aug 13 10:51 aot_shared_cache.3
+-rwxr-xr-x  1 root  admin   790380059 Aug 13 10:51 aot_shared_cache.4
+-rwxr-xr-x  1 root  admin   963673499 Aug 13 10:51 aot_shared_cache.5
+-rwxr-xr-x  1 root  admin   737789339 Aug 13 10:51 aot_shared_cache.6
+-rwxr-xr-x  1 root  admin      573440 Aug 13 10:51 dyld_shared_cache_arm64e
+-rwxr-xr-x  1 root  admin  1715355648 Aug 13 10:51 dyld_shared_cache_arm64e.01
+-rwxr-xr-x  1 root  admin   234569728 Aug 13 10:51 dyld_shared_cache_arm64e.02.dylddata
+-rwxr-xr-x  1 root  admin   127057920 Aug 13 10:51 dyld_shared_cache_arm64e.03.dyldreadonly
+-rwxr-xr-x  1 root  admin   601341952 Aug 13 10:51 dyld_shared_cache_arm64e.04.dyldlinkedit
+-rwxr-xr-x  1 root  admin  1819885568 Aug 13 10:51 dyld_shared_cache_arm64e.05
+-rwxr-xr-x  1 root  admin   237125632 Aug 13 10:51 dyld_shared_cache_arm64e.06.dylddata
+-rwxr-xr-x  1 root  admin     7290880 Aug 13 10:51 dyld_shared_cache_arm64e.07.dyldreadonly
+-rwxr-xr-x  1 root  admin   617381888 Aug 13 10:51 dyld_shared_cache_arm64e.08.dyldlinkedit
+-rwxr-xr-x  1 root  admin   182812672 Aug 13 10:51 dyld_shared_cache_arm64e.09
+-rwxr-xr-x  1 root  admin    23199744 Aug 13 10:51 dyld_shared_cache_arm64e.10.dylddata
+-rwxr-xr-x  1 root  admin       32768 Aug 13 10:51 dyld_shared_cache_arm64e.11
+-rwxr-xr-x  1 root  admin   254345216 Aug 13 10:51 dyld_shared_cache_arm64e.12.dyldlinkedit
+-rwxr-xr-x  1 root  admin     2372801 Aug 13 10:51 dyld_shared_cache_arm64e.atlas
+-rwxr-xr-x  1 root  admin     1338214 Aug 13 10:51 dyld_shared_cache_arm64e.map
+-rwxr-xr-x  1 root  admin   879443968 Aug 13 10:51 dyld_shared_cache_x86_64
+-rwxr-xr-x  1 root  admin   794443776 Aug 13 10:51 dyld_shared_cache_x86_64.01
+-rwxr-xr-x  1 root  admin   793804800 Aug 13 10:51 dyld_shared_cache_x86_64.02
+-rwxr-xr-x  1 root  admin   808550400 Aug 13 10:51 dyld_shared_cache_x86_64.03
+-rwxr-xr-x  1 root  admin   758333440 Aug 13 10:51 dyld_shared_cache_x86_64.04
+-rwxr-xr-x  1 root  admin   813957120 Aug 13 10:51 dyld_shared_cache_x86_64.05
+-rwxr-xr-x  1 root  admin   893534208 Aug 13 10:51 dyld_shared_cache_x86_64.06
+-rwxr-xr-x  1 root  admin     1373996 Aug 13 10:51 dyld_shared_cache_x86_64.atlas
+-rwxr-xr-x  1 root  admin     1151203 Aug 13 10:51 dyld_shared_cache_x86_64.map
+
+The ipsw directory originates from Claude's ipsw extraction
+of Notes.app's framework files; see Claude's ipsw/README.md
+for the exact paths that they came from.

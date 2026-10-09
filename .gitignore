@@ -1,0 +1,23 @@
+# Since this repository is going on a lot of Macs,
+# this ignore rule will be necessary beyond a doubt.
+.DS_Store
+._*
+
+# Ignore vim swap too (i just have to, sorry lol :P)
+*.sw[a-p]
+
+# Eclipse-style local configs (notably generated
+# by jdtls) -- These are trivially re-derivable.
+.classpath
+.project
+.settings/
+
+# jdtls's own compiled *.class files (orthogonal to
+# Gradle's build in build/.)
+bin/
+
+# Eclipse?
+out/
+
+# Perl virtual env (common enough.)
+perl5/
