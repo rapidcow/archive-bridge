@@ -9,9 +9,25 @@ Welcome to the archive-bridge toolkit!
 
                     === catalogue ===
 
-We have the following bridge(s):
+We have:
 
-   (none; they aren't merged yet)
+   org.rapidcow.archive.bridge
+
+     apple.
+       notes              REAL!
+       idevicebackup2     PLANNED
+
+     tophatch.
+       concepts           PLANNED  <https://concepts.app/en/>
+     savageinteractive.
+       procreate          PLANNED? <https://procreate.com/>
+
+     samsung.notes        PLANNED  <https://www.samsung.com/us/support/owners/app/samsung-notes>
+     goodnotes.app        ???      <https://www.goodnotes.com/>
+     gingerlabs.
+       notability         ???      <https://notability.com/>
+     microsoft.
+       onenote            ???      /* No. */
 
                     === long stuff ===
 
