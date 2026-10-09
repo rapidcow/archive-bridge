@@ -5,7 +5,7 @@ package org.rapidcow.archive.bridge.apple.notes.store;
  * pre-Coherence Apple Notes {@code NoteStore.sqlite}: rows with {@code
  * ZTYPEUTI = 'com.apple.drawing.2'} in {@code ZICCLOUDSYNCINGOBJECT}, whose
  * {@code ZMERGEABLEDATA1} column holds the envelope + {@link
- * org.rapidcow.archive.bridge.apple.notes.drawing.StrokeData}-bearing blob
+ * org.rapidcow.archive.bridge.apple.notes.proto.StrokeData}-bearing blob
  * described in {@code ai/tools/apple-notes-drawing-2.proto}.
  *
  * <p>Stub: connection/query plumbing not implemented yet. Reference
