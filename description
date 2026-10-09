@@ -1,1 +1,5 @@
-apple notes (sdocx someday)
+strictly static file formats produced by local
+software (and a conservative set of SaaS, provided
+they produce an interoperable format) decoder
+
+has java package org.rapidcow.archive.bridge
