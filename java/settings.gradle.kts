@@ -10,7 +10,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "archive-bridge-apple-notes"
+rootProject.name = "archive-bridge"
 include("apple-mobile-backup")
 include("apple-notes-drawing")
 include("apple-notes-proto")
