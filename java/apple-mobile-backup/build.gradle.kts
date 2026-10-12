@@ -8,6 +8,7 @@ repositories {
 
 dependencies {
     testImplementation(libs.junit.jupiter)
+    implementation(libs.sqlite.jdbc)
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
