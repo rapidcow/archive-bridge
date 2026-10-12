@@ -172,25 +172,7 @@ see also! mostly motivations for me >w<
 
                     === impressum ===
 
-The archive-bridge library is licensed under LGPL,
-version 3 or later (with exception of any perl code,
-which is under the same license as perl 5 itself.)
-Heavily AI-generated research notes and experimental
-code/prototypes are NOT licensed (though you should
-not treat them as public domain either.)
-
-All test fixtures are mine and licensed under the
-usual artsy license (CC BY-SA-NC 4.0).  All "vendor/"
-stuff is proprietary and I cannot distribute or bad
-stuff happen.
-
-I'm not sure about how the license-ability on the
-protobuf files but if you want to copy them, sure.
-(I myself will base my work on Ciofeca Forensics'
-apple-cloud-notes-parser schema, I think it should
-be allowed to copy/share schema.  If i must name a
-license, consider it public domain (with no attri-
-bution required). ;)
+See licensing information in LICENSE.
 
 If you want to reference this project, include the
 following WWW link:

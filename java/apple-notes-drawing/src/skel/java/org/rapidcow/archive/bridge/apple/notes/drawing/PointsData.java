@@ -1,6 +1,9 @@
 [% USE Snake -%]
 [% USE StrokeChannel -%]
 /*
+ * Copyright 2026 rapidcow!
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ *
  * This is a file is generated!  You should edit
  * the source template in `src/skel/java/'. ;)
 [%#

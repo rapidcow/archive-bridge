@@ -1,0 +1,23 @@
+All final, non-draft non-AI code under the
+archive.bridge namespace are distributed
+under LGPLv3+; see COPYING with amendments
+in COPYING.LESSER.  Perl files are Artistic 2
+(see perl/LICENSE).  Otherwise, they are under
+GPLv3+; see COPYING.  (Namely, adjacent
+archive namespaces are under GPLv3+.)
+
+ai/ files are provided AS-IS.  They are neither
+copyrighted nor public domain.  Feel free to
+use them, but be careful about licensing them.
+
+Protobuf schemas are uncopyrightable (I think)
+so just pretend they are public domain (yay!)
+
+Test fixtures are licensed under the usual artsy
+license (CC BY-SA-NC 4.0).  See COPYING.CC.
+
+vendor/ is proprietary and will not distributed.
+(The metadata being is only an unfortunate
+consequence of my internal file sharing system
+piggy-backing on the public infrastructure
+through which you receive my source code. :)

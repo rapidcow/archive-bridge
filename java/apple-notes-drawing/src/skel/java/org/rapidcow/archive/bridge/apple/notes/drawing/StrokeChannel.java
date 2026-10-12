@@ -1,3 +1,7 @@
+/*
+ * Copyright 2026 rapidcow!
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ */
 [% USE Snake -%]
 [% USE StrokeChannel -%]
 package org.rapidcow.archive.bridge.apple.notes.drawing;
