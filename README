@@ -177,7 +177,14 @@ See licensing information in LICENSE.
 If you want to reference this project, include the
 following WWW link:
 
-    https://foss.rapidcow.org/project/archive/bridge/
+    <https://foss.rapidcow.org/project/archive/bridge/>
 
 Documentation will go on javadoc.rapidcow.org when
 they get mature enogh (i.e. at least one test case).
+
+This repository can be cloned:
+
+    <https://git.rapidcow.org/pub/project/archive/bridge.git>
+
+NOTE that there is NO git web!  For that, use one of the
+gitweb mirrors listed in the WWW link two blocks above.
