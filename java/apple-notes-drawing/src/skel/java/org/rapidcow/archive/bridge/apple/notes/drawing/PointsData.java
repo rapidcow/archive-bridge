@@ -62,14 +62,17 @@ import org.rapidcow.archive.bridge.apple.notes.proto.StrokeData;
  * Instances are created with {@link #decode(StrokeData)} or through
  * a {@link Builder}.
  */
-public class PointsData
+public
+class
+	PointsData
 {
 	private final int     channelLength;
 [% FOREACH chan IN StrokeChannel.fields -%]
 	private final [% chan.java_type %][] channel[% chan.name.ucfirst %];
 [% END -%]
 
-	private PointsData(Builder data)
+	private
+	PointsData(Builder data)
 	{
 		this.channelLength      = data.channelLength;
 [% FOREACH chan IN StrokeChannel.fields -%]
@@ -84,7 +87,9 @@ public class PointsData
 	 * and the optional channels of that point are filled in with the
 	 * {@code setRaw*()} methods <em>before</em> the next point is added.
 	 */
-	public static final class Builder
+	public static final
+	class
+		Builder
 	{
 		private final int channelLength;
 		private int index = -1;
@@ -98,7 +103,8 @@ public class PointsData
 		 * @param length the number of points expected to be added
 		 * @param set  the optional channels expected to be added
 		 */
-		public Builder(int length, Set<StrokeChannel> set)
+		public
+		Builder(int length, Set<StrokeChannel> set)
 		{
 			channelLength = length;
 [% FOREACH chan IN StrokeChannel.fields -%]
@@ -119,7 +125,8 @@ public class PointsData
 		 * @throws IllegalStateException if fewer points were added
 		 *    than the total number of points expected to be added
 		 */
-		public PointsData build()
+		public PointsData
+		build()
 		{
 			if (index < channelLength - 1) {
 				int added = index + 1;
@@ -141,7 +148,8 @@ public class PointsData
 		 * @see PointsData#x(int)
 		 * @see PointsData#y(int)
 		 */
-		public Builder addPoint(float x, float y)
+		public Builder
+		addPoint(float x, float y)
 		{
 			/* Keep this check side-effect free. */
 			if (index >= channelLength - 1) {
@@ -179,7 +187,8 @@ public class PointsData
 [%     END -%]
 [%   END -%]
 		 */
-		public Builder setRaw[% chan.name.ucfirst %]([% chan.java_type %] value)
+		public Builder
+		setRaw[% chan.name.ucfirst %]([% chan.java_type %] value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -196,7 +205,8 @@ public class PointsData
 	/**
 	 * {@return the number of points}
 	 */
-	public int length()
+	public int
+	length()
 	{
 		return channelLength;
 	}
@@ -213,7 +223,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code [% chan.name.snake %]} channel is present
 	 */
-	public boolean has[% chan.name.ucfirst %]()
+	public boolean
+	has[% chan.name.ucfirst %]()
 	{
 		return channel[% chan.name.ucfirst %] != null;
 	}
@@ -234,9 +245,11 @@ public class PointsData
 [%   END -%]
 	 */
 [%   IF chan.type == "u16" -%]
-	public int raw[% chan.name.ucfirst %](int index)
+	public int
+	raw[% chan.name.ucfirst %](int index)
 [%   ELSE -%]
-	public [% chan.java_type %] raw[% chan.name.ucfirst %](int index)
+	public [% chan.java_type %]
+	raw[% chan.name.ucfirst %](int index)
 [%   END -%]
 	{
 [%   IF chan.bit -%]
@@ -272,7 +285,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/location">-[PKStrokePoint location]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgpoint/[% chan.name | xml %]">CGPoint.[% chan.name %]</a>
 	 */
-	public double [% chan.name %](int index)
+	public double
+	[% chan.name %](int index)
 	{
 		return raw[% chan.name.ucfirst %](index);
 	}
@@ -292,7 +306,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/timeoffset">-[PKStrokePoint timeOffset]</a>
 	 */
-	public double timeOffset(int index)
+	public double
+	timeOffset(int index)
 	{
 		return rawTimestamp(index);
 	}
@@ -314,7 +329,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/width">CGSize.width</a>
 	 */
-	public double width(int index)
+	public double
+	width(int index)
 	{
 		return rawRadius(index);
 	}
@@ -336,7 +352,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/height">CGSize.height</a>
 	 */
-	public double height(int index)
+	public double
+	height(int index)
 	{
 		return width(index) * aspectRatio(index);
 	}
@@ -356,7 +373,8 @@ public class PointsData
 	 * @see #width(int)
 	 * @see #height(int)
 	 */
-	public double aspectRatio(int index)
+	public double
+	aspectRatio(int index)
 	{
 		return (double) rawAspectRatio(index) / 1000.0;
 	}
@@ -371,7 +389,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #rawAspectRatio(int)
 	 */
-	public Fraction aspectRatioExact(int index)
+	public Fraction
+	aspectRatioExact(int index)
 	{
 		return Fraction.of(rawAspectRatio(index), 1000);
 	}
@@ -387,7 +406,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #lateralJitter(int)
 	 */
-	public double edgeWidth(int index)
+	public double
+	edgeWidth(int index)
 	{
 		return (double) rawEdgeWidth(index) / 10.0;
 	}
@@ -402,7 +422,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #rawEdgeWidth(int)
 	 */
-	public Fraction edgeWidthExact(int index)
+	public Fraction
+	edgeWidthExact(int index)
 	{
 		return Fraction.of(rawEdgeWidth(index), 10);
 	}
@@ -421,7 +442,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/lateraljitter">-[PKStrokePoint lateralJitter]</a>
 	 */
-	public double lateralJitter(int index)
+	public double
+	lateralJitter(int index)
 	{
 		return edgeWidth(index);
 	}
@@ -441,7 +463,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/force">-[PKStrokePoint force]</a>
 	 */
-	public double force(int index)
+	public double
+	force(int index)
 	{
 		return (double) rawForce(index) / 1000.0;
 	}
@@ -456,7 +479,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see #rawForce(int)
 	 */
-	public Fraction forceExact(int index)
+	public Fraction
+	forceExact(int index)
 	{
 		return Fraction.of(rawForce(index), 1000);
 	}
@@ -480,7 +504,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/azimuth">-[PKStrokePoint azimuth]</a>
 	 */
-	public double azimuth(int index)
+	public double
+	azimuth(int index)
 	{
 		return (double) rawAzimuth(index) * (2.0 * Math.PI / 65535.0) - Math.PI;
 	}
@@ -495,7 +520,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see #rawAzimuth(int)
 	 */
-	public Fraction azimuthExact(int index)
+	public Fraction
+	azimuthExact(int index)
 	{
 		return Fraction.of(2 * rawAzimuth(index) - 65535, 65535);
 	}
@@ -519,7 +545,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/altitude">-[PKStrokePoint altitude]</a>
 	 */
-	public double altitude(int index)
+	public double
+	altitude(int index)
 	{
 		return Math.PI / 2.0 - (double) rawAltitude(index) * (Math.PI / 2.0 / 65535.0);
 	}
@@ -534,7 +561,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see #rawAltitude(int)
 	 */
-	public Fraction altitudeExact(int index)
+	public Fraction
+	altitudeExact(int index)
 	{
 		return Fraction.of(65535 - rawAltitude(index), 65535);
 	}
@@ -559,7 +587,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/[% chan.name %]">-[PKStrokePoint [% chan.name %]]</a>
 	 */
-	public double [% chan.name %](int index)
+	public double
+	[% chan.name %](int index)
 	{
 		return 2.0 * raw[% chan.name.ucfirst %](index) / 65535.0;
 	}
@@ -574,7 +603,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code [% chan.name.snake %]} channel is absent
 	 * @see #raw[% chan.name.ucfirst %](int)
 	 */
-	public Fraction [% chan.name %]Exact(int index)
+	public Fraction
+	[% chan.name %]Exact(int index)
 	{
 		return Fraction.of(2 * raw[% chan.name.ucfirst %](index), 65535);
 	}
@@ -596,7 +626,8 @@ public class PointsData
 	 *    or the {@code radius} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/secondaryscale">-[PKStrokePoint secondaryScale]</a>
 	 */
-	public double secondaryScale(int index)
+	public double
+	secondaryScale(int index)
 	{
 		return (double) rawRadius2(index) / rawRadius(index);
 	}
@@ -618,11 +649,14 @@ public class PointsData
 [%     END -%]
 	 */
 [%     IF chan.type == "u16" -%]
-	public int [% chan.name %](int index)
+	public int
+	[% chan.name %](int index)
 [%     ELSIF chan.type.match("^f") -%]
-	public double [% chan.name %](int index)
+	public double
+	[% chan.name %](int index)
 [%     ELSE -%]
-	public [% chan.java_type %] [% chan.name %](int index)
+	public [% chan.java_type %]
+	[% chan.name %](int index)
 [%     END -%]
 	{
 		return raw[% chan.name.ucfirst %](index);
@@ -643,7 +677,8 @@ public class PointsData
 	 *    high bits, or if the length of {@code points_data} does
 	 *    not match {@code points_count} times the computed stride
 	 */
-	public static PointsData decode(StrokeData data)
+	public static PointsData
+	decode(StrokeData data)
 	{
 		int count = data.getPointsCount();
 		int flags = data.getPointsFlags();
@@ -714,47 +749,3 @@ public class PointsData
 		return out.build();
 	}
 }
-[% IF 0 -%]
-
-/** Interpreted form of StrokeData's points_count/points_flags/points_data
- *  trio: the flat, variable-stride point table, unpacked. */
-public record PointsData(List<StrokePoint> points, Set<StrokeChannel> presentChannels, int stride) {
-	public static PointsData decode(StrokeData data) {
-		int count = data.getPointsCount();
-		if (count == 0 || !data.hasPointsData()) {
-			return new PointsData(List.of(), Set.of(), 8);
-		}
-
-		int flags = data.getPointsFlags();
-		EnumSet<StrokeChannel> present = EnumSet.noneOf(StrokeChannel.class);
-		int stride = 8;
-		for (StrokeChannel ch : StrokeChannel.values()) {
-			if ((flags & (1 << ch.bitIndex)) != 0) {
-				present.add(ch);
-				stride += ch.byteSize;
-			}
-		}
-
-		byte[] raw = data.getPointsData().toByteArray();
-		if (raw.length != count * stride) {
-			throw new StrokeDataFormatException(
-				"points_data length " + raw.length + " != pointsCount " + count
-					+ " * derived stride " + stride + " (pointsFlags=0x"
-					+ Integer.toHexString(flags) + ")");
-		}
-
-		ByteBuffer buf = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN);
-		List<StrokePoint> points = new ArrayList<>(count);
-		for (int i = 0; i < count; i++) {
-			float x = buf.getFloat();
-			float y = buf.getFloat();
-			EnumMap<StrokeChannel, ChannelReading> channels = new EnumMap<>(StrokeChannel.class);
-			for (StrokeChannel ch : present) {
-				channels.put(ch, ch.decode(buf));
-			}
-			points.add(new StrokePoint(x, y, channels));
-		}
-		return new PointsData(List.copyOf(points), Set.copyOf(present), stride);
-	}
-}
-[% END -%]

@@ -60,7 +60,9 @@ import org.rapidcow.archive.bridge.apple.notes.proto.StrokeData;
  * Instances are created with {@link #decode(StrokeData)} or through
  * a {@link Builder}.
  */
-public class PointsData
+public
+class
+	PointsData
 {
 	private final int     channelLength;
 	private final float[] channelX;
@@ -77,7 +79,8 @@ public class PointsData
 	private final short[] channelThreshold;
 	private final float[] channelElevation;
 
-	private PointsData(Builder data)
+	private
+	PointsData(Builder data)
 	{
 		this.channelLength      = data.channelLength;
 		this.channelX           = data.channelX;
@@ -102,7 +105,9 @@ public class PointsData
 	 * and the optional channels of that point are filled in with the
 	 * {@code setRaw*()} methods <em>before</em> the next point is added.
 	 */
-	public static final class Builder
+	public static final
+	class
+		Builder
 	{
 		private final int channelLength;
 		private int index = -1;
@@ -126,7 +131,8 @@ public class PointsData
 		 * @param length the number of points expected to be added
 		 * @param set  the optional channels expected to be added
 		 */
-		public Builder(int length, Set<StrokeChannel> set)
+		public
+		Builder(int length, Set<StrokeChannel> set)
 		{
 			channelLength = length;
 			channelX = new float[length];
@@ -173,7 +179,8 @@ public class PointsData
 		 * @throws IllegalStateException if fewer points were added
 		 *    than the total number of points expected to be added
 		 */
-		public PointsData build()
+		public PointsData
+		build()
 		{
 			if (index < channelLength - 1) {
 				int added = index + 1;
@@ -195,7 +202,8 @@ public class PointsData
 		 * @see PointsData#x(int)
 		 * @see PointsData#y(int)
 		 */
-		public Builder addPoint(float x, float y)
+		public Builder
+		addPoint(float x, float y)
 		{
 			/* Keep this check side-effect free. */
 			if (index >= channelLength - 1) {
@@ -220,7 +228,8 @@ public class PointsData
 		 * @see PointsData#rawTimestamp(int)
 		 * @see PointsData#timeOffset(int)
 		 */
-		public Builder setRawTimestamp(float value)
+		public Builder
+		setRawTimestamp(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -246,7 +255,8 @@ public class PointsData
 		 * @see PointsData#width(int)
 		 * @see PointsData#height(int)
 		 */
-		public Builder setRawRadius(float value)
+		public Builder
+		setRawRadius(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -272,7 +282,8 @@ public class PointsData
 		 * @see PointsData#width(int)
 		 * @see PointsData#height(int)
 		 */
-		public Builder setRawAspectRatio(short value)
+		public Builder
+		setRawAspectRatio(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -298,7 +309,8 @@ public class PointsData
 		 * @see PointsData#edgeWidth(int)
 		 * @see PointsData#lateralJitter(int)
 		 */
-		public Builder setRawEdgeWidth(short value)
+		public Builder
+		setRawEdgeWidth(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -323,7 +335,8 @@ public class PointsData
 		 * @see PointsData#rawForce(int)
 		 * @see PointsData#force(int)
 		 */
-		public Builder setRawForce(short value)
+		public Builder
+		setRawForce(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -348,7 +361,8 @@ public class PointsData
 		 * @see PointsData#rawAzimuth(int)
 		 * @see PointsData#azimuth(int)
 		 */
-		public Builder setRawAzimuth(short value)
+		public Builder
+		setRawAzimuth(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -373,7 +387,8 @@ public class PointsData
 		 * @see PointsData#rawAltitude(int)
 		 * @see PointsData#altitude(int)
 		 */
-		public Builder setRawAltitude(short value)
+		public Builder
+		setRawAltitude(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -398,7 +413,8 @@ public class PointsData
 		 * @see PointsData#rawOpacity(int)
 		 * @see PointsData#opacity(int)
 		 */
-		public Builder setRawOpacity(short value)
+		public Builder
+		setRawOpacity(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -423,7 +439,8 @@ public class PointsData
 		 * @see PointsData#rawRadius2(int)
 		 * @see PointsData#secondaryScale(int)
 		 */
-		public Builder setRawRadius2(float value)
+		public Builder
+		setRawRadius2(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -448,7 +465,8 @@ public class PointsData
 		 * @see PointsData#rawThreshold(int)
 		 * @see PointsData#threshold(int)
 		 */
-		public Builder setRawThreshold(short value)
+		public Builder
+		setRawThreshold(short value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -472,7 +490,8 @@ public class PointsData
 		 *    absent from the set passed to the constructor.
 		 * @see PointsData#rawElevation(int)
 		 */
-		public Builder setRawElevation(float value)
+		public Builder
+		setRawElevation(float value)
 		{
 			if (index < 0) {
 				throw new IllegalStateException("No point");
@@ -488,7 +507,8 @@ public class PointsData
 	/**
 	 * {@return the number of points}
 	 */
-	public int length()
+	public int
+	length()
 	{
 		return channelLength;
 	}
@@ -501,7 +521,8 @@ public class PointsData
 	 * @return the raw {@code x} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 */
-	public float rawX(int index)
+	public float
+	rawX(int index)
 	{
 		return channelX[index];
 	}
@@ -520,7 +541,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/location">-[PKStrokePoint location]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgpoint/x">CGPoint.x</a>
 	 */
-	public double x(int index)
+	public double
+	x(int index)
 	{
 		return rawX(index);
 	}
@@ -533,7 +555,8 @@ public class PointsData
 	 * @return the raw {@code y} field
 	 * @throws ArrayIndexOutOfBoundsException if {@code index} is out of bounds
 	 */
-	public float rawY(int index)
+	public float
+	rawY(int index)
 	{
 		return channelY[index];
 	}
@@ -552,7 +575,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/location">-[PKStrokePoint location]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgpoint/y">CGPoint.y</a>
 	 */
-	public double y(int index)
+	public double
+	y(int index)
 	{
 		return rawY(index);
 	}
@@ -563,7 +587,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code timestamp} channel is present
 	 */
-	public boolean hasTimestamp()
+	public boolean
+	hasTimestamp()
 	{
 		return channelTimestamp != null;
 	}
@@ -578,7 +603,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see #hasTimestamp()
 	 */
-	public float rawTimestamp(int index)
+	public float
+	rawTimestamp(int index)
 	{
 		if (channelTimestamp == null) {
 			throw new NoSuchElementException("Channel timestamp is absent");
@@ -600,7 +626,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code timestamp} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/timeoffset">-[PKStrokePoint timeOffset]</a>
 	 */
-	public double timeOffset(int index)
+	public double
+	timeOffset(int index)
 	{
 		return rawTimestamp(index);
 	}
@@ -611,7 +638,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code radius} channel is present
 	 */
-	public boolean hasRadius()
+	public boolean
+	hasRadius()
 	{
 		return channelRadius != null;
 	}
@@ -626,7 +654,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code radius} channel is absent
 	 * @see #hasRadius()
 	 */
-	public float rawRadius(int index)
+	public float
+	rawRadius(int index)
 	{
 		if (channelRadius == null) {
 			throw new NoSuchElementException("Channel radius is absent");
@@ -650,7 +679,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/width">CGSize.width</a>
 	 */
-	public double width(int index)
+	public double
+	width(int index)
 	{
 		return rawRadius(index);
 	}
@@ -672,7 +702,8 @@ public class PointsData
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/size">-[PKStrokePoint size]</a>
 	 * @see <a href="https://developer.apple.com/documentation/corefoundation/cgsize/height">CGSize.height</a>
 	 */
-	public double height(int index)
+	public double
+	height(int index)
 	{
 		return width(index) * aspectRatio(index);
 	}
@@ -683,7 +714,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code aspect_ratio} channel is present
 	 */
-	public boolean hasAspectRatio()
+	public boolean
+	hasAspectRatio()
 	{
 		return channelAspectRatio != null;
 	}
@@ -698,7 +730,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #hasAspectRatio()
 	 */
-	public int rawAspectRatio(int index)
+	public int
+	rawAspectRatio(int index)
 	{
 		if (channelAspectRatio == null) {
 			throw new NoSuchElementException("Channel aspect_ratio is absent");
@@ -720,7 +753,8 @@ public class PointsData
 	 * @see #width(int)
 	 * @see #height(int)
 	 */
-	public double aspectRatio(int index)
+	public double
+	aspectRatio(int index)
 	{
 		return (double) rawAspectRatio(index) / 1000.0;
 	}
@@ -735,7 +769,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code aspect_ratio} channel is absent
 	 * @see #rawAspectRatio(int)
 	 */
-	public Fraction aspectRatioExact(int index)
+	public Fraction
+	aspectRatioExact(int index)
 	{
 		return Fraction.of(rawAspectRatio(index), 1000);
 	}
@@ -746,7 +781,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code edge_width} channel is present
 	 */
-	public boolean hasEdgeWidth()
+	public boolean
+	hasEdgeWidth()
 	{
 		return channelEdgeWidth != null;
 	}
@@ -761,7 +797,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #hasEdgeWidth()
 	 */
-	public int rawEdgeWidth(int index)
+	public int
+	rawEdgeWidth(int index)
 	{
 		if (channelEdgeWidth == null) {
 			throw new NoSuchElementException("Channel edge_width is absent");
@@ -779,7 +816,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #lateralJitter(int)
 	 */
-	public double edgeWidth(int index)
+	public double
+	edgeWidth(int index)
 	{
 		return (double) rawEdgeWidth(index) / 10.0;
 	}
@@ -794,7 +832,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see #rawEdgeWidth(int)
 	 */
-	public Fraction edgeWidthExact(int index)
+	public Fraction
+	edgeWidthExact(int index)
 	{
 		return Fraction.of(rawEdgeWidth(index), 10);
 	}
@@ -813,7 +852,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code edge_width} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/lateraljitter">-[PKStrokePoint lateralJitter]</a>
 	 */
-	public double lateralJitter(int index)
+	public double
+	lateralJitter(int index)
 	{
 		return edgeWidth(index);
 	}
@@ -824,7 +864,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code force} channel is present
 	 */
-	public boolean hasForce()
+	public boolean
+	hasForce()
 	{
 		return channelForce != null;
 	}
@@ -839,7 +880,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see #hasForce()
 	 */
-	public int rawForce(int index)
+	public int
+	rawForce(int index)
 	{
 		if (channelForce == null) {
 			throw new NoSuchElementException("Channel force is absent");
@@ -861,7 +903,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/force">-[PKStrokePoint force]</a>
 	 */
-	public double force(int index)
+	public double
+	force(int index)
 	{
 		return (double) rawForce(index) / 1000.0;
 	}
@@ -876,7 +919,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code force} channel is absent
 	 * @see #rawForce(int)
 	 */
-	public Fraction forceExact(int index)
+	public Fraction
+	forceExact(int index)
 	{
 		return Fraction.of(rawForce(index), 1000);
 	}
@@ -887,7 +931,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code azimuth} channel is present
 	 */
-	public boolean hasAzimuth()
+	public boolean
+	hasAzimuth()
 	{
 		return channelAzimuth != null;
 	}
@@ -902,7 +947,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see #hasAzimuth()
 	 */
-	public int rawAzimuth(int index)
+	public int
+	rawAzimuth(int index)
 	{
 		if (channelAzimuth == null) {
 			throw new NoSuchElementException("Channel azimuth is absent");
@@ -928,7 +974,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/azimuth">-[PKStrokePoint azimuth]</a>
 	 */
-	public double azimuth(int index)
+	public double
+	azimuth(int index)
 	{
 		return (double) rawAzimuth(index) * (2.0 * Math.PI / 65535.0) - Math.PI;
 	}
@@ -943,7 +990,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code azimuth} channel is absent
 	 * @see #rawAzimuth(int)
 	 */
-	public Fraction azimuthExact(int index)
+	public Fraction
+	azimuthExact(int index)
 	{
 		return Fraction.of(2 * rawAzimuth(index) - 65535, 65535);
 	}
@@ -954,7 +1002,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code altitude} channel is present
 	 */
-	public boolean hasAltitude()
+	public boolean
+	hasAltitude()
 	{
 		return channelAltitude != null;
 	}
@@ -969,7 +1018,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see #hasAltitude()
 	 */
-	public int rawAltitude(int index)
+	public int
+	rawAltitude(int index)
 	{
 		if (channelAltitude == null) {
 			throw new NoSuchElementException("Channel altitude is absent");
@@ -995,7 +1045,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/altitude">-[PKStrokePoint altitude]</a>
 	 */
-	public double altitude(int index)
+	public double
+	altitude(int index)
 	{
 		return Math.PI / 2.0 - (double) rawAltitude(index) * (Math.PI / 2.0 / 65535.0);
 	}
@@ -1010,7 +1061,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code altitude} channel is absent
 	 * @see #rawAltitude(int)
 	 */
-	public Fraction altitudeExact(int index)
+	public Fraction
+	altitudeExact(int index)
 	{
 		return Fraction.of(65535 - rawAltitude(index), 65535);
 	}
@@ -1021,7 +1073,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code opacity} channel is present
 	 */
-	public boolean hasOpacity()
+	public boolean
+	hasOpacity()
 	{
 		return channelOpacity != null;
 	}
@@ -1036,7 +1089,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see #hasOpacity()
 	 */
-	public int rawOpacity(int index)
+	public int
+	rawOpacity(int index)
 	{
 		if (channelOpacity == null) {
 			throw new NoSuchElementException("Channel opacity is absent");
@@ -1059,7 +1113,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/opacity">-[PKStrokePoint opacity]</a>
 	 */
-	public double opacity(int index)
+	public double
+	opacity(int index)
 	{
 		return 2.0 * rawOpacity(index) / 65535.0;
 	}
@@ -1074,7 +1129,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code opacity} channel is absent
 	 * @see #rawOpacity(int)
 	 */
-	public Fraction opacityExact(int index)
+	public Fraction
+	opacityExact(int index)
 	{
 		return Fraction.of(2 * rawOpacity(index), 65535);
 	}
@@ -1085,7 +1141,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code radius2} channel is present
 	 */
-	public boolean hasRadius2()
+	public boolean
+	hasRadius2()
 	{
 		return channelRadius2 != null;
 	}
@@ -1100,7 +1157,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code radius2} channel is absent
 	 * @see #hasRadius2()
 	 */
-	public float rawRadius2(int index)
+	public float
+	rawRadius2(int index)
 	{
 		if (channelRadius2 == null) {
 			throw new NoSuchElementException("Channel radius2 is absent");
@@ -1124,7 +1182,8 @@ public class PointsData
 	 *    or the {@code radius} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/secondaryscale">-[PKStrokePoint secondaryScale]</a>
 	 */
-	public double secondaryScale(int index)
+	public double
+	secondaryScale(int index)
 	{
 		return (double) rawRadius2(index) / rawRadius(index);
 	}
@@ -1135,7 +1194,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code threshold} channel is present
 	 */
-	public boolean hasThreshold()
+	public boolean
+	hasThreshold()
 	{
 		return channelThreshold != null;
 	}
@@ -1150,7 +1210,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see #hasThreshold()
 	 */
-	public int rawThreshold(int index)
+	public int
+	rawThreshold(int index)
 	{
 		if (channelThreshold == null) {
 			throw new NoSuchElementException("Channel threshold is absent");
@@ -1173,7 +1234,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see <a href="https://developer.apple.com/documentation/pencilkit/pkstrokepointreference/threshold">-[PKStrokePoint threshold]</a>
 	 */
-	public double threshold(int index)
+	public double
+	threshold(int index)
 	{
 		return 2.0 * rawThreshold(index) / 65535.0;
 	}
@@ -1188,7 +1250,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code threshold} channel is absent
 	 * @see #rawThreshold(int)
 	 */
-	public Fraction thresholdExact(int index)
+	public Fraction
+	thresholdExact(int index)
 	{
 		return Fraction.of(2 * rawThreshold(index), 65535);
 	}
@@ -1199,7 +1262,8 @@ public class PointsData
 	 *
 	 * @return whether the {@code elevation} channel is present
 	 */
-	public boolean hasElevation()
+	public boolean
+	hasElevation()
 	{
 		return channelElevation != null;
 	}
@@ -1214,7 +1278,8 @@ public class PointsData
 	 * @throws NoSuchElementException if the {@code elevation} channel is absent
 	 * @see #hasElevation()
 	 */
-	public float rawElevation(int index)
+	public float
+	rawElevation(int index)
 	{
 		if (channelElevation == null) {
 			throw new NoSuchElementException("Channel elevation is absent");
@@ -1235,7 +1300,8 @@ public class PointsData
 	 *    high bits, or if the length of {@code points_data} does
 	 *    not match {@code points_count} times the computed stride
 	 */
-	public static PointsData decode(StrokeData data)
+	public static PointsData
+	decode(StrokeData data)
 	{
 		int count = data.getPointsCount();
 		int flags = data.getPointsFlags();

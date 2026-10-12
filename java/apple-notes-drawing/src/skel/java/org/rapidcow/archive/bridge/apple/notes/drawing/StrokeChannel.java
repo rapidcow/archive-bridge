@@ -9,7 +9,10 @@ package org.rapidcow.archive.bridge.apple.notes.drawing;
 /**
  * Enumeration of the optional channels in {@link PointsData}.
  */
-public enum StrokeChannel {
+public
+enum
+	StrokeChannel
+{
 	/* Declaration order is significant for
 	 * EnumSet to sort us properly.
 	 */
