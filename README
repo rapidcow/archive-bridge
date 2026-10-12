@@ -18,7 +18,7 @@ We have:
          * apple-notes-store       Top-level NoteStore.sqlite
          * apple-notes-drawing     com.apple.drawing.2 and com.apple.paper
          * apple-notes-proto       Shared Protobuf schemas
-       idevicebackup2     PLANNED
+       mobile.backup      REAL!    iOS backup
 
      tophatch.
        concepts           PLANNED  <https://concepts.app/en/>
