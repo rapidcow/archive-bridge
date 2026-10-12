@@ -14,7 +14,10 @@ We have:
    org.rapidcow.archive.bridge
 
      apple.
-       notes              REAL!
+       notes              REAL! (See components below.)
+         * apple-notes-store       Top-level NoteStore.sqlite
+         * apple-notes-drawing     com.apple.drawing.2 and com.apple.paper
+         * apple-notes-proto       Shared Protobuf schemas
        idevicebackup2     PLANNED
 
      tophatch.
