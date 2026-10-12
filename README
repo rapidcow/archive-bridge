@@ -27,8 +27,13 @@ We have:
      gingerlabs.
        notability         ???      <https://notability.com/>
      microsoft.
-       onenote            ???      /* No. */
-
+       onenote            ???      /* No. (at least, not prioritized.) */
+       windowsink         PLANNED  Ink serialized format (ISF)
+                                   <https://en.wikipedia.org/wiki/Ink_Serialized_Format>
+                                   <https://learn.microsoft.com/en-us/uwp/specifications/ink-serialized-format>
+     mscherotter.      <https://charette.com/>; also <https://journalistapp.wordpress.com/>
+       journalist         PLANNED  <https://apps.microsoft.com/detail/9wzdncrdkjj2?hl=en-US&gl=US>
+                                   This will just be a thin wrapper of windowsink's ISF.
      coacabox.
        penultimate        PLANNED, but either after i get home or
                                    after 18.7.8 is jailbreakable
