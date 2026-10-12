@@ -1,0 +1,304 @@
+why are there these case-sensitive files? ughh...
+
+(.venv) cooper@cooper Unictool_Full_Backup % python scatter.py ~/Unictool_Full_Backup/2022_03_20__14_26_14/00008030-001474691EEA802E ~/Downloads/AAAAAAHHHHHHHHH
+ERROR ('HomeDomain', 'Library/Preferences/com.apple.SpringBoard.plist')
+previously:
+  FileId 662bc19b13aecef58a7e855d0316e4cf61e2642b
+  RelativePath Library/Preferences/com.apple.springboard.plist
+  Size 12008
+  InodeNumber 84066008
+  Mode 100600
+  Flags 0
+  UserID 501
+  GroupID 501
+  Birth 1647757542
+  LastModified 1647757542
+  LastStatusChange 1647757542
+  ProtectionClass 4
+  Digest 5edfe8f060f559549036ae02dedaa7d96e0e0108
+now:
+  FileId 22e3b6f23409a50b22b33df1881b50265ea10da3
+  LastModified 1534740136
+  Flags 0
+  GroupID 501
+  LastStatusChange 1576840007
+  RelativePath Library/Preferences/com.apple.SpringBoard.plist
+  Birth 1534740136
+  Size 42
+  InodeNumber 242259
+  Mode 0o100600
+  UserID 501
+  Digest ce657a52a052a3aaf534ecfbf7cbdde4ee334c10
+  ProtectionClass 4
+ERROR ('HomeDomain', 'Library/Preferences/com.apple.Messages.plist')
+previously:
+  FileId 63c01b70a0c550ea970de8c9610858603d90f7b6
+  RelativePath Library/Preferences/com.apple.messages.plist
+  Size 62
+  InodeNumber 242366
+  Mode 100600
+  Flags 0
+  UserID 501
+  GroupID 501
+  Birth 1536661104
+  LastModified 1536661104
+  LastStatusChange 1576840007
+  ProtectionClass 4
+  Digest 79128fc1a89b7afb3add2d26c6d63eaee675b2ed
+now:
+  FileId da235146e3a17971c8340af97e3eec9b29953344
+  LastModified 1576840504
+  Flags 0
+  GroupID 501
+  LastStatusChange 1576840504
+  RelativePath Library/Preferences/com.apple.Messages.plist
+  Birth 1576840504
+  Size 121
+  InodeNumber 279332
+  Mode 0o100600
+  UserID 501
+  Digest da8b0b99ca595db58f5db85d04141799b791c921
+  ProtectionClass 4
+ERROR ('HomeDomain', 'Library/Preferences/com.apple.Preferences.plist')
+previously:
+  FileId e2a336060a14ca44d20848331a0ae143b8a98f0f
+  RelativePath Library/Preferences/com.apple.preferences.plist
+  Size 42
+  InodeNumber 242404
+  Mode 100600
+  Flags 0
+  UserID 501
+  GroupID 501
+  Birth 1534740106
+  LastModified 1534740106
+  LastStatusChange 1576840007
+  ProtectionClass 4
+  Digest ce657a52a052a3aaf534ecfbf7cbdde4ee334c10
+now:
+  FileId 36eb88809db6179b2fda77099cefce12792f0889
+  LastModified 1647757542
+  Flags 0
+  GroupID 501
+  LastStatusChange 1647757542
+  RelativePath Library/Preferences/com.apple.Preferences.plist
+  Birth 1647757542
+  Size 3624
+  InodeNumber 84066006
+  Mode 0o100600
+  UserID 501
+  Digest 62d694e960b80a84001e962416e6f5cf09a84260
+  ProtectionClass 4
+ERROR ('HomeDomain', 'Library/Preferences/com.apple.MobileSMS.plist')
+previously:
+  FileId b55c9636704956380e92128ef9566f9edfc7e54e
+  RelativePath Library/Preferences/com.apple.mobileSMS.plist
+  Size 628
+  InodeNumber 48921664
+  Mode 100600
+  Flags 0
+  UserID 501
+  GroupID 501
+  Birth 1623911128
+  LastModified 1623911128
+  LastStatusChange 1623911128
+  ProtectionClass 4
+  Digest 6d513f637ba4c68d59781ef43ef421c0a2ae5e81
+now:
+  FileId 7ff7fe545440ab72b1570232d0ed81b84a5334dd
+  LastModified 1647428918
+  Flags 0
+  GroupID 501
+  LastStatusChange 1647428918
+  RelativePath Library/Preferences/com.apple.MobileSMS.plist
+  Birth 1647428918
+  Size 21000
+  InodeNumber 83362476
+  Mode 0o100600
+  UserID 501
+  Digest a9fe471969136828c712260ce188cced086a11c3
+  ProtectionClass 4
+
+okay i repro'd this with detective.py
+
+ERROR homedomain/library/preferences/com.apple.springboard.plist
+previously:
+  LastModified 1647757542
+  Flags 0
+  GroupID 501
+  LastStatusChange 1647757542
+  RelativePath Library/Preferences/com.apple.springboard.plist
+  Birth 1647757542
+  Size 12008
+  InodeNumber 84066008
+  Mode 0o100600
+  UserID 501
+  Digest 5edfe8f060f559549036ae02dedaa7d96e0e0108
+  ProtectionClass 4
+  FileId 662bc19b13aecef58a7e855d0316e4cf61e2642b
+  Domain HomeDomain
+now:
+  FileId 22e3b6f23409a50b22b33df1881b50265ea10da3
+  Domain HomeDomain
+  LastModified 1534740136
+  Flags 0
+  GroupID 501
+  LastStatusChange 1576840007
+  RelativePath Library/Preferences/com.apple.SpringBoard.plist
+  Birth 1534740136
+  Size 42
+  InodeNumber 242259
+  Mode 0o100600
+  UserID 501
+  Digest ce657a52a052a3aaf534ecfbf7cbdde4ee334c10
+  ProtectionClass 4
+ERROR homedomain/library/preferences/com.apple.messages.plist
+previously:
+  LastModified 1536661104
+  Flags 0
+  GroupID 501
+  LastStatusChange 1576840007
+  RelativePath Library/Preferences/com.apple.messages.plist
+  Birth 1536661104
+  Size 62
+  InodeNumber 242366
+  Mode 0o100600
+  UserID 501
+  Digest 79128fc1a89b7afb3add2d26c6d63eaee675b2ed
+  ProtectionClass 4
+  FileId 63c01b70a0c550ea970de8c9610858603d90f7b6
+  Domain HomeDomain
+now:
+  FileId da235146e3a17971c8340af97e3eec9b29953344
+  Domain HomeDomain
+  LastModified 1576840504
+  Flags 0
+  GroupID 501
+  LastStatusChange 1576840504
+  RelativePath Library/Preferences/com.apple.Messages.plist
+  Birth 1576840504
+  Size 121
+  InodeNumber 279332
+  Mode 0o100600
+  UserID 501
+  Digest da8b0b99ca595db58f5db85d04141799b791c921
+  ProtectionClass 4
+ERROR homedomain/library/preferences/com.apple.preferences.plist
+previously:
+  LastModified 1534740106
+  Flags 0
+  GroupID 501
+  LastStatusChange 1576840007
+  RelativePath Library/Preferences/com.apple.preferences.plist
+  Birth 1534740106
+  Size 42
+  InodeNumber 242404
+  Mode 0o100600
+  UserID 501
+  Digest ce657a52a052a3aaf534ecfbf7cbdde4ee334c10
+  ProtectionClass 4
+  FileId e2a336060a14ca44d20848331a0ae143b8a98f0f
+  Domain HomeDomain
+now:
+  FileId 36eb88809db6179b2fda77099cefce12792f0889
+  Domain HomeDomain
+  LastModified 1647757542
+  Flags 0
+  GroupID 501
+  LastStatusChange 1647757542
+  RelativePath Library/Preferences/com.apple.Preferences.plist
+  Birth 1647757542
+  Size 3624
+  InodeNumber 84066006
+  Mode 0o100600
+  UserID 501
+  Digest 62d694e960b80a84001e962416e6f5cf09a84260
+  ProtectionClass 4
+ERROR homedomain/library/preferences/com.apple.mobilesms.plist
+previously:
+  LastModified 1623911128
+  Flags 0
+  GroupID 501
+  LastStatusChange 1623911128
+  RelativePath Library/Preferences/com.apple.mobileSMS.plist
+  Birth 1623911128
+  Size 628
+  InodeNumber 48921664
+  Mode 0o100600
+  UserID 501
+  Digest 6d513f637ba4c68d59781ef43ef421c0a2ae5e81
+  ProtectionClass 4
+  FileId b55c9636704956380e92128ef9566f9edfc7e54e
+  Domain HomeDomain
+now:
+  FileId 7ff7fe545440ab72b1570232d0ed81b84a5334dd
+  Domain HomeDomain
+  LastModified 1647428918
+  Flags 0
+  GroupID 501
+  LastStatusChange 1647428918
+  RelativePath Library/Preferences/com.apple.MobileSMS.plist
+  Birth 1647428918
+  Size 21000
+  InodeNumber 83362476
+  Mode 0o100600
+  UserID 501
+  Digest a9fe471969136828c712260ce188cced086a11c3
+  ProtectionClass 4
+ERROR appdomain-com.tencent.xin/documents/f1f2ed2df335e8d7f8747d83cee50ac2/kara
+previously:
+  LastModified 1624002118
+  Flags 0
+  GroupID 501
+  LastStatusChange 1624002118
+  RelativePath Documents/f1f2ed2df335e8d7f8747d83cee50ac2/Kara
+  Birth 1624002115
+  Size 0
+  InodeNumber 49311551
+  Mode 0o40755
+  UserID 501
+  ProtectionClass 0
+  FileId 1bba8fff54285dc6595afd46b109715686173c17
+  Domain AppDomain-com.tencent.xin
+now:
+  FileId f4005314ea4dcc30ed41eac67941e3fe9dee6162
+  Domain AppDomain-com.tencent.xin
+  LastModified 1623998676
+  Flags 0
+  GroupID 501
+  LastStatusChange 1623998676
+  RelativePath Documents/f1f2ed2df335e8d7f8747d83cee50ac2/kara
+  Birth 1585421695
+  Size 0
+  InodeNumber 14546609
+  Mode 0o40755
+  UserID 501
+  ProtectionClass 0
+ERROR appdomain-com.tencent.qqmail/documents/log
+previously:
+  LastModified 1646906261
+  Flags 0
+  GroupID 501
+  LastStatusChange 1646906261
+  RelativePath Documents/log
+  Birth 1632562464
+  Size 0
+  InodeNumber 65219137
+  Mode 0o40755
+  UserID 501
+  ProtectionClass 0
+  FileId 668172d837deacc3bd21c01e35d2bfa589e1d64d
+  Domain AppDomain-com.tencent.qqmail
+now:
+  FileId 1a01bf6ec4d8b98a55e022e893321a0a8b05c62e
+  Domain AppDomain-com.tencent.qqmail
+  LastModified 1632562464
+  Flags 0
+  GroupID 501
+  LastStatusChange 1632562464
+  RelativePath Documents/Log
+  Birth 1632562464
+  Size 0
+  InodeNumber 65219193
+  Mode 0o40755
+  UserID 501
+  ProtectionClass 0
