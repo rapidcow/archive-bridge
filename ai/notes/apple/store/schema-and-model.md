@@ -143,10 +143,13 @@ lag reality: his note query still selects `ZACCOUNT2`, which in this model
 is `ICDeviceMigrationState.account` and is NULL on all 51 notes. The full
 map for this model is in `core-data-columns.tsv`.
 
-The rule is inferred from one model (two stores). Untested: models with
-many-to-many relationships (ciofeca's iOS 11 `Z_11NOTES` suggests older
-models had one), ordered relationships (`Z_FOK_*`), and stores where the
-model cache is missing.
+The rule was first inferred from this one model. It has since held on all
+three distinct models in the archive (2020, 2024, 2026; see
+`model-survey.md`), and `ai/tools/apple-notes-store-model.py --check`
+re-verifies it on any store. Still untested: models with many-to-many
+relationships (ciofeca's iOS 11 `Z_11NOTES` suggests older models had one),
+ordered relationships (`Z_FOK_*`), and stores where the model cache is
+missing.
 
 ## Relationship graph (the parts that matter for reading notes)
 

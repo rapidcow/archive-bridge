@@ -63,6 +63,40 @@ once per bundle, when it is first opened is cheap and invisible to a user.
   changes)*. `VACUUM INTO` becomes an optional compaction, not a requirement.
   The explicit choice is passed down; the library does not decide.
 
+## Opening in place is never safe (added 2026-10-12)
+
+Two more ways an in-place open goes wrong, both seen on real stores:
+
+- **`mode=ro` still writes `-shm`.** Opening `ethan/db/notes` (writable
+  files) read-only for `VACUUM INTO` rewrote its `NoteStore.sqlite-shm`;
+  the main file and `-wal` stayed byte-identical. Only the read-only
+  `cloud-ethan-1` files were left untouched (SQLite then keeps the WAL
+  index in heap memory). Where `-shm` is missing, an open in a writable
+  directory creates one.
+- **git-annex symlinks hide the WAL.** In `~/archive/backup/takeout/...`
+  every file is a symlink to `.git/annex/objects/.../SHA256E-...`. SQLite
+  resolves the symlink *before* deriving the WAL name, so it looks for
+  `SHA256E-...-wal` next to the annex object, which never exists, and
+  silently reads the main file alone. The real `NoteStore.sqlite-wal`
+  symlink is never consulted.
+
+Copying the trio (as the probes do: `File::Copy` follows symlinks) avoids
+both. `ai/tools/apple-notes-wal-merge.py` avoids both without copying the
+WAL: it reads main + WAL as plain files and writes one merged database
+(checked against SQLite: identical `.dump` to `VACUUM INTO` on
+`cloud-ethan-1`).
+
+**A valid WAL may not belong to its database.** The WAL header refers to
+nothing in the main file, so SQLite (and the merge tool) replay any WAL
+whose own salts and checksums are intact. All four
+`main/data/Backups/Backup-2020-12-*` trios are mismatched: replaying gives
+`integrity_check` failures; two of the WALs build a fresh 55-page database
+(checkpoint sequence 0) that relies on pages not present in the 108 MB main
+file; and two backups share a byte-identical main file (annex key
+`m7/pm/...777c1e...`) with different WALs. Their main files alone are
+consistent (`quick_check` ok). So run `integrity_check` after folding in a
+WAL, and fall back to the main file alone, with a warning, when it fails.
+
 ## Limits
 
 - One small synthetic database, not Apple's files.
