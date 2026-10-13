@@ -1,61 +1,61 @@
-rapidcow@RCs-MacBook-Pro $ softwareupdate --history
+rapidcow@RCs-MacBook-Pro $ TZ=UTC softwareupdate --history
 Display Name                                       Version    Date                  
 ------------                                       -------    ----                  
-Safari                                             13.0.3     11/01/2019, 07:48:07  
-Security Update 2019-001                           10.14.6    11/01/2019, 08:41:16  
-Command Line Tools for Xcode                       11.0       03/28/2020, 03:26:39  
-Command Line Tools for Xcode                       11.4       03/28/2020, 03:26:39  
-Safari                                             14.0       09/19/2020, 00:57:06  
-macOS Big Sur 11.1 Update                          11.1       01/03/2021, 13:23:41  
-macOS Big Sur                                      11.2.1     02/12/2021, 18:32:29  
-macOS Big Sur 11.2.2                               11.2.2     03/08/2021, 09:23:06  
-macOS Big Sur 11.2.3                               11.2.3     03/27/2021, 13:07:25  
-macOS Big Sur 11.4                                 11.4       06/17/2021, 00:00:42  
-macOS Big Sur 11.6                                 11.6       10/05/2021, 05:17:17  
-Device Support Update                                         12/22/2021, 00:24:00  
-Safari                                             15.2       12/22/2021, 00:24:00  
-macOS Big Sur 11.6.2                               11.6.2     01/18/2022, 06:09:06  
-Safari                                             15.4       03/31/2022, 13:01:45  
-Command Line Tools for Xcode                       12.4       05/21/2022, 10:17:23  
-Command Line Tools for Xcode                       13.2       05/21/2022, 10:17:23  
-Command Line Tools for Xcode                       12.5       05/21/2022, 10:17:23  
-Command Line Tools for Xcode                       12.5       05/21/2022, 10:17:23  
-Command Line Tools for Xcode                       12.4       05/25/2022, 18:19:35  
-Command Line Tools for Xcode                       13.2       05/25/2022, 18:19:35  
-Safari                                             15.5       05/25/2022, 18:19:35  
-Command Line Tools for Xcode                       12.5       05/25/2022, 18:19:35  
-Command Line Tools for Xcode                       12.5       05/25/2022, 18:19:35  
-macOS 12.4                                         12.4       06/20/2022, 03:21:07  
-Command Line Tools for Xcode                       13.2       06/20/2022, 10:38:57  
-Command Line Tools for Xcode                       13.3       06/20/2022, 10:38:57  
-Command Line Tools for Xcode                       13.4       06/20/2022, 10:38:57  
-Command Line Tools beta 4 for Xcode                13.0       06/20/2022, 10:38:57  
-Command Line Tools for Xcode                       13.2       06/21/2022, 03:56:41  
-Command Line Tools for Xcode                       13.3       06/21/2022, 03:56:41  
-Command Line Tools for Xcode                       13.4       06/21/2022, 03:56:41  
-Command Line Tools for Xcode                       14.2       05/02/2023, 12:16:23  
-macOS Monterey 12.6.5                              12.6.5     05/02/2023, 12:21:08  
-Safari                                             16.4.1     05/03/2023, 12:15:40  
-macOS Ventura 13.3.1                               13.3.1     05/15/2023, 22:46:23  
-macOS Security Response 13.3.1 (a)                 13.3.1 (a) 05/16/2023, 02:11:08  
-Command Line Tools for Xcode                       14.2       05/17/2023, 03:50:21  
-Command Line Tools for Xcode                       14.3       05/17/2023, 03:50:21  
-Command Line Tools for Xcode                       14.2       05/28/2023, 00:01:21  
-Command Line Tools for Xcode                       14.3       05/28/2023, 00:01:21  
-macOS Ventura 13.4                                 13.4       05/28/2023, 00:02:05  
-Command Line Tools for Xcode                       14.3       07/15/2023, 22:17:51  
-macOS Ventura 13.4.1                               13.4.1     07/15/2023, 22:18:19  
-macOS Security Response 13.4.1 (c)                 13.4.1 (c) 07/16/2023, 13:28:28  
-macOS Sonoma 14.0                                  14.0       10/03/2023, 16:00:49  
-Command Line Tools for Xcode                       15.0       10/04/2023, 08:26:47  
-Command Line Tools for Xcode                       15.1       12/30/2023, 02:45:46  
-macOS Sonoma 14.2.1                                14.2.1     12/30/2023, 02:46:26  
-macOS Sequoia 15.4                                 15.4       04/12/2025, 09:03:01  
-Command Line Tools for Xcode                       16.3       05/23/2025, 02:51:28  
-macOS Sequoia 15.5                                 15.5       05/23/2025, 03:52:25  
-Command Line Tools for Xcode                       16.4       05/30/2025, 11:05:20  
-macOS Sequoia 15.6                                 15.6       08/18/2025, 20:33:30  
-macOS Sequoia 15.6.1                               15.6.1     08/21/2025, 01:07:05  
-Safari                                             26.4       04/11/2026, 03:58:34  
-macOS Sequoia 15.7.5                               15.7.5     04/11/2026, 04:12:34  
-macOS Sequoia 15.7.7                               15.7.7     05/30/2026, 01:46:17  
+Safari                                             13.0.3     11/01/2019, 12:48:07  
+Security Update 2019-001                           10.14.6    11/01/2019, 13:41:16  
+Command Line Tools for Xcode                       11.0       03/28/2020, 08:26:39  
+Command Line Tools for Xcode                       11.4       03/28/2020, 08:26:39  
+Safari                                             14.0       09/19/2020, 05:57:06  
+macOS Big Sur 11.1 Update                          11.1       01/03/2021, 19:23:41  
+macOS Big Sur                                      11.2.1     02/13/2021, 00:32:29  
+macOS Big Sur 11.2.2                               11.2.2     03/08/2021, 15:23:06  
+macOS Big Sur 11.2.3                               11.2.3     03/27/2021, 18:07:25  
+macOS Big Sur 11.4                                 11.4       06/17/2021, 05:00:42  
+macOS Big Sur 11.6                                 11.6       10/05/2021, 10:17:17  
+Device Support Update                                         12/22/2021, 06:24:00  
+Safari                                             15.2       12/22/2021, 06:24:00  
+macOS Big Sur 11.6.2                               11.6.2     01/18/2022, 12:09:06  
+Safari                                             15.4       03/31/2022, 18:01:45  
+Command Line Tools for Xcode                       12.4       05/21/2022, 15:17:23  
+Command Line Tools for Xcode                       13.2       05/21/2022, 15:17:23  
+Command Line Tools for Xcode                       12.5       05/21/2022, 15:17:23  
+Command Line Tools for Xcode                       12.5       05/21/2022, 15:17:23  
+Command Line Tools for Xcode                       12.4       05/25/2022, 23:19:35  
+Command Line Tools for Xcode                       13.2       05/25/2022, 23:19:35  
+Safari                                             15.5       05/25/2022, 23:19:35  
+Command Line Tools for Xcode                       12.5       05/25/2022, 23:19:35  
+Command Line Tools for Xcode                       12.5       05/25/2022, 23:19:35  
+macOS 12.4                                         12.4       06/20/2022, 08:21:07  
+Command Line Tools for Xcode                       13.2       06/20/2022, 15:38:57  
+Command Line Tools for Xcode                       13.3       06/20/2022, 15:38:57  
+Command Line Tools for Xcode                       13.4       06/20/2022, 15:38:57  
+Command Line Tools beta 4 for Xcode                13.0       06/20/2022, 15:38:57  
+Command Line Tools for Xcode                       13.2       06/21/2022, 08:56:41  
+Command Line Tools for Xcode                       13.3       06/21/2022, 08:56:41  
+Command Line Tools for Xcode                       13.4       06/21/2022, 08:56:41  
+Command Line Tools for Xcode                       14.2       05/02/2023, 17:16:23  
+macOS Monterey 12.6.5                              12.6.5     05/02/2023, 17:21:08  
+Safari                                             16.4.1     05/03/2023, 17:15:40  
+macOS Ventura 13.3.1                               13.3.1     05/16/2023, 03:46:23  
+macOS Security Response 13.3.1 (a)                 13.3.1 (a) 05/16/2023, 07:11:08  
+Command Line Tools for Xcode                       14.2       05/17/2023, 08:50:21  
+Command Line Tools for Xcode                       14.3       05/17/2023, 08:50:21  
+Command Line Tools for Xcode                       14.2       05/28/2023, 05:01:21  
+Command Line Tools for Xcode                       14.3       05/28/2023, 05:01:21  
+macOS Ventura 13.4                                 13.4       05/28/2023, 05:02:05  
+Command Line Tools for Xcode                       14.3       07/16/2023, 03:17:51  
+macOS Ventura 13.4.1                               13.4.1     07/16/2023, 03:18:19  
+macOS Security Response 13.4.1 (c)                 13.4.1 (c) 07/16/2023, 18:28:28  
+macOS Sonoma 14.0                                  14.0       10/03/2023, 21:00:49  
+Command Line Tools for Xcode                       15.0       10/04/2023, 13:26:47  
+Command Line Tools for Xcode                       15.1       12/30/2023, 08:45:46  
+macOS Sonoma 14.2.1                                14.2.1     12/30/2023, 08:46:26  
+macOS Sequoia 15.4                                 15.4       04/12/2025, 14:03:01  
+Command Line Tools for Xcode                       16.3       05/23/2025, 07:51:28  
+macOS Sequoia 15.5                                 15.5       05/23/2025, 08:52:25  
+Command Line Tools for Xcode                       16.4       05/30/2025, 16:05:20  
+macOS Sequoia 15.6                                 15.6       08/19/2025, 01:33:30  
+macOS Sequoia 15.6.1                               15.6.1     08/21/2025, 06:07:05  
+Safari                                             26.4       04/11/2026, 08:58:34  
+macOS Sequoia 15.7.5                               15.7.5     04/11/2026, 09:12:34  
+macOS Sequoia 15.7.7                               15.7.7     05/30/2026, 06:46:17  

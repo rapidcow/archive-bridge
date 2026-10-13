@@ -1,5 +1,5 @@
-rapidcow@RCs-Mac-mini $ softwareupdate --history
+rapidcow@RCs-Mac-mini $ TZ=UTC softwareupdate --history
 Display Name                                       Version    Date                  
 ------------                                       -------    ----                  
-Command Line Tools for Xcode                       16.4       09/29/2026, 14:44:56  
-macOS Sequoia 15.8.1                               15.8.1     10/02/2026, 01:36:12  
+Command Line Tools for Xcode                       16.4       09/29/2026, 19:44:56  
+macOS Sequoia 15.8.1                               15.8.1     10/02/2026, 06:36:12  
