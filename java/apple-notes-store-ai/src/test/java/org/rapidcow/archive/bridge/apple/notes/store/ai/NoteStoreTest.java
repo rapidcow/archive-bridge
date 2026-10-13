@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store;
+package org.rapidcow.archive.bridge.apple.notes.store.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,11 +19,6 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
-import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStore;
-import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreRow;
-import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreEntity;
-import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreException;
 
 /**
  * Tests against the empty store fixture: a freshly set-up Notes account

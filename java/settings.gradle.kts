@@ -11,9 +11,14 @@ plugins {
 }
 
 rootProject.name = "archive-bridge"
+
+/* LGPLv3+ modules */
 include("apple-mobile-backup")
 include("apple-notes-drawing")
 include("apple-notes-proto")
-include("apple-notes-store")
 
+/* GPLv3+ modules */
 include("apple-mobile-backup-script")
+
+/* no copyright */
+include("apple-notes-store-ai")
