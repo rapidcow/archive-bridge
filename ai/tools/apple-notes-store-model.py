@@ -21,6 +21,10 @@ Usage:
   apple-notes-store-model.py DB --columns   Z_ENT, entity, property, table.column (TSV)
   apple-notes-store-model.py DB --check     compare derived columns with pragma table_info
                                             (exit 1 on any mismatch)
+  apple-notes-store-model.py DB --compare MOM
+                                            compare the store's cached model with a
+                                            compiled model, e.g. NotesShared.framework/
+                                            Resources/NoteData.mom (exit 1 if they differ)
 Several commands may be combined; with none, --meta --check.
 """
 
@@ -87,9 +91,16 @@ Entity = collections.namedtuple('Entity', 'name superentity abstract class_name 
 
 
 def read_model(con):
-	"""Returns {entity name: Entity}. Properties include inherited ones, as archived."""
+	"""Returns {entity name: Entity} from the store's Z_MODELCACHE."""
 	blob = con.execute('SELECT Z_CONTENT FROM Z_MODELCACHE').fetchone()[0]
-	ar = KeyedArchive(zlib.decompress(blob, -15))
+	return parse_model(zlib.decompress(blob, -15))
+
+
+def parse_model(data):
+	"""Returns {entity name: Entity} from an archived NSManagedObjectModel
+	(Z_MODELCACHE after inflating, or a compiled .mom file as is).
+	Properties include inherited ones, as archived."""
+	ar = KeyedArchive(data)
 	def members(v):
 		v = ar.value(v)
 		return list(v.values()) if isinstance(v, dict) else v
@@ -149,13 +160,46 @@ def derive_columns(entities, entity_numbers):
 	return out
 
 
+def compare_models(a, b):
+	"""Structural differences between two models, 'store' = a, 'mom' = b.
+	Ignores class names, indexes, user info and the like (as Core Data's
+	version hashes do)."""
+	def declared(m, n):
+		# A compiled .mom lists only an entity's own properties; the cache
+		# also repeats inherited ones. Compare what each entity declares.
+		sup = m[n].superentity
+		inherited = {p.name for p in m[sup].properties} if sup else set()
+		return {p.name: p for p in m[n].properties if p.name not in inherited}
+	out = []
+	for n in sorted(set(a) | set(b)):
+		if n not in b:
+			out.append('entity only in store: %s' % n)
+			continue
+		if n not in a:
+			out.append('entity only in mom:   %s' % n)
+			continue
+		if (a[n].superentity, a[n].abstract) != (b[n].superentity, b[n].abstract):
+			out.append('%s: superentity/abstract %s vs %s' % (n, (a[n].superentity, a[n].abstract), (b[n].superentity, b[n].abstract)))
+		pa = declared(a, n)
+		pb = declared(b, n)
+		for p in sorted(set(pa) | set(pb)):
+			if p not in pb:
+				out.append('%s.%s only in store' % (n, p))
+			elif p not in pa:
+				out.append('%s.%s only in mom' % (n, p))
+			elif pa[p] != pb[p]:
+				out.append('%s.%s: %s vs %s' % (n, p, pa[p], pb[p]))
+	return out
+
+
 def main():
 	ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 	ap.add_argument('db')
 	for c in ('meta', 'model', 'columns', 'check'):
 		ap.add_argument('--' + c, action='store_true')
+	ap.add_argument('--compare', metavar='MOM')
 	args = ap.parse_args()
-	if not (args.meta or args.model or args.columns or args.check):
+	if not (args.meta or args.model or args.columns or args.check or args.compare):
 		args.meta = args.check = True
 
 	con = connect(args.db)
@@ -177,6 +221,14 @@ def main():
 				else:
 					print('   rel  %-40s -> %s (inverse %s, %s, delete %s)' % (p.name, p.destination, p.inverse,
 							'to-one' if p.max_count == 1 else 'to-many', p.delete_rule))
+	if args.compare:
+		with open(args.compare, 'rb') as f:
+			other = parse_model(f.read())
+		differences = compare_models(entities, other)
+		for d in differences:
+			print(d)
+		print('compare: %s' % ('differ (%d)' % len(differences) if differences else 'same entities, properties, types and relationships'))
+		status = 1 if differences else status
 	columns = derive_columns(entities, numbers)
 	if args.columns:
 		for row in columns:
