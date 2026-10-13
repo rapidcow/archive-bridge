@@ -85,7 +85,7 @@ Archived classes and the keys that matter:
 
 Decoding it takes a bplist reader, UID dereferencing, and handling of
 `NSArray`/`NSDictionary`/`NSKnownKeysDictionary1`; nothing is
-Objective-C-specific. The decoded model is in `model-eFiI-entities.txt`.
+Objective-C-specific. The decoded model is in `core-data-model.txt`.
 
 ## Entities -> tables (single-table inheritance)
 
@@ -141,7 +141,7 @@ columns (`ZATTRIBUTEDSNIPPET` => iOS 26, `ZUNAPPLIEDENCRYPTEDRECORDDATA`
 => 18, ...) and hard-coding a per-version suffix table. That table can
 lag reality: his note query still selects `ZACCOUNT2`, which in this model
 is `ICDeviceMigrationState.account` and is NULL on all 51 notes. The full
-map for this model is in `model-eFiI-columns.tsv`.
+map for this model is in `core-data-columns.tsv`.
 
 The rule is inferred from one model (two stores). Untested: models with
 many-to-many relationships (ciofeca's iOS 11 `Z_11NOTES` suggests older

@@ -1,4 +1,4 @@
-# Core Data model decoded from Z_MODELCACHE (NSStoreModelVersionHashesDigest eFiI+OaI3aU7...)
+# Core Data model decoded from Z_MODELCACHE of the samples whose NSStoreModelVersionHashesDigest is "eFiI+OaI3aU7Agl8...yg==" (base64 of a 64-byte hash)
 # Identical in ethan/db/notes and cloud-ethan-1 apart from NSClassNameForEntity (archived only in cloud).
 # Lists inherited properties under each subentity too. See schema-and-model.md.
 # attr: name type transformer valueClass optional | rel: name destination inverse minCount maxCount(0=to-many) deleteRule optional
