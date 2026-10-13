@@ -25,8 +25,19 @@ java {
     }
 }
 
+// Annex fixtures are read directly by tests. Do not let processTestResources
+// snapshot or copy dangling links when their content has not been fetched.
+sourceSets.test {
+    resources.exclude("fixtures/**")
+}
+
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    val storeFixture = file(providers.gradleProperty("notesStoreFixture")
+        .getOrElse("src/test/resources/fixtures/macOS/sequoia/fresh/NoteStore.sqlite"))
+    systemProperty("bridge.appleNotesStore.fixture", storeFixture.absolutePath)
+    inputs.files(provider { if (storeFixture.isFile) listOf(storeFixture) else emptyList() })
+        .withPropertyName("optionalStoreFixture")
 }
 
 // Resolve each dependency's documentation using its generated element-list.

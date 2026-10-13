@@ -2,7 +2,7 @@ package org.rapidcow.ai.archive.bridge.apple.notes.store;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,7 +25,8 @@ import org.junit.jupiter.api.io.TempDir;
  * with no notes, whose database is a standalone file (no WAL).
  */
 class NoteStoreTest {
-	private static final String FIXTURE = "/fixtures/macOS/sequoia/fresh/NoteStore.sqlite";
+	private static final Path FIXTURE = Path.of(System.getProperty("bridge.appleNotesStore.fixture",
+			"src/test/resources/fixtures/macOS/sequoia/fresh/NoteStore.sqlite"));
 
 	@TempDir
 	Path dir;
@@ -33,9 +34,9 @@ class NoteStoreTest {
 
 	@BeforeEach
 	void copyFixture() throws IOException {
+		assumeTrue(Files.isRegularFile(FIXTURE), "Optional annex fixture unavailable");
 		db = dir.resolve("NoteStore.sqlite");
-		try (InputStream in = NoteStoreTest.class.getResourceAsStream(FIXTURE)) {
-			assertNotNull(in, "missing test resource " + FIXTURE);
+		try (InputStream in = Files.newInputStream(FIXTURE)) {
 			Files.copy(in, db, StandardCopyOption.REPLACE_EXISTING);
 		}
 	}

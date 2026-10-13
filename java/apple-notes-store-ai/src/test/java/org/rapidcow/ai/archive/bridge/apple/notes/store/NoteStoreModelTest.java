@@ -2,7 +2,7 @@ package org.rapidcow.ai.archive.bridge.apple.notes.store;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,7 +35,8 @@ import com.dd.plist.NSString;
  * read independently with Python's sqlite3, plistlib and zlib.
  */
 class NoteStoreModelTest {
-	private static final String FIXTURE = "/fixtures/macOS/sequoia/fresh/NoteStore.sqlite";
+	private static final Path FIXTURE = Path.of(System.getProperty("bridge.appleNotesStore.fixture",
+			"src/test/resources/fixtures/macOS/sequoia/fresh/NoteStore.sqlite"));
 	private static final String SEQUOIA_DIGEST =
 			"eFiI+OaI3aU7Agl8qoeAA365gbOMQ0PCuVnwa+xpv49wCRyslSf3uFUP388CoHMKbg8fMbjKpr6ovHB7hAdkyg==";
 
@@ -45,9 +46,9 @@ class NoteStoreModelTest {
 
 	@BeforeEach
 	void copyFixture() throws IOException {
+		assumeTrue(Files.isRegularFile(FIXTURE), "Optional annex fixture unavailable");
 		db = dir.resolve("NoteStore.sqlite");
-		try (InputStream in = NoteStoreModelTest.class.getResourceAsStream(FIXTURE)) {
-			assertNotNull(in, "missing test resource " + FIXTURE);
+		try (InputStream in = Files.newInputStream(FIXTURE)) {
 			Files.copy(in, db, StandardCopyOption.REPLACE_EXISTING);
 		}
 	}
