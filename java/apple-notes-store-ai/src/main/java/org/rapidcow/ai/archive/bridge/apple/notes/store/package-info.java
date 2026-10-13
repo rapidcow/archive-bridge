@@ -1,12 +1,12 @@
 /**
  * NoteStore.sqlite reader (LLM-generated). {@link
- * org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStore} opens a store
+ * org.rapidcow.ai.archive.bridge.apple.notes.store.NoteStore} opens a store
  * read-only and streams rows of its Core Data entities; {@link
- * org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreModel} hands
+ * org.rapidcow.ai.archive.bridge.apple.notes.store.NoteStoreModel} hands
  * out the model the store records about itself ({@code Z_METADATA},
  * {@code Z_MODELCACHE}) without interpreting it. Drawing attachments are
  * to be read via {@link
- * org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreDrawings}
+ * org.rapidcow.ai.archive.bridge.apple.notes.store.NoteStoreDrawings}
  * (a stub so far) and decoded by {@link
  * org.rapidcow.archive.bridge.apple.notes.drawing}.
  */
