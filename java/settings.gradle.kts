@@ -22,3 +22,5 @@ include("apple-mobile-backup-script")
 
 /* no copyright */
 include("apple-notes-store-ai")
+include("microsoft-windowsink-ai")
+include("mscherotter-journalist-ai")
