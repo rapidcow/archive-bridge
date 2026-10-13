@@ -10,4 +10,4 @@
  * (a stub so far) and decoded by {@link
  * org.rapidcow.archive.bridge.apple.notes.drawing}.
  */
-package org.rapidcow.archive.bridge.apple.notes.store.ai;
+package org.rapidcow.ai.archive.bridge.apple.notes.store;

@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store.ai;
+package org.rapidcow.ai.archive.bridge.apple.notes.store;
 
 /**
  * A handle to one row of a {@link NoteStore}.

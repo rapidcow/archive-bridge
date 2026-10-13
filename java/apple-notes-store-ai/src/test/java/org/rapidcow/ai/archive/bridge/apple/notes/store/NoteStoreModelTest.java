@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store.ai;
+package org.rapidcow.ai.archive.bridge.apple.notes.store;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store.ai;
+package org.rapidcow.ai.archive.bridge.apple.notes.store;
 
 /**
  * A Core Data entity, as declared in the {@code Z_PRIMARYKEY} table of a
