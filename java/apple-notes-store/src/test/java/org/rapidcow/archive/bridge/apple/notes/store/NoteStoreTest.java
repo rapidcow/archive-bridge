@@ -20,6 +20,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStore;
+import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreRow;
+import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreEntity;
+import org.rapidcow.archive.bridge.apple.notes.store.ai.NoteStoreException;
+
 /**
  * Tests against the empty store fixture: a freshly set-up Notes account
  * with no notes, whose database is a standalone file (no WAL).

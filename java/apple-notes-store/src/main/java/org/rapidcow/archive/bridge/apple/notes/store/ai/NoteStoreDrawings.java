@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store;
+package org.rapidcow.archive.bridge.apple.notes.store.ai;
 
 /**
  * Reads {@code com.apple.drawing.2} ink markup attachments out of a

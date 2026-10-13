@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store;
+package org.rapidcow.archive.bridge.apple.notes.store.ai;
 
 /**
  * Thrown when a {@code NoteStore.sqlite} cannot be opened or read, or does

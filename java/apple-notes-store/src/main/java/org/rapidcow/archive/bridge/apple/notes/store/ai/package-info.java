@@ -5,4 +5,4 @@
  * interpretation - see {@link
  * org.rapidcow.archive.bridge.apple.notes.store.NoteStoreDrawings}.
  */
-package org.rapidcow.archive.bridge.apple.notes.store;
+package org.rapidcow.archive.bridge.apple.notes.store.ai;

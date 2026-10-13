@@ -1,4 +1,4 @@
-package org.rapidcow.archive.bridge.apple.notes.store;
+package org.rapidcow.archive.bridge.apple.notes.store.ai;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
