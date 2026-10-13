@@ -108,28 +108,31 @@ Every entry found coincides with an OS update in `info/macOS` (all UTC):
 No migration string lacks its transaction (none were pruned).
 
 Catalina on the MBP, from System Information (UTC, converted by the
-user): 10.15.1 installed 2019-10-29 23:04 and again 2019-11-01 12:21. The
-store's history begins 2019-10-25 05:22, so the store predates both. No
-migration is logged at the first install; the `Dv3` one follows the
-second by 2h18m. That fits the user's account (an upgrade attempt that
-went wrong, then a reinstall with Apple support's help) if the 10-29
-install did not take and the 11-01 one did. If so, `Dv3` is the model
-the store had before Catalina, i.e. Mojave's. Inference; the store does
-not record the OS.
+user): 10.15.1 installed 2019-10-29 23:04 and again 2019-11-01 12:21.
+The store itself starts on **2019-10-25 05:22:23**: its first transaction
+is by `com.apple.accountsd` (the iCloud account being added), and this
+Mac's own `ICDeviceMigrationState` row has the same timestamp (the other
+six rows, dated 2018-08 to 2019-11, are other devices, synced down). The
+initial sync follows on 10-26 (1,317 transactions), and writes continue
+daily across both Catalina installs. So the store was created on this
+Mac on 10-25, after the reset the user describes, and was never erased
+afterwards.
 
-**A logged migration does not mean the model changed.** The source digest
-can equal the store's digest afterwards: the Mac mini store migrated "from
-`eFiI`" at 15.8.1 and is still `eFiI`; both 2024 stores migrated "from
-`jaiz`" at Sonoma 14.0 and were still `jaiz` in March 2024. Something
-other than the hashed app model (Core Data's own history schema, see
-`_NSStoreAncillaryModelVersionHashesMetadataKey` in `Z_METADATA`; or
-indexes) presumably triggers these. Not verified.
+The store's schema always comes from the Notes installed locally, never
+from iCloud: CloudKit carries records, not the Core Data model. So `Dv3`
+is the model of whatever OS ran on 2019-10-25. The install history does
+not say which: its first Catalina entry is 10-29, but the reset may well
+have installed an OS that the history does not list. The user recalls the
+Mac being on Catalina right after the reset; if so, `Dv3` is a Catalina
+model too, and the 2019-11-01 migration is Catalina to Catalina (possibly
+same-digest, like those below). No migration is logged at the 10-29
+install.
 
 Read as "model in use before this update", the log gives a chain:
 
 | digest | in use (MBP unless noted) |
 |---|---|
-| `Dv3/...` | before 2019-11-01, probably Mojave (see above) |
+| `Dv3/...` | from store creation (2019-10-25) to 2019-11-01; OS not recorded, likely Catalina (see above) |
 | `VRpS` | Catalina (to 2020-11-14) and, per the backups, Big Sur 11.0.1 through 2020-12-25 |
 | `Ouhkd...` | before Big Sur 11.4 (2021-06-17) |
 | `Yxs2z...` | before macOS 12.4 (2022-06-20), i.e. Big Sur 11.4-11.6.2 (the MBP skipped 12.0-12.3) |
