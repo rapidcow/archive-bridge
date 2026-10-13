@@ -1,0 +1,28 @@
+ethan@cooper $ softwareupdate --history
+Display Name                                       Version    Date                  
+------------                                       -------    ----                  
+Command Line Tools for Xcode                       13.2       2022/01/07, 19:53:13  
+Command Line Tools for Xcode                       13.3       2022/03/25, 20:58:06  
+Command Line Tools for Xcode                       13.3       2022/04/17, 14:03:59  
+macOS Monterey 12.3.1                             12.3.1     2022/04/17, 14:05:26  
+Command Line Tools for Xcode                       13.4       2022/05/15, 22:03:18  
+macOS Monterey 12.4                               12.4       2022/06/03, 13:03:20  
+Command Line Tools for Xcode                       14.0       2022/09/18, 22:08:16  
+macOS Monterey 12.6                               12.6       2022/09/24, 17:01:42  
+Safari浏览器                                    16.0       2022/09/27, 19:49:17  
+Safari浏览器                                    16.1       2022/11/06, 00:50:42  
+Command Line Tools for Xcode                       14.1       2022/11/06, 00:50:42  
+Command Line Tools for Xcode                       14.2       2023/02/12, 20:34:58  
+Safari浏览器                                    16.3       2023/02/12, 20:34:58  
+macOS Ventura 13.5                                13.5       2023/08/12, 19:03:00  
+Command Line Tools for Xcode                       14.2       2023/08/12, 21:18:52  
+Command Line Tools for Xcode                       14.3       2023/08/12, 21:18:52  
+macOS Sonoma 14.0                                  14.0       2023/10/04, 09:25:02  
+Command Line Tools for Xcode                       15.0       2023/10/14, 23:55:30  
+macOS Sonoma 14.1.1                                14.1.1     2023/11/20, 02:17:19  
+Command Line Tools for Xcode                       15.3       2024/05/06, 02:24:31  
+macOS Sonoma 14.5 Beta 4                           14.5       2024/05/06, 02:26:21  
+macOS Tahoe 26.5.2                                 26.5.2     2026/07/19, 04:57:46  
+Command Line Tools for Xcode 26.5                  26.5       2026/08/22, 17:18:29  
+Command Line Tools for Xcode 26.6                  26.6       2026/08/22, 17:18:29  
+macOS Tahoe 26.6.2                                 26.6.2     2026/09/08, 04:08:21  
