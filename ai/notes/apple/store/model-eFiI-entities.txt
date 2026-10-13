@@ -1,0 +1,652 @@
+# Core Data model decoded from Z_MODELCACHE (NSStoreModelVersionHashesDigest eFiI+OaI3aU7...)
+# Identical in ethan/db/notes and cloud-ethan-1 apart from NSClassNameForEntity (archived only in cloud).
+# Lists inherited properties under each subentity too. See schema-and-model.md.
+# attr: name type transformer valueClass optional | rel: name destination inverse minCount maxCount(0=to-many) deleteRule optional
+versionIdentifiers [''] fetchTemplates None
+
+## ICAccount : ICNoteContainer abstract=None vhm=None ui={} uniq=None
+   attr accountNameForAccountListSorting string None NSString True
+   attr accountType int32 None NSNumber None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoVerifier binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr dateHeadersType int32 None NSNumber None
+   attr didChooseToMigrate bool None NSNumber True
+   attr didFinishMigration bool None NSNumber True
+   attr didMigrateOnMac bool None NSNumber True
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isHiddenNoteContainer bool None NSNumber True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr lastSyncDate date None NSDate True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr name string None NSString True
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr nestedTitleForSorting string None NSString True
+   attr passwordHint string None NSString True
+   attr replicaIDToBundleIdentifier transformable NSSecureUnarchiveFromData None True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr serverSideUpdateTaskContinuationToken binary None NSData True
+   attr serverSideUpdateTaskFailureCount int16 None NSNumber True
+   attr serverSideUpdateTaskLastAttemptedBuild string None NSString True
+   attr serverSideUpdateTaskLastAttemptedVersion string None NSString True
+   attr serverSideUpdateTaskLastCompletedBuild string None NSString True
+   attr serverSideUpdateTaskLastCompletedVersion string None NSString True
+   attr sortOrder int32 None NSNumber True
+   attr storeDataSeparately bool None NSNumber True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userRecordName string None NSString True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel accountData ICAccountData account 0 1 cascade True
+   rel attachments ICAttachment account 0 0 cascade True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel deviceMigrationStates ICDeviceMigrationState account 0 0 cascade True
+   rel folders ICFolder account 0 0 cascade True
+   rel hashtags ICHashtag account 0 0 cascade True
+   rel inlineAttachments ICInlineAttachment account 0 0 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+   rel invitations ICInvitation account 0 0 cascade True
+   rel legacyTombstones ICLegacyTombstone account 0 0 cascade True
+   rel media ICMedia account 0 0 cascade True
+   rel notes ICNote account 0 0 cascade True
+   rel owner ICAccount ownerInverse 0 1 nullify None
+   rel ownerInverse ICNoteContainer owner 0 0 cascade True
+   rel serverChangeTokens ICServerChangeToken account 0 0 cascade True
+
+## ICAccountData : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoPassphraseVerifier binary None NSData True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr lockedNotesMode int16 None NSNumber None
+   attr markedForDeletion bool None NSNumber None
+   attr mergeableData binary None NSData True
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr supportsV1Neo bool None NSNumber True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount accountData 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICAttachment : ICCloudSyncingObject abstract=None vhm=ForceMigrate1.0b20to1.0b21 ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr additionalIndexableText string None NSString True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr checkedForLocation bool None NSNumber True
+   attr creationDate date None NSDate True
+   attr croppingQuadBottomLeftX double None NSNumber True
+   attr croppingQuadBottomLeftY double None NSNumber True
+   attr croppingQuadBottomRightX double None NSNumber True
+   attr croppingQuadBottomRightY double None NSNumber True
+   attr croppingQuadTopLeftX double None NSNumber True
+   attr croppingQuadTopLeftY double None NSNumber True
+   attr croppingQuadTopRightX double None NSNumber True
+   attr croppingQuadTopRightY double None NSNumber True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr didRunPaperFormDetection bool None NSNumber True
+   attr duration double None NSNumber True
+   attr encryptedValuesJSON binary None NSData True
+   attr fallbackImageCryptoInitializationVector binary None NSData True
+   attr fallbackImageCryptoTag binary None NSData True
+   attr fallbackImageGeneration string None NSString True
+   attr fallbackPDFCryptoInitializationVector binary None NSData True
+   attr fallbackPDFCryptoTag binary None NSData True
+   attr fallbackPDFGeneration string None NSString True
+   attr fallbackSubtitleIOS string None NSString True
+   attr fallbackSubtitleMac string None NSString True
+   attr fallbackTitle string None NSString True
+   attr fileSize int64 None NSNumber True
+   attr handwritingSummary string None NSString True
+   attr handwritingSummaryVersion int16 None NSNumber True
+   attr hasMarkupData bool None NSNumber True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr hasPaperForm bool None NSNumber True
+   attr identifier string None NSString True
+   attr imageClassificationSummary string None NSString True
+   attr imageClassificationSummaryVersion int16 None NSNumber True
+   attr imageFilterType int16 None NSNumber True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr linkPresentationArchivedMetadata binary None NSData True
+   attr markedForDeletion bool None NSNumber None
+   attr markupModelData binary None NSData True
+   attr mergeableData binary None NSData True
+   attr mergeablePreferredViewSize binary ICTTMergeableWallClockValueTransformer ICTTMergeableWallClockValue True
+   attr metadataData binary None NSData True
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr modificationDate date None NSDate True
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsInitialRelationshipSetup bool None NSNumber True
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr needsTranscription bool None NSNumber True
+   attr ocrSummary string None NSString True
+   attr ocrSummaryVersion int16 None NSNumber True
+   attr orientation int16 None NSNumber True
+   attr originX double None NSNumber True
+   attr originY double None NSNumber True
+   attr paperBundleGeneration string None NSString True
+   attr passwordHint string None NSString True
+   attr previewUpdateDate date None NSDate True
+   attr remoteFileURLString string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr section int16 None NSNumber True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr sizeHeight double None NSNumber True
+   attr sizeWidth double None NSNumber True
+   attr summary string None NSString True
+   attr synapseData binary None NSData True
+   attr temporaryTranscriptData binary None NSData True
+   attr title string None NSString True
+   attr typeUTI string None NSString True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr urlExpired bool None NSNumber True
+   attr urlString string None NSString True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr userTitle string None NSString True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount attachments 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel inlineAttachments ICInlineAttachment parentAttachment 0 0 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+   rel location ICAttachmentLocation attachment 0 1 nullify True
+   rel media ICMedia attachment 0 1 cascade True
+   rel note ICNote attachments 0 1 nullify None
+   rel noteUsingTitleForNoteTitle ICNote titleSourceAttachment 0 1 nullify True
+   rel parentAttachment ICAttachment subAttachments 0 1 nullify True
+   rel previewImages ICAttachmentPreviewImage attachment 0 0 cascade True
+   rel subAttachments ICAttachment parentAttachment 0 0 cascade True
+
+## ICAttachmentLocation : ICLocation abstract=None vhm=None ui={} uniq=None
+   attr latitude double None NSNumber True
+   attr longitude double None NSNumber True
+   attr placeUpdated bool None NSNumber True
+   attr placemarkData binary None NSData True
+   rel attachment ICAttachment location 0 1 nullify True
+
+## ICAttachmentPreviewImage : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr appearanceType int16 None NSNumber True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoMetadataInitializationVector binary None NSData True
+   attr cryptoMetadataTag binary None NSData True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedMetadata binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr generation string None NSString True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr height double None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr metadata binary None NSData True
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr modifiedDate date None NSDate True
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr scale double None NSNumber True
+   attr scaleWhenDrawing bool None NSNumber True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr version int16 None NSNumber True
+   attr versionOutOfDate bool None NSNumber True
+   attr width double None NSNumber True
+   attr zoneOwnerName string None NSString True
+   rel attachment ICAttachment previewImages 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICCloudState : None abstract=None vhm=None ui={} uniq=None
+   attr currentLocalVersion int64 None NSNumber None
+   attr inCloud bool None NSNumber None
+   attr latestVersionSyncedToCloud int64 None NSNumber None
+   attr localVersionDate date None NSDate True
+   rel cloudSyncingObject ICCloudSyncingObject cloudState 0 1 nullify True
+
+## ICCloudSyncingObject : None abstract=None vhm=None ui={} uniq=[['identifier']]
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICDeviceMigrationState : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr deviceIdentifier string None NSString True
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr state int16 None NSNumber True
+   attr stateModificationDate date None NSDate None
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount deviceMigrationStates 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICFolder : ICNoteContainer abstract=None vhm=None ui={} uniq=None
+   attr accountNameForAccountListSorting string None NSString True
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr customNoteSortTypeModificationDate date None NSDate True
+   attr customNoteSortTypeValue int16 None NSNumber True
+   attr dateForLastTitleModification date None NSDate True
+   attr dateHeadersType int32 None NSNumber None
+   attr encryptedValuesJSON binary None NSData True
+   attr folderType int16 None NSNumber None
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr importedFromLegacy bool None NSNumber True
+   attr isHiddenNoteContainer bool None NSNumber True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr mergeableData binary None NSData True
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr nestedTitleForSorting string None NSString True
+   attr parentModificationDate date None NSDate True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr smartFolderQueryJSON string None NSString True
+   attr sortOrder int32 None NSNumber True
+   attr title string None NSString True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount folders 0 1 nullify None
+   rel children ICFolder parent 0 0 cascade True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+   rel notes ICNote folder 0 0 cascade True
+   rel owner ICAccount ownerInverse 0 1 nullify None
+   rel parent ICFolder children 0 1 nullify True
+
+## ICHashtag : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr creationDate date None NSDate True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr displayText string None NSString None
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr standardizedContent string None NSString None
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount hashtags 0 1 nullify None
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICInlineAttachment : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr altText string None NSString True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr creationDate date None NSDate True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr mentionNotificationAttemptCount int32 None NSNumber True
+   attr mentionNotificationState int32 None NSNumber True
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr tokenContentIdentifier string None NSString True
+   attr typeUTI string None NSString True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount inlineAttachments 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+   rel note ICNote inlineAttachments 0 1 nullify None
+   rel parentAttachment ICAttachment inlineAttachments 0 1 nullify True
+
+## ICInvitation : None abstract=None vhm=None ui={} uniq=[['shareURL']]
+   attr creationDate date None NSDate True
+   attr modificationDate date None NSDate True
+   attr noteCount int64 None NSNumber True
+   attr noteCountRecursive int64 None NSNumber True
+   attr receivedDate date None NSDate True
+   attr rootObjectType string None NSString True
+   attr serverShareData binary None NSData True
+   attr shareURL uri None NSURL None
+   attr snippet string None NSString True
+   attr snippetAttachmentCount int64 None NSNumber True
+   attr snippetAttachmentType int16 None NSNumber True
+   attr subfolderCount int64 None NSNumber True
+   attr subfolderCountRecursive int64 None NSNumber True
+   attr thumbnailDataDark binary None NSData True
+   attr thumbnailDataLight binary None NSData True
+   attr title string None NSString True
+   rel account ICAccount invitations 0 1 nullify True
+   rel rootObject ICCloudSyncingObject invitation 0 1 nullify True
+
+## ICLegacyTombstone : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr contentHashAtImport string None NSString True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr modificationDateAtImport date None NSDate True
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr type int16 None NSNumber True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount legacyTombstones 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICLocation : None abstract=True vhm=None ui={} uniq=None
+   attr latitude double None NSNumber True
+   attr longitude double None NSNumber True
+   attr placemarkData binary None NSData True
+
+## ICMedia : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr filename string None NSString True
+   attr generation string None NSString True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount media 0 1 nullify True
+   rel attachment ICAttachment media 0 1 nullify True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+
+## ICNote : ICCloudSyncingObject abstract=None vhm=None ui={} uniq=None
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr attachmentViewType int16 None NSNumber True
+   attr attributedSnippet transformable ICAttributedStringSecureUnarchiveFromDataTransformer None True
+   attr attributedTitle transformable ICAttributedStringSecureUnarchiveFromDataTransformer None True
+   attr creationDate date None NSDate True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr encryptedValuesJSON binary None NSData True
+   attr folderModificationDate date None NSDate True
+   attr hasChecklist bool None NSNumber True
+   attr hasChecklistInProgress bool None NSNumber True
+   attr hasEmphasis bool None NSNumber True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr hasSystemTextAttachments bool None NSNumber True
+   attr hostApplicationIdentifier string None NSString True
+   attr identifier string None NSString True
+   attr isPasswordProtected bool None NSNumber None
+   attr isPinned bool None NSNumber True
+   attr isShareDirty bool None NSNumber True
+   attr isSystemPaper bool None NSNumber True
+   attr lastActivityRecentUpdatesViewedDate date None NSDate True
+   attr lastActivitySummaryViewedDate date None NSDate True
+   attr lastAttributionsViewedDate date None NSDate True
+   attr lastNotifiedDate date None NSDate True
+   attr lastNotifiedTimestampData binary None NSData True
+   attr lastOpenedDate date None NSDate True
+   attr lastViewedModificationDate date None NSDate None
+   attr lastViewedTimestampData binary None NSData True
+   attr legacyContentHashAtImport string None NSString True
+   attr legacyImportDeviceIdentifier string None NSString True
+   attr legacyManagedObjectIDURIRepresentation string None NSString True
+   attr legacyModificationDateAtImport date None NSDate True
+   attr legacyNoteWasPlainText bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr modificationDate date None NSDate True
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr noteHasChanges bool None NSNumber True
+   attr outlineStateData binary None NSData True
+   attr paperStyleType int16 None NSNumber True
+   attr passwordHint string None NSString True
+   attr preferredBackgroundType int16 None NSNumber True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr replicaIDToUserIDDictData binary None NSData True
+   attr selectedInkColorString string None NSString True
+   attr selectedInkIdentifier string None NSString True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr snippet string None NSString True
+   attr thumbnailAttachmentIdentifier string None NSString True
+   attr title string None NSString True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr widgetSnippet string None NSString True
+   attr zoneOwnerName string None NSString True
+   rel account ICAccount notes 0 1 nullify True
+   rel attachments ICAttachment note 0 0 cascade True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel folder ICFolder notes 0 1 nullify True
+   rel inlineAttachments ICInlineAttachment note 0 0 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+   rel noteData ICNoteData note 0 1 cascade None
+   rel participants ICNoteParticipant note 0 0 cascade True
+   rel titleSourceAttachment ICAttachment noteUsingTitleForNoteTitle 0 1 nullify True
+
+## ICNoteContainer : ICCloudSyncingObject abstract=True vhm=None ui={} uniq=None
+   attr accountNameForAccountListSorting string None NSString True
+   attr activityEventsData binary None NSData True
+   attr assetCryptoInitializationVector binary None NSData True
+   attr assetCryptoTag binary None NSData True
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoIterationCount int64 None NSNumber True
+   attr cryptoSalt binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr cryptoWrappedKey binary None NSData True
+   attr dateHeadersType int32 None NSNumber None
+   attr encryptedValuesJSON binary None NSData True
+   attr hasMissingKeychainItem bool None NSNumber True
+   attr identifier string None NSString True
+   attr isHiddenNoteContainer bool None NSNumber True
+   attr isPasswordProtected bool None NSNumber None
+   attr isShareDirty bool None NSNumber True
+   attr markedForDeletion bool None NSNumber None
+   attr minimumSupportedNotesVersion int64 None NSNumber None
+   attr needsInitialFetchFromCloud bool None NSNumber None
+   attr needsToBeFetchedFromCloud bool None NSNumber True
+   attr needsToSaveUserSpecificRecord bool None NSNumber True
+   attr nestedTitleForSorting string None NSString True
+   attr passwordHint string None NSString True
+   attr replicaIDToNotesVersionData binary None NSData True
+   attr serverRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr serverShareData binary CKShareSystemFieldsTransformer NSData True
+   attr sortOrder int32 None NSNumber True
+   attr unappliedEncryptedRecordData binary None NSData True
+   attr userSpecificServerRecordData binary CKRecordSystemFieldsTransformer NSData True
+   attr zoneOwnerName string None NSString True
+   rel cloudState ICCloudState cloudSyncingObject 0 1 cascade True
+   rel invitation ICInvitation rootObject 0 1 cascade True
+   rel owner ICAccount ownerInverse 0 1 nullify None
+
+## ICNoteData : None abstract=None vhm=None ui={} uniq=None
+   attr cryptoInitializationVector binary None NSData True
+   attr cryptoTag binary None NSData True
+   attr data binary None NSData True
+   rel note ICNote noteData 0 1 nullify True
+
+## ICNoteParticipant : None abstract=None vhm=None ui={} uniq=None
+   attr participantID string None NSString True
+   attr userID string None NSString True
+   rel note ICNote participants 0 1 nullify None
+
+## ICServerChangeToken : None abstract=None vhm=None ui={} uniq=None
+   attr ckServerChangeTokenData binary None NSData None
+   attr databaseScope int16 None NSNumber True
+   attr ownerName string None NSString True
+   attr zoneName string None NSString True
+   rel account ICAccount serverChangeTokens 0 1 nullify None
