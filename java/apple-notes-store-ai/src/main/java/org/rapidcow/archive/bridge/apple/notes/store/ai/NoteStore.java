@@ -46,6 +46,7 @@ public final class NoteStore implements AutoCloseable {
 	private final Map<Integer, NoteStoreEntity> entitiesById;
 	private final Set<String> tables;
 	private final Map<String, Set<String>> columnsByTable = new HashMap<>();
+	private NoteStoreModel model;
 	private boolean closed;
 
 	private NoteStore(Connection connection, Map<String, NoteStoreEntity> entitiesByName, Set<String> tables) {
@@ -132,6 +133,28 @@ public final class NoteStore implements AutoCloseable {
 	public Optional<NoteStoreEntity> entity(String name) {
 		requireOpen();
 		return Optional.ofNullable(entitiesByName.get(name));
+	}
+
+	/**
+	 * Reads the Core Data model the store records about itself
+	 * ({@code Z_METADATA} and {@code Z_MODELCACHE}). Read once, then cached.
+	 *
+	 * @return the model
+	 * @throws NoteStoreException if the metadata is missing or malformed
+	 */
+	public NoteStoreModel model() {
+		requireOpen();
+		if (model == null) {
+			if (!tables.contains("Z_METADATA")) {
+				throw new NoteStoreException("not a Core Data store (no Z_METADATA)");
+			}
+			try {
+				model = NoteStoreModel.read(connection, tables.contains("Z_MODELCACHE"));
+			} catch (SQLException e) {
+				throw new NoteStoreException("reading the model: " + e.getMessage(), e);
+			}
+		}
+		return model;
 	}
 
 	/**
