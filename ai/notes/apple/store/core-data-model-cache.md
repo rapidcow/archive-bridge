@@ -51,11 +51,40 @@ Use `%aN <%aE>` (mailmap-aware) rather than `%an <%ae>`: `.mailmap` maps
 | `main/data/Backups/Backup-2020-12-*` | inside the above | MacBook Pro: Notes' own pre-migration backups, Dec 2020 | `VRpS`, build 1044 |
 | `usr/ethan/db/notes`, `usr/cloud-ethan-1/db/notes` | 2026-10 | this Mac mini, macOS 15.8.1 | `eFiI`, build 1448 |
 
-The OS versions at commit time are not recorded. Jan-Mar 2024 falls
-between the macOS 14.0 and 15.0 releases, so both 2024 stores were most
-likely written by Sonoma (14.x), which fits the same model `jaiz` with two
-different Core Data builds (1333 on `cooper`, 1338 on the MacBook, i.e.
-different 14.x point releases). That is inference from dates, not evidence.
+### Matched against each machine's update history
+
+From `info/macOS/<host>.txt` (`TZ=UTC softwareupdate --history`, added by
+the user 2026-10-12; all dates below are UTC). `NSPersistenceFrameworkVersion` is the CoreData build
+that last wrote the store's metadata, so it matches the OS installed when
+the store was last saved, not necessarily the one that created it.
+
+| store | OS installed on that date | model | CoreData build |
+|---|---|---|---|
+| `2024-03-29/main/data` (MBP) | Sonoma 14.2.1 (installed 2023-12-30; next 15.4 on 2025-04-12) | `jaiz` | 1338 |
+| `2024-03-29/ethan/data` (`cooper`) | Sonoma 14.1.1 (installed 2023-11-19; next 14.5 beta on 2024-05-05) | `jaiz` | 1333 |
+| `usr/*/db/notes` (Mac mini) | Sequoia 15.8.1 (installed 2026-10-02; stores copied out 2026-10-04) | `eFiI` | 1448 |
+| `main/data/Backups/Backup-2020-12-*` (MBP) | pre-Big Sur, most likely Mojave 10.14.6 (see below) | `VRpS` | 1044 |
+
+Same model on 14.1.1 and 14.2.1, with the lower build on the earlier point
+release: consistent.
+
+The 2020 backups are inference. The MBP history has 10.14.6 (Security
+Update 2019-001, 2019-11) and then "macOS Big Sur 11.1 **Update**" on
+2021-01-03. "Update" implies 11.0.x was already installed, and that install
+is not listed, so it went through some other route (e.g. the App Store
+installer). Major upgrades through Software Update *are* listed (Sonoma
+14.0, Sequoia 15.4 on the MBP; Tahoe 26.5.2 on `cooper`). So the
+`Backup-2020-12-24`/`-26` directories are most likely Notes' pre-migration
+copies taken while upgrading to Big Sur, and `VRpS` is the model of the
+OS before it: Mojave 10.14.6 if nothing else was installed unlisted
+(Catalina never appears, but an unlisted installer upgrade cannot be ruled
+out). Four backups over three days suggest the migration ran more than
+once.
+
+Resulting lineage: `VRpS` (Mojave, through 2020-12) -> `jaiz` (Sonoma
+14.1-14.2) -> `eFiI` (Sequoia 15.8.1; the MBP is on 15.7.7, not examined).
+No Big Sur through Ventura store was archived, and none from Tahoe (`cooper`
+is on Tahoe now).
 
 ## What CoreData does with Z_MODELCACHE (macOS 15.8.1 CoreData)
 
