@@ -63,28 +63,92 @@ the store was last saved, not necessarily the one that created it.
 | `2024-03-29/main/data` (MBP) | Sonoma 14.2.1 (installed 2023-12-30; next 15.4 on 2025-04-12) | `jaiz` | 1338 |
 | `2024-03-29/ethan/data` (`cooper`) | Sonoma 14.1.1 (installed 2023-11-19; next 14.5 beta on 2024-05-05) | `jaiz` | 1333 |
 | `usr/*/db/notes` (Mac mini) | Sequoia 15.8.1 (installed 2026-10-02; stores copied out 2026-10-04) | `eFiI` | 1448 |
-| `main/data/Backups/Backup-2020-12-*` (MBP) | pre-Big Sur, most likely Mojave 10.14.6 (see below) | `VRpS` | 1044 |
+| `main/data/Backups/Backup-2020-12-*` (MBP) | Big Sur 11.0.1 (installed 2020-11-14; 11.1 on 2021-01-03), see below | `VRpS` | 1044 |
 
 Same model on 14.1.1 and 14.2.1, with the lower build on the earlier point
 release: consistent.
 
-The 2020 backups are inference. The MBP history has 10.14.6 (Security
-Update 2019-001, 2019-11) and then "macOS Big Sur 11.1 **Update**" on
-2021-01-03. "Update" implies 11.0.x was already installed, and that install
-is not listed, so it went through some other route (e.g. the App Store
-installer). Major upgrades through Software Update *are* listed (Sonoma
-14.0, Sequoia 15.4 on the MBP; Tahoe 26.5.2 on `cooper`). So the
-`Backup-2020-12-24`/`-26` directories are most likely Notes' pre-migration
-copies taken while upgrading to Big Sur, and `VRpS` is the model of the
-OS before it: Mojave 10.14.6 if nothing else was installed unlisted
-(Catalina never appears, but an unlisted installer upgrade cannot be ruled
-out). Four backups over three days suggest the migration ran more than
-once.
+The MBP ran Catalina, never Mojave in practice (the user wiped it to
+Catalina: System Information shows Catalina 10.15.1 installed 2019-10-29,
+10.15.7 on 2020-10-24, Big Sur 11.0.1 on 2020-11-13/14; local times
+UTC-5/-6). The 2020 backups were **last written on Big Sur 11.0.1**, not
+before the upgrade: their newest note edits are 2020-12-24 10:13 and
+2020-12-25 15:23 UTC, and their history has 11-14k transactions per month
+through Nov-Dec 2020. Earlier versions of this note called them
+"pre-Big Sur, Mojave", which was wrong.
 
-Resulting lineage: `VRpS` (Mojave, through 2020-12) -> `jaiz` (Sonoma
-14.1-14.2) -> `eFiI` (Sequoia 15.8.1; the MBP is on 15.7.7, not examined).
-No Big Sur through Ventura store was archived, and none from Tahoe (`cooper`
-is on Tahoe now).
+### The stores log their own migrations
+
+Core Data's persistent history records every schema migration as a
+transaction whose author is the string `com.apple.coredata.schemamigrator:
+lightweight migration from model with digest { <SOURCE DIGEST> }`, with
+bundle `com.apple.Notes` or `com.apple.accountsd`. List them with:
+
+```sql
+SELECT s.ZNAME, datetime(t.ZTIMESTAMP + 978307200, 'unixepoch')
+FROM ATRANSACTION t JOIN ATRANSACTIONSTRING s
+  ON s.Z_PK IN (t.ZAUTHORTS, t.ZCONTEXTNAMETS, t.ZBUNDLEIDTS, t.ZPROCESSIDTS)
+WHERE s.ZNAME LIKE '%migration%' ORDER BY t.ZTIMESTAMP;
+```
+
+Every entry found coincides with an OS update in `info/macOS` (all UTC):
+
+| store | migrated from | at | OS update |
+|---|---|---|---|
+| MBP backups | `Dv3/j6Ce...` | 2019-11-01 14:39 | Catalina 10.15.1 (2nd install) at 12:21, then Safari 13.0.3 12:48 and "Security Update 2019-001 (10.14.6)" 13:41 |
+| MBP backups | `VRpS` | 2020-11-14 06:36:56 | "macOS 11.0.1", installed 2020-11-14 ~06:36 |
+| MBP `main/data` | `Ouhkd...` | 2021-06-17 05:17 | Big Sur 11.4, 05:00 |
+| MBP `main/data` | `Yxs2z...` | 2022-06-20 08:32 | macOS 12.4, same morning |
+| MBP `main/data` | `G4IyF...` | 2023-05-16 04:01 | Ventura 13.3.1, ~03:46 |
+| MBP `main/data` | `jaiz` | 2023-10-04 01:22 | Sonoma 14.0 (2023-10-03 21:00) |
+| `cooper` `ethan/data` | `G4IyF...` | 2023-08-12 11:16 | Ventura 13.5, 11:03 |
+| `cooper` `ethan/data` | `jaiz` | 2023-10-04 01:29 | Sonoma 14.0, 01:25 |
+| Mac mini empty store | `eFiI` | 2026-10-02 06:42 | Sequoia 15.8.1, 06:36 |
+
+No migration string lacks its transaction (none were pruned).
+
+Catalina on the MBP, from System Information (UTC, converted by the
+user): 10.15.1 installed 2019-10-29 23:04 and again 2019-11-01 12:21. The
+store's history begins 2019-10-25 05:22, so the store predates both. No
+migration is logged at the first install; the `Dv3` one follows the
+second by 2h18m. That fits the user's account (an upgrade attempt that
+went wrong, then a reinstall with Apple support's help) if the 10-29
+install did not take and the 11-01 one did. If so, `Dv3` is the model
+the store had before Catalina, i.e. Mojave's. Inference; the store does
+not record the OS.
+
+**A logged migration does not mean the model changed.** The source digest
+can equal the store's digest afterwards: the Mac mini store migrated "from
+`eFiI`" at 15.8.1 and is still `eFiI`; both 2024 stores migrated "from
+`jaiz`" at Sonoma 14.0 and were still `jaiz` in March 2024. Something
+other than the hashed app model (Core Data's own history schema, see
+`_NSStoreAncillaryModelVersionHashesMetadataKey` in `Z_METADATA`; or
+indexes) presumably triggers these. Not verified.
+
+Read as "model in use before this update", the log gives a chain:
+
+| digest | in use (MBP unless noted) |
+|---|---|
+| `Dv3/...` | before 2019-11-01, probably Mojave (see above) |
+| `VRpS` | Catalina (to 2020-11-14) and, per the backups, Big Sur 11.0.1 through 2020-12-25 |
+| `Ouhkd...` | before Big Sur 11.4 (2021-06-17) |
+| `Yxs2z...` | before macOS 12.4 (2022-06-20), i.e. Big Sur 11.4-11.6.2 (the MBP skipped 12.0-12.3) |
+| `G4IyF...` | Monterey (before Ventura 13.3.1 on the MBP, 13.5 on `cooper`) |
+| `jaiz` | Ventura 13.3.1/13.5 through Sonoma 14.2.1 at least |
+| `eFiI` | Sequoia 15.8.1 (and the eFiI -> eFiI migration says 15.x before it) |
+
+**Unresolved:** the backups say the store was migrated from `VRpS` at
+11.0.1 yet is still `VRpS` six weeks later (a same-digest migration, as
+above). The new `main/data` store, whose history starts 2020-12-25 17:12
+(right when the backups were taken, presumably a rebuild), first logs a
+migration "from `Ouhkd`" at 11.4, with no "from `VRpS`" ever. So either
+that store was created as `Ouhkd` by 11.0.1 (contradicting `VRpS` as 11.0.1's
+model), or a `VRpS -> Ouhkd` step happened without a log entry, e.g. at
+11.1 (2021-01-03). The archive cannot tell which.
+
+Only `VRpS`, `jaiz` and `eFiI` models are in the archive; `Dv3`, `Ouhkd`,
+`Yxs2z`, `G4IyF` are known by digest only. No Tahoe store exists (`cooper`
+is on Tahoe now, the MBP on 15.7.7).
 
 ## What CoreData does with Z_MODELCACHE (macOS 15.8.1 CoreData)
 
