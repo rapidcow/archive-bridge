@@ -197,7 +197,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
                     throw new IOException("Invalid resource extension");
                 }
                 Path payload = resources.resolve(getId() + "." + extension);
-                if (!Files.isRegularFile(payload, LinkOption.NOFOLLOW_LINKS)) {
+                if (!Files.isRegularFile(payload)) {
                     throw new IOException("Resource payload is not a regular file");
                 }
                 return payload;
@@ -209,7 +209,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
                 for (Path candidate : paths) {
                     String name = candidate.getFileName().toString();
                     if (!name.equals(getId()) && !name.startsWith(getId() + ".")) continue;
-                    if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) continue;
+                    if (!Files.isRegularFile(candidate)) continue;
                     if (found != null) throw new IOException("Ambiguous resource payload");
                     found = candidate;
                 }
