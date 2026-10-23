@@ -11,9 +11,16 @@ import org.junit.jupiter.api.io.TempDir;
 class JoplinExportDirectoryTest {
     @TempDir Path temporary;
 
+    private static void
+    writeUTF8String(Path name, String str)
+    throws IOException
+    {
+        Files.writeString(name, str, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     @Test
     void readsOnlyHeaderAndTrailerAndIgnoresResources() throws IOException {
-        Files.writeString(temporary.resolve("b.md"), """
+        writeUTF8String(temporary.resolve("b.md"), """
                 Invented café 🌱
 
                 An invented note.
@@ -26,7 +33,7 @@ class JoplinExportDirectoryTest {
                 future_field: a: b\\nnext
                 type_: 1
                 """);
-        Files.writeString(temporary.resolve("a.md"), """
+        writeUTF8String(temporary.resolve("a.md"), """
 
 
                 Invented body
@@ -36,8 +43,8 @@ class JoplinExportDirectoryTest {
                 """);
         Files.createDirectory(temporary.resolve("resources"));
         Files.createDirectory(temporary.resolve("directory.md"));
-        Files.writeString(temporary.resolve("resources/ignored.md"), "not an item");
-        Files.writeString(temporary.resolve("ignored.bin"), "not an item");
+        writeUTF8String(temporary.resolve("resources/ignored.md"), "not an item");
+        writeUTF8String(temporary.resolve("ignored.bin"), "not an item");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals(2, archive.entries().size());
             assertEquals("", archive.entries().get("a").getTitle());
@@ -55,7 +62,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void supportsUtf8BomWithEmptyFirstLine() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "\uFEFF\n\nInvented body\n\nid: example\ntype_: 1\n");
+        writeUTF8String(temporary.resolve("item.md"), "\uFEFF\n\nInvented body\n\nid: example\ntype_: 1\n");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals("", archive.entries().get("item").getTitle());
             assertEquals("example", archive.entries().get("item").getMetadata().get("id"));
@@ -64,7 +71,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void supportsLfAndEmptyBody() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), """
+        writeUTF8String(temporary.resolve("item.md"), """
 
 
                 id: example
@@ -77,14 +84,14 @@ class JoplinExportDirectoryTest {
 
     @Test
     void rejectsCrLfMetadata() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "Title\n\nid: example\r\ntype_: 4\r\n");
+        writeUTF8String(temporary.resolve("item.md"), "Title\n\nid: example\r\ntype_: 4\r\n");
         var error = assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
         assertEquals("Literal CR is not allowed in JEX metadata", error.getMessage());
     }
 
     @Test
     void preservesLiteralCrInFirstLine() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "Icon\r\n\nid: example\ntype_: 2");
+        writeUTF8String(temporary.resolve("item.md"), "Icon\r\n\nid: example\ntype_: 2");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals("Icon\r", archive.entries().get("item").getTitle());
         }
@@ -92,7 +99,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void rejectsMissingBlankLineAfterTitle() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), """
+        writeUTF8String(temporary.resolve("item.md"), """
                 First
                 Second
 
@@ -105,7 +112,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void rejectsMalformedTrailerWithoutEchoingText() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), """
+        writeUTF8String(temporary.resolve("item.md"), """
                 Title
 
                 Invented body
@@ -119,7 +126,7 @@ class JoplinExportDirectoryTest {
     @Test
     void rejectsDuplicateMetadataAndMissingIdentity() throws IOException {
         Path item = temporary.resolve("item.md");
-        Files.writeString(item, """
+        writeUTF8String(item, """
                 Title
 
                 id: one
@@ -127,7 +134,7 @@ class JoplinExportDirectoryTest {
                 type_: 1
                 """);
         assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
-        Files.writeString(item, """
+        writeUTF8String(item, """
                 Title
 
                 type_: 1
@@ -137,13 +144,13 @@ class JoplinExportDirectoryTest {
 
     @Test
     void indexesEntriesResolvesParentsAndLoadsContentLazily() throws IOException {
-        Files.writeString(temporary.resolve("folder.md"), """
+        writeUTF8String(temporary.resolve("folder.md"), """
                 Invented notebook
 
                 id: folder
                 type_: 2""");
         Path notePath = temporary.resolve("note.md");
-        Files.writeString(notePath, """
+        writeUTF8String(notePath, """
                 Invented title
 
                 A café 🌱.
@@ -164,7 +171,7 @@ class JoplinExportDirectoryTest {
             assertTrue(folder.getParent().isEmpty());
             assertEquals("", folder.getContent());
             // Same byte length: proves open() did not eagerly read or cache the body.
-            Files.writeString(notePath, Files.readString(notePath).replace("A café", "B café"));
+            writeUTF8String(notePath, Files.readString(notePath).replace("A café", "B café"));
             assertEquals("B café 🌱.\n\nid: body-decoy\n", note.getContent());
             // A second call reads the backing file rather than returning cached content.
             Files.delete(notePath);
@@ -175,7 +182,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void emptyNoteAndUnresolvedParentAreSupported() throws IOException {
-        Files.writeString(temporary.resolve("empty.md"), """
+        writeUTF8String(temporary.resolve("empty.md"), """
                 Empty note
 
                 id: empty
@@ -203,7 +210,7 @@ class JoplinExportDirectoryTest {
                 case "orphan" -> "absent";
                 default -> "";
             };
-            Files.writeString(temporary.resolve(id + ".md"), """
+            writeUTF8String(temporary.resolve(id + ".md"), """
                     Invented title
 
                     id: %s
@@ -230,7 +237,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void rejectsUnknownTypeDuringOpen() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), """
+        writeUTF8String(temporary.resolve("item.md"), """
                 Invented title
 
                 id: item
@@ -248,7 +255,7 @@ class JoplinExportDirectoryTest {
         String body = "Invented café 🌱\n\nAnother line.\n";
         byte[] expected = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Path file = temporary.resolve("stream.md");
-        Files.writeString(file, "Title\n\n" + body + "\n\nid: stream\ntype_: 1");
+        writeUTF8String(file, "Title\n\n" + body + "\n\nid: stream\ntype_: 1");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             JoplinEntry entry = archive.entries().get("stream");
             assertEquals(expected.length, entry.getContentSize());
@@ -268,7 +275,7 @@ class JoplinExportDirectoryTest {
                 assertEquals(-1, second.read());
             }
             // Size is stored from the original byte offsets, without rereading content.
-            Files.writeString(file, "");
+            writeUTF8String(file, "");
             assertEquals(expected.length, entry.getContentSize());
             try (var stream = entry.openContentStream()) {
                 assertThrows(java.io.EOFException.class, stream::read);
@@ -278,7 +285,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void streamsBinaryResourcesAndLeavesMetadataUntouched() throws IOException {
-        Files.writeString(temporary.resolve("resource.md"), """
+        writeUTF8String(temporary.resolve("resource.md"), """
                 Invented attachment
 
                 id: resource
@@ -313,7 +320,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void resolvesResourceWithoutExplicitExtensionAndRejectsAmbiguity() throws IOException {
-        Files.writeString(temporary.resolve("resource.md"), """
+        writeUTF8String(temporary.resolve("resource.md"), """
                 Invented attachment
 
                 id: resource
@@ -342,7 +349,7 @@ class JoplinExportDirectoryTest {
         Files.write(temporary.resolve("resources/resource.bin"), new byte[] { 1, 2, 3 });
         for (String size : java.util.List.of("2", "4", "2147483648", "-1", "", "invalid",
                 "9223372036854775808")) {
-            Files.writeString(temporary.resolve("resource.md"), """
+            writeUTF8String(temporary.resolve("resource.md"), """
                     Invented attachment
 
                     id: resource
@@ -356,7 +363,7 @@ class JoplinExportDirectoryTest {
                         error.getMessage());
             }
         }
-        Files.writeString(temporary.resolve("resource.md"), """
+        writeUTF8String(temporary.resolve("resource.md"), """
                 Invented attachment
 
                 id: resource
