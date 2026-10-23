@@ -20,6 +20,9 @@ We have:
          * apple-notes-proto       Shared Protobuf schemas
        mobile.backup      REAL!    iOS backup
 
+     cozic.                        <https://github.com/laurent22/joplin>
+       joplin                      <https://joplinapp.org/>
+
      tophatch.
        concepts           PLANNED  <https://concepts.app/en/>
      savageinteractive.
