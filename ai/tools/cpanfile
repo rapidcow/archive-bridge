@@ -1,0 +1,53 @@
+# Dependencies of the Perl tools in this directory.
+requires 'perl', '5.010';
+
+# SQLite archives (DBD::SQLite also supplies DBD::SQLite::Constants).
+requires 'DBI';
+requires 'DBD::SQLite';
+requires 'URI::file';
+
+# com.apple.drawing.2 decoder used by AppleNotesViewer.
+requires 'Google::ProtocolBuffers';
+requires 'Data::Float';
+requires 'Math::BigRat';
+
+# Paper drawing/store probes.
+# Installation notes copied from Claude’s commit 47165ec1b548f7091e9f5c7e0dc22ef51a29a1d4:
+# Getting it to install on current Homebrew was a chore, so for
+# the record (macOS, Homebrew, perl 5.44; into perl5/ local::lib):
+#
+#     brew install pkgconf cmake protobuf@21
+#
+#     export PKG_CONFIG_PATH=$(brew --prefix protobuf@21)/lib/pkgconfig
+#     export CMAKE_POLICY_VERSION_MINIMUM=3.5
+#     export OPENSSL_PREFIX=/opt/homebrew/opt/openssl@3
+#     cpanm --reinstall Alien::ProtoBuf Alien::uPB::Core \
+#         Google::ProtocolBuffers::Dynamic
+#
+# - PKG_CONFIG_PATH: protobuf@21 is keg-only.  Dynamic 0.43 is
+#   written for the pre-abseil API (protobuf 36 and 33 break its
+#   SourceTree overrides and string_view returns), and 21 is the
+#   last series before that.  Note that proto3 syntax is
+#   supported fine; "3.x" is just the library version.  Keep
+#   protobuf@21 installed: the module links against it.
+# - CMAKE_POLICY_VERSION_MINIMUM: cmake 4 refuses the ancient
+#   cmake_minimum_required in the upb snapshot that
+#   Alien::uPB::Core downloads.
+# - OPENSSL_PREFIX: /opt/homebrew/opt/openssl now points to
+#   openssl@4, which dropped SSLv3_method etc.; Net::SSLeay 1.96
+#   doesn't build against it.  Use openssl@3.
+# - pkgconf: without a real pkg-config, Alien::Base falls back
+#   to the pure-Perl PkgConfig.pm, which spins for minutes (not
+#   a deadlock) resolving protobuf's many abseil Requires.
+requires 'Google::ProtocolBuffers::Dynamic';
+requires 'JSON::XS';
+requires 'IO::Uncompress::Gunzip';
+
+# Concepts and binary plist decoding.
+requires 'Archive::Zip';
+requires 'Mac::PropertyList';
+requires 'Mac::PropertyList::ReadBinary';
+requires 'Math::BigInt';
+
+# Other imports (strict, warnings, constant, Getopt::Long, File::*,
+# FindBin, POSIX, Encode) are supplied by Perl itself.
