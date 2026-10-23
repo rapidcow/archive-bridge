@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.Map;
@@ -38,10 +39,10 @@ public final class JoplinExportDirectory implements AutoCloseable {
         if (!Files.isDirectory(root)) {
             throw new IOException("JEX directory does not exist or is not a directory");
         }
-        var entries = new LinkedHashMap<String, Entry>();
+        var entries = new HashMap<String, Entry>();
         var archive = new JoplinExportDirectory(root, entries);
-        try (var paths = Files.list(root)) {
-            for (Path path : paths.sorted().toList()) {
+        try (var paths = Files.newDirectoryStream(root)) {
+            for (Path path : paths) {
                 var attributes = Files.readAttributes(path, BasicFileAttributes.class,
                         LinkOption.NOFOLLOW_LINKS);
                 if (attributes.isDirectory()) continue;
@@ -58,6 +59,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
         return directory;
     }
 
+    /** Items indexed by ID, with no iteration-order guarantee. */
     public Map<String, Entry> entries() {
         return entries;
     }
