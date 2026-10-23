@@ -42,6 +42,8 @@ class
 	/**
 	 * Creates the window, with the dark mode item checked if
 	 * {@code theme} is the dark one.
+	 *
+	 * @param theme  the UI theme to use
 	 */
 	private
 	JoplinExportViewer(MetalTheme theme)
@@ -83,6 +85,8 @@ class
 
 	/**
 	 * Installs {@code theme} and repaints every open window with it.
+	 *
+	 * @param theme  my UI theme
 	 */
 	private static void
 	applyTheme(MetalTheme theme)
