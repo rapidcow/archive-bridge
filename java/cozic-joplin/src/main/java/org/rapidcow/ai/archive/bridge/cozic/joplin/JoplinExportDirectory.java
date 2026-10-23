@@ -31,7 +31,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
      * are retained as strings; this format is not parsed as YAML. Metadata uses
      * LF separators; literal CR in the trailer is rejected. The first line is
      * preserved verbatim, including any literal CR (apart from the optional BOM).
-     * This is the first physical line, not a reconstructed multiline title.
+     * The title must be followed by an empty LF-delimited line.
      */
     public static JoplinExportDirectory open(Path directory) throws IOException {
         Path root = directory.toAbsolutePath().normalize();
@@ -87,6 +87,10 @@ public final class JoplinExportDirectory implements AutoCloseable {
             String firstLine = new String(first.toByteArray(), StandardCharsets.UTF_8);
             if (firstLine.startsWith("\uFEFF")) firstLine = firstLine.substring(1);
             long firstLineEnd = file.getFilePointer();
+            // Check only the required separator byte, never scan a second line.
+            if (b != '\n' || file.read() != '\n') {
+                throw new IOException("Missing blank line after JEX title");
+            }
             long cursor = file.length();
             var reversed = new ArrayList<String>();
             boolean terminalLine = true;

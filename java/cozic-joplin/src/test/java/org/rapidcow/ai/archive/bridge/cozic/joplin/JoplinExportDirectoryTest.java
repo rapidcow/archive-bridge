@@ -13,11 +13,27 @@ class JoplinExportDirectoryTest {
 
     @Test
     void readsOnlyHeaderAndTrailerAndIgnoresResources() throws IOException {
-        Files.writeString(temporary.resolve("b.md"),
-                "Invented café 🌱\n\nAn invented note.\n\nid: body-decoy\n\n"
-                + "id: example\nsource_application: net.cozic.joplin-mobile\n"
-                + "author: \nfuture_field: a: b\\nnext\ntype_: 1\n");
-        Files.writeString(temporary.resolve("a.md"), "\n\nInvented body\n\nid: empty-title\ntype_: 2");
+        Files.writeString(temporary.resolve("b.md"), """
+                Invented café 🌱
+
+                An invented note.
+
+                id: body-decoy
+
+                id: example
+                source_application: net.cozic.joplin-mobile
+                author:\s
+                future_field: a: b\\nnext
+                type_: 1
+                """);
+        Files.writeString(temporary.resolve("a.md"), """
+
+
+                Invented body
+
+                id: empty-title
+                type_: 2\
+                """);
         Files.createDirectory(temporary.resolve("resources"));
         Files.createDirectory(temporary.resolve("directory.md"));
         Files.writeString(temporary.resolve("resources/ignored.md"), "not an item");
@@ -28,6 +44,8 @@ class JoplinExportDirectoryTest {
             var note = archive.entries().get(1);
             assertEquals("Invented café 🌱", note.firstLine());
             assertEquals("example", note.metadata().get("id"));
+            assertEquals(java.util.List.of("id", "source_application", "author", "future_field", "type_"),
+                    java.util.List.copyOf(note.metadata().keySet()));
             assertEquals("", note.metadata().get("author"));
             assertEquals("a: b\\nnext", note.metadata().get("future_field"));
             assertThrows(UnsupportedOperationException.class, () -> note.metadata().put("id", "other"));
@@ -46,7 +64,12 @@ class JoplinExportDirectoryTest {
 
     @Test
     void supportsLfAndEmptyBody() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "\n\nid: example\ntype_: 2\n");
+        Files.writeString(temporary.resolve("item.md"), """
+
+
+                id: example
+                type_: 2
+                """);
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals("2", archive.entries().get(0).metadata().get("type_"));
         }
@@ -54,7 +77,7 @@ class JoplinExportDirectoryTest {
 
     @Test
     void rejectsCrLfMetadata() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "Title\r\n\r\nid: example\r\ntype_: 4\r\n");
+        Files.writeString(temporary.resolve("item.md"), "Title\n\nid: example\r\ntype_: 4\r\n");
         var error = assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
         assertEquals("Literal CR is not allowed in JEX metadata", error.getMessage());
     }
@@ -68,17 +91,27 @@ class JoplinExportDirectoryTest {
     }
 
     @Test
-    void exposesOnlyFirstPhysicalLineOfMultilineTitle() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "First\nSecond\n\nid: example\ntype_: 2");
-        try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("First", archive.entries().get(0).firstLine());
-            assertEquals("example", archive.entries().get(0).metadata().get("id"));
-        }
+    void rejectsMissingBlankLineAfterTitle() throws IOException {
+        Files.writeString(temporary.resolve("item.md"), """
+                First
+                Second
+
+                id: example
+                type_: 2
+                """);
+        var error = assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
+        assertEquals("Missing blank line after JEX title", error.getMessage());
     }
 
     @Test
     void rejectsMalformedTrailerWithoutEchoingText() throws IOException {
-        Files.writeString(temporary.resolve("item.md"), "Title\n\nInvented body\n\nprivate malformed trailer\n");
+        Files.writeString(temporary.resolve("item.md"), """
+                Title
+
+                Invented body
+
+                private malformed trailer
+                """);
         var error = assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
         assertEquals("Invalid JEX metadata trailer", error.getMessage());
     }
@@ -86,9 +119,19 @@ class JoplinExportDirectoryTest {
     @Test
     void rejectsDuplicateMetadataAndMissingIdentity() throws IOException {
         Path item = temporary.resolve("item.md");
-        Files.writeString(item, "Title\n\nid: one\nid: two\ntype_: 1\n");
+        Files.writeString(item, """
+                Title
+
+                id: one
+                id: two
+                type_: 1
+                """);
         assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
-        Files.writeString(item, "Title\n\ntype_: 1\n");
+        Files.writeString(item, """
+                Title
+
+                type_: 1
+                """);
         assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
     }
 
