@@ -76,7 +76,7 @@ public final class NoteStore implements AutoCloseable {
 		config.setReadOnly(true);
 		Connection connection = null;
 		try {
-			connection = DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath(), config.toProperties());
+			connection = DriverManager.getConnection("jdbc:sqlite:" + path.toAbsolutePath().toUri() + "?immutable=1", config.toProperties());
 			Set<String> tables = readTables(connection);
 			if (!tables.contains("Z_PRIMARYKEY")) {
 				throw new NoteStoreException("not a Core Data store (no Z_PRIMARYKEY): " + path);
@@ -339,7 +339,8 @@ public final class NoteStore implements AutoCloseable {
 		}
 	}
 
-	private Set<String> columnsOf(String table) {
+	Set<String> columnsOf(String table) {
+		requireOpen();
 		Set<String> cached = columnsByTable.get(table);
 		if (cached != null) {
 			return cached;

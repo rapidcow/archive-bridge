@@ -66,6 +66,13 @@ public final class NoteStoreRow {
 		return (String) get(column);
 	}
 
+	/** Returns the available column names, sorted, without reading their values.
+	 * @return an immutable list of column names
+	 */
+	public java.util.List<String> columns() {
+		return store.columnsOf(table).stream().sorted().toList();
+	}
+
 	@Override
 	public String toString() {
 		return entity.name() + "#" + pk;

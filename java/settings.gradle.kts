@@ -26,6 +26,7 @@ include("apple-mobile-backup-script")
  * & licensed under LGPL.
  */
 include("apple-notes-store")
+include("apple-notes-script")
 include("cozic-joplin")
 include("cozic-joplin-script")
 include("microsoft-windowsink")

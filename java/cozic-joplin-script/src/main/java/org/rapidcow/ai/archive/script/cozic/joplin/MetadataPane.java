@@ -14,7 +14,7 @@ import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinEntry;
  * bold, then a space and the raw value.  The text can be selected and
  * copied, but not edited.  The note body is never shown.
  */
-final
+public final
 class
 	MetadataPane
 extends
@@ -27,7 +27,7 @@ extends
 		StyleConstants.setBold(KEY, true);
 	}
 
-	MetadataPane()
+	public MetadataPane()
 	{
 		setEditable(false);
 		setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -42,13 +42,16 @@ extends
 	void
 	show(JoplinEntry entry)
 	{
+		showProperties(entry == null ? Map.of() : entry.getMetadata());
+	}
+
+	/** Shows raw properties, with selectable values and bold keys. */
+	public void showProperties(Map<String, String> properties)
+	{
 		StyledDocument doc = getStyledDocument();
 		try {
 			doc.remove(0, doc.getLength());
-			if (entry == null) {
-				return;
-			}
-			for (Map.Entry<String, String> property : entry.getMetadata().entrySet()) {
+			for (Map.Entry<String, String> property : properties.entrySet()) {
 				if (doc.getLength() > 0) {
 					doc.insertString(doc.getLength(), "\n", VALUE);
 				}

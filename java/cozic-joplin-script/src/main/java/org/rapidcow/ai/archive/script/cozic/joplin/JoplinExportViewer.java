@@ -86,8 +86,8 @@ public final
 class
 	JoplinExportViewer
 {
-	private static final MetalTheme LIGHT = new OceanTheme();
-	private static final MetalTheme DARK = new DarkTheme();
+	public static final MetalTheme LIGHT = new OceanTheme();
+	public static final MetalTheme DARK = new DarkTheme();
 
 	private final JFrame frame = new JFrame("Joplin Export Viewer");
 	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark Mode");
@@ -481,7 +481,7 @@ class
 	 * feel.  Off macOS the default look and feel is not Aqua, and
 	 * nothing changes.
 	 */
-	private static void
+	public static void
 	useScreenMenuBar()
 	{
 		System.setProperty("apple.laf.useScreenMenuBar", "true");
@@ -495,7 +495,7 @@ class
 	 *
 	 * @param theme  my UI theme
 	 */
-	private static void
+	public static void
 	applyTheme(MetalTheme theme)
 	{
 		MetalLookAndFeel.setCurrentTheme(theme);
