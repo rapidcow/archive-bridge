@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Desktop;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -11,8 +12,13 @@ import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -22,6 +28,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTree;
@@ -30,8 +37,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.ColorUIResource;
 import javax.swing.plaf.metal.DefaultMetalTheme;
 import javax.swing.plaf.metal.MetalLookAndFeel;
@@ -39,6 +44,7 @@ import javax.swing.plaf.metal.MetalTheme;
 import javax.swing.plaf.metal.OceanTheme;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinEntry;
 import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
 
@@ -55,8 +61,10 @@ import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
  * The sidebar on the left shows the folders and notes as a tree (see
  * {@link EntryTree}).  Clicking the blank space below them clears the
  * selection, as does "Select &gt; Deselect" (Ctrl+Shift+A, or
- * Cmd+Shift+A on macOS).  Right-clicking one offers "Open in File System", which
- * shows its {@code .md} file in the file manager.  The panel on the
+ * Cmd+Shift+A on macOS).  "Open in File System", in "View" and on
+ * right-clicking, shows the {@code .md} file of the selected one in
+ * the file manager.  "View &gt; Sort By" picks how the tree is sorted
+ * (see {@link EntryTree.Order}).  The panel on the
  * right lists the metadata of the selected one (see
  * {@link MetadataPane}).  The status line at the bottom tells how many
  * entries were loaded.
@@ -85,6 +93,21 @@ class
 	private final MetadataPane metadata = new MetadataPane();
 
 	/**
+	 * Shows the selected folder or note in the file manager; enabled
+	 * only while one is selected.
+	 */
+	private final Action reveal = new AbstractAction("Open in File System") {
+		@Override
+		public void
+		actionPerformed(ActionEvent e)
+		{
+			reveal(selectedFile());
+		}
+	};
+
+	private EntryTree.Order order = EntryTree.Order.TITLE;
+
+	/**
 	 * The export on display, or {@code null} before one is loaded.
 	 */
 	private JoplinExportDirectory export;
@@ -110,7 +133,18 @@ class
 		deselect.addActionListener(e -> tree.clearSelection());
 		var select = new JMenu("Select");
 		select.add(deselect);
+		var sortBy = new JMenu("Sort By");
+		var orders = new ButtonGroup();
+		for (EntryTree.Order o : EntryTree.Order.values()) {
+			var item = new JRadioButtonMenuItem(o.label(), o == order);
+			item.addActionListener(e -> sort(o));
+			orders.add(item);
+			sortBy.add(item);
+		}
 		var view = new JMenu("View");
+		view.add(sortBy);
+		view.add(reveal);
+		view.addSeparator();
 		view.add(dark);
 		var menus = new JMenuBar();
 		menus.add(file);
@@ -121,23 +155,14 @@ class
 		tree.setRootVisible(false);
 		tree.setShowsRootHandles(true);
 		tree.setCellRenderer(new EntryCellRenderer());
-		tree.addTreeSelectionListener(e -> metadata.show(selectedEntry()));
+		reveal.setEnabled(false);
+		tree.addTreeSelectionListener(e -> {
+			metadata.show(selectedEntry());
+			reveal.setEnabled(selectedFile() != null);
+		});
 
-		var reveal = new JMenuItem("Open in File System");
-		reveal.addActionListener(e -> reveal(selectedFile()));
 		var popup = new JPopupMenu();
 		popup.add(reveal);
-		popup.addPopupMenuListener(new PopupMenuListener() {
-			@Override
-			public void
-			popupMenuWillBecomeVisible(PopupMenuEvent e)
-			{
-				reveal.setEnabled(selectedFile() != null);
-			}
-
-			@Override public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {}
-			@Override public void popupMenuCanceled(PopupMenuEvent e) {}
-		});
 		// As the tree's own popup menu, it follows changes of theme.
 		tree.setComponentPopupMenu(popup);
 		tree.addMouseListener(new MouseAdapter() {
@@ -187,8 +212,62 @@ class
 			}
 		}
 		this.export = export;
-		tree.setModel(new DefaultTreeModel(EntryTree.of(export.entries().values())));
+		tree.setModel(new DefaultTreeModel(EntryTree.of(export.entries().values(), order)));
 		updateStatus();
+	}
+
+	/**
+	 * Sorts the tree in {@code order} from now on.  Which folders and
+	 * notes are expanded, and which is selected, stays the same.
+	 *
+	 * @param order  the new order
+	 */
+	private void
+	sort(EntryTree.Order order)
+	{
+		this.order = order;
+		if (export == null) {
+			return;
+		}
+		var root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+		Set<Object> expanded = new HashSet<>();
+		var paths = tree.getExpandedDescendants(new TreePath(root));
+		while (paths != null && paths.hasMoreElements()) {
+			expanded.add(item(paths.nextElement()));
+		}
+		Object selected = item(tree.getSelectionPath());
+
+		root = EntryTree.of(export.entries().values(), order);
+		tree.setModel(new DefaultTreeModel(root));
+		var nodes = root.preorderEnumeration();
+		while (nodes.hasMoreElements()) {
+			var node = (DefaultMutableTreeNode) nodes.nextElement();
+			var item = node.getUserObject();
+			if (item == null) {
+				continue;
+			}
+			var path = new TreePath(node.getPath());
+			if (expanded.contains(item)) {
+				tree.expandPath(path);
+			}
+			if (item.equals(selected)) {
+				tree.setSelectionPath(path);
+				tree.scrollPathToVisible(path);
+			}
+		}
+	}
+
+	/**
+	 * The {@link EntryTree.Item} at the end of {@code path}, or
+	 * {@code null} if there is none.
+	 */
+	private static Object
+	item(TreePath path)
+	{
+		if (path == null) {
+			return null;
+		}
+		return ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject();
 	}
 
 	/**

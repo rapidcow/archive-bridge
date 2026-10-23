@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,6 +21,7 @@ class EntryTreeTest {
         private final String title;
         private Fake parent;
         private final List<JoplinEntry> children = new ArrayList<>();
+        private final Map<String, String> metadata = new HashMap<>();
 
         Fake(String id, JoplinType type, String title) {
             this.id = id;
@@ -32,7 +34,7 @@ class EntryTreeTest {
         @Override public String getTitle() { return title; }
         @Override public Optional<JoplinEntry> getParent() { return Optional.ofNullable(parent); }
         @Override public List<JoplinEntry> getChildren() { return children; }
-        @Override public Map<String, String> getMetadata() { throw new UnsupportedOperationException(); }
+        @Override public Map<String, String> getMetadata() { return metadata; }
         @Override public String getContent() { throw new UnsupportedOperationException(); }
         @Override public long getContentSize() { throw new UnsupportedOperationException(); }
         @Override public InputStream openContentStream() { throw new UnsupportedOperationException(); }
@@ -50,8 +52,12 @@ class EntryTreeTest {
 
     /** One line per node, indented by depth; "title (id)", with " *" on cycle leaves. */
     private static String dump(Fake... entries) {
+        return dump(EntryTree.Order.TITLE, entries);
+    }
+
+    private static String dump(EntryTree.Order order, Fake... entries) {
         var out = new StringBuilder();
-        dump(EntryTree.of(List.of(entries)), -1, out);
+        dump(EntryTree.of(List.of(entries), order), -1, out);
         return out.toString();
     }
 
@@ -89,6 +95,43 @@ class EntryTreeTest {
                     Under a note (f3)
                   Same (n2)
                 """, dump(work, diary, b, a, untitled, reply, subfolder));
+    }
+
+    @Test
+    void sortsByEitherTimeNewestFirstWithMissingTimesLast() {
+        var folder = folder("f", "Folder");
+        var old = note("n1", "Old");
+        var recent = note("n2", "Recent");
+        var tie = note("n3", "A tie with Recent");
+        var untimed = note("n4", "0 has no time");
+        var garbled = note("n5", "1 has an invalid time");
+        for (Fake n : List.of(old, recent, tie, untimed, garbled)) {
+            link(folder, n);
+        }
+        old.metadata.put("updated_time", "2024-04-02T10:00:00.000Z");
+        recent.metadata.put("updated_time", "2024-09-22T10:00:00.000Z");
+        tie.metadata.put("updated_time", "2024-09-22T10:00:00.000Z");
+        garbled.metadata.put("updated_time", "yesterday");
+        // The user's own edit times disagree with the other ones.
+        old.metadata.put("user_updated_time", "2025-01-01T00:00:00.000Z");
+        recent.metadata.put("user_updated_time", "2023-01-01T00:00:00.000Z");
+        Fake[] all = { folder, old, recent, tie, untimed, garbled };
+        assertEquals("""
+                Folder (f)
+                  A tie with Recent (n3)
+                  Recent (n2)
+                  Old (n1)
+                  0 has no time (n4)
+                  1 has an invalid time (n5)
+                """, dump(EntryTree.Order.MODIFICATION_TIME, all));
+        assertEquals("""
+                Folder (f)
+                  Old (n1)
+                  Recent (n2)
+                  0 has no time (n4)
+                  1 has an invalid time (n5)
+                  A tie with Recent (n3)
+                """, dump(EntryTree.Order.USER_MODIFICATION_TIME, all));
     }
 
     @Test
