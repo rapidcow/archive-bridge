@@ -60,8 +60,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
         var archive = new JoplinExportDirectory(root, entries, childrenByParent);
         try (var paths = Files.newDirectoryStream(root)) {
             for (Path path : paths) {
-                var attributes = Files.readAttributes(path, BasicFileAttributes.class,
-                        LinkOption.NOFOLLOW_LINKS);
+                var attributes = Files.readAttributes(path, BasicFileAttributes.class);
                 if (attributes.isDirectory()) continue;
                 if (!attributes.isRegularFile()) continue;
                 if (!path.getFileName().toString().endsWith(".md")) continue;
