@@ -20,7 +20,7 @@ class JoplinExportTest {
 
     @Test
     void testDirectoryBasic() throws IOException {
-        var jex = JoplinExportDirectory.open(/* TODO */);
+        var jex = JoplinExportDirectory.open(temporary);
         assertTrue(true);
         jex.close();
     }
