@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Desktop;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -53,7 +54,8 @@ import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
  * <p>
  * The sidebar on the left shows the folders and notes as a tree (see
  * {@link EntryTree}).  Clicking the blank space below them clears the
- * selection.  Right-clicking one offers "Open in File System", which
+ * selection, as does "Select &gt; Deselect" (Ctrl+Shift+A, or
+ * Cmd+Shift+A on macOS).  Right-clicking one offers "Open in File System", which
  * shows its {@code .md} file in the file manager.  The panel on the
  * right lists the metadata of the selected one (see
  * {@link MetadataPane}).  The status line at the bottom tells how many
@@ -96,16 +98,23 @@ class
 	private
 	JoplinExportViewer(MetalTheme theme)
 	{
+		int shortcut = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
 		var open = new JMenuItem("Open...");
-		open.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O,
-				Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+		open.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, shortcut));
 		open.addActionListener(e -> chooseExport());
 		var file = new JMenu("File");
 		file.add(open);
+		var deselect = new JMenuItem("Deselect");
+		deselect.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A,
+				shortcut | InputEvent.SHIFT_DOWN_MASK));
+		deselect.addActionListener(e -> tree.clearSelection());
+		var select = new JMenu("Select");
+		select.add(deselect);
 		var view = new JMenu("View");
 		view.add(dark);
 		var menus = new JMenuBar();
 		menus.add(file);
+		menus.add(select);
 		menus.add(view);
 
 		status.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
