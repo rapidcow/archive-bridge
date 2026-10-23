@@ -189,6 +189,40 @@ class JoplinExportDirectoryTest {
     }
 
     @Test
+    void indexesOnlyDirectChildrenAndReturnsImmutableLists() throws IOException {
+        for (String id : java.util.List.of("root", "nested", "note", "grandchild", "orphan")) {
+            String parent = switch (id) {
+                case "nested", "note" -> "root";
+                case "grandchild" -> "nested";
+                case "orphan" -> "absent";
+                default -> "";
+            };
+            Files.writeString(temporary.resolve(id + ".md"), """
+                    Invented title
+
+                    id: %s
+                    parent_id: %s
+                    type_: 2""".formatted(id, parent));
+        }
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry root = archive.entries().get("root");
+            JoplinEntry nested = archive.entries().get("nested");
+            JoplinEntry note = archive.entries().get("note");
+            JoplinEntry grandchild = archive.entries().get("grandchild");
+            assertEquals(java.util.Set.of(nested, note), java.util.Set.copyOf(root.getChildren()));
+            assertEquals(java.util.List.of(grandchild), nested.getChildren());
+            assertTrue(note.getChildren().isEmpty());
+            assertTrue(grandchild.getChildren().isEmpty());
+            assertTrue(archive.entries().get("orphan").getChildren().isEmpty());
+            for (JoplinEntry child : root.getChildren()) {
+                assertSame(root, child.getParent().orElseThrow());
+            }
+            assertThrows(UnsupportedOperationException.class, () -> root.getChildren().clear());
+            assertThrows(UnsupportedOperationException.class, () -> note.getChildren().add(root));
+        }
+    }
+
+    @Test
     void rejectsUnknownTypeDuringOpen() throws IOException {
         Files.writeString(temporary.resolve("item.md"), """
                 Invented title

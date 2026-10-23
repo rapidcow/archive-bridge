@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.Map;
 
@@ -19,10 +20,13 @@ import java.util.Map;
 public final class JoplinExportDirectory implements AutoCloseable {
     private final Path directory;
     private final Map<String, Entry> entries;
+    private final Map<String, List<JoplinEntry>> childrenByParent;
 
-    private JoplinExportDirectory(Path directory, Map<String, Entry> entries) {
+    private JoplinExportDirectory(Path directory, Map<String, Entry> entries,
+            Map<String, List<JoplinEntry>> childrenByParent) {
         this.directory = directory;
         this.entries = Collections.unmodifiableMap(entries);
+        this.childrenByParent = Collections.unmodifiableMap(childrenByParent);
     }
 
     /**
@@ -40,7 +44,8 @@ public final class JoplinExportDirectory implements AutoCloseable {
             throw new IOException("JEX directory does not exist or is not a directory");
         }
         var entries = new HashMap<String, Entry>();
-        var archive = new JoplinExportDirectory(root, entries);
+        var childrenByParent = new HashMap<String, List<JoplinEntry>>();
+        var archive = new JoplinExportDirectory(root, entries, childrenByParent);
         try (var paths = Files.newDirectoryStream(root)) {
             for (Path path : paths) {
                 var attributes = Files.readAttributes(path, BasicFileAttributes.class,
@@ -50,8 +55,13 @@ public final class JoplinExportDirectory implements AutoCloseable {
                 if (!path.getFileName().toString().endsWith(".md")) continue;
                 Entry entry = archive.readEntry(path);
                 entries.put(entry.getId(), entry);
+                String parentId = entry.getMetadata().get("parent_id");
+                if (parentId != null && !parentId.isEmpty()) {
+                    childrenByParent.computeIfAbsent(parentId, ignored -> new ArrayList<>()).add(entry);
+                }
             }
         }
+        childrenByParent.replaceAll((parentId, children) -> List.copyOf(children));
         return archive;
     }
 
@@ -109,6 +119,11 @@ public final class JoplinExportDirectory implements AutoCloseable {
         @Override
         public Optional<JoplinEntry> getParent() {
             return Optional.ofNullable(entries.get(metadata.get("parent_id")));
+        }
+
+        @Override
+        public List<JoplinEntry> getChildren() {
+            return childrenByParent.getOrDefault(getId(), Collections.emptyList());
         }
 
         @Override

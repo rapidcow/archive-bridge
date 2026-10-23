@@ -1,6 +1,7 @@
 package org.rapidcow.ai.archive.bridge.cozic.joplin;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,6 +21,9 @@ public interface JoplinEntry {
 
     /** Empty for root items and parents not included in this export. */
     Optional<JoplinEntry> getParent();
+
+    /** Direct children, immutable and unordered; empty for items without children. */
+    List<JoplinEntry> getChildren();
 
     /**
      * Reads the note body on demand, without its title or metadata.
