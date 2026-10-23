@@ -1,8 +1,10 @@
 package org.rapidcow.ai.archive.bridge.cozic.joplin;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 import java.io.IOException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -370,6 +372,113 @@ class JoplinExportDirectoryTest {
                 file_extension: bin
                 type_: 4""");
         assertThrows(IllegalStateException.class, () -> JoplinExportDirectory.open(temporary));
+    }
+
+    /**
+     * Lays out {@code payload} the way git-annex stores it: as a
+     * read-only object under {@code .git/annex/objects} in
+     * {@code repository}, with {@code link} a relative symbolic link
+     * to it.  Skips the test where symbolic links cannot be created,
+     * e.g. on Windows without Developer Mode or administrator rights.
+     *
+     * @return the annexed object
+     */
+    private static Path
+    annex(Path repository, Path link, byte[] payload)
+    throws IOException
+    {
+        String key = "SHA256E-s" + payload.length + "--invented"
+                + link.getFileName().toString().replaceFirst("^[^.]*", "");
+        Path object = repository.resolve(".git/annex/objects/Ab/Cd").resolve(key).resolve(key);
+        Files.createDirectories(object.getParent());
+        Files.write(object, payload);
+        assertTrue(object.toFile().setReadOnly());
+        try {
+            Files.createSymbolicLink(link, link.getParent().relativize(object));
+        } catch (UnsupportedOperationException | FileSystemException e) {
+            abort("Cannot create symbolic links here: " + e.getMessage());
+        }
+        return object;
+    }
+
+    /**
+     * An export checked into a git-annex repository, three directories
+     * below its root, as in {@code backup/joplin/2024-09-22_iPhone}.
+     */
+    private Path
+    annexedExport()
+    throws IOException
+    {
+        Path export = temporary.resolve("backup/joplin/2024-09-22_iPhone");
+        Files.createDirectories(export.resolve("resources"));
+        return export;
+    }
+
+    @Test
+    void followsAnnexedResourceWithExplicitExtension() throws IOException {
+        Path export = annexedExport();
+        writeUTF8String(export.resolve("resource.md"), """
+                Invented attachment
+
+                id: resource
+                file_extension: png
+                size: 6
+                type_: 4""");
+        byte[] payload = { 0, 1, (byte) 255, 10, 13, 0 };
+        Path link = export.resolve("resources/resource.png");
+        annex(temporary, link, payload);
+        assertEquals(Path.of("../../../../.git/annex/objects/Ab/Cd/SHA256E-s6--invented.png/SHA256E-s6--invented.png"),
+                Files.readSymbolicLink(link));
+        try (var archive = JoplinExportDirectory.open(export)) {
+            JoplinEntry entry = archive.entries().get("resource");
+            assertEquals(payload.length, entry.getResourceSize());
+            try (var stream = entry.openResourceStream()) {
+                assertArrayEquals(payload, stream.readAllBytes());
+            }
+        }
+    }
+
+    @Test
+    void followsAnnexedResourceWithoutExplicitExtension() throws IOException {
+        Path export = annexedExport();
+        writeUTF8String(export.resolve("resource.md"), """
+                Invented attachment
+
+                id: resource
+                file_extension:
+                mime: image/jpeg
+                size: 1
+                type_: 4""");
+        annex(temporary, export.resolve("resources/resource.jpg"), new byte[] { 42 });
+        try (var archive = JoplinExportDirectory.open(export)) {
+            JoplinEntry entry = archive.entries().get("resource");
+            assertEquals(1, entry.getResourceSize());
+            try (var stream = entry.openResourceStream()) {
+                assertEquals(42, stream.read());
+                assertEquals(-1, stream.read());
+            }
+        }
+    }
+
+    @Test
+    void rejectsDroppedAnnexedResources() throws IOException {
+        // After `git annex drop', the link stays but its object is gone.
+        Path export = annexedExport();
+        for (String extension : java.util.List.of("png", "")) {
+            writeUTF8String(export.resolve("resource.md"), """
+                    Invented attachment
+
+                    id: resource
+                    file_extension: %s
+                    mime: image/png
+                    size: 1
+                    type_: 4""".formatted(extension));
+            Path link = export.resolve("resources/resource.png");
+            Path object = annex(temporary, link, new byte[] { 42 });
+            Files.delete(object);
+            assertThrows(IOException.class, () -> JoplinExportDirectory.open(export));
+            Files.delete(link);
+        }
     }
 
     @Test
