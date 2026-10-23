@@ -18,6 +18,9 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTree;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -28,6 +31,8 @@ import javax.swing.plaf.metal.DefaultMetalTheme;
 import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.plaf.metal.MetalTheme;
 import javax.swing.plaf.metal.OceanTheme;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
 
 /**
@@ -40,8 +45,10 @@ import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
  * files are not supported yet, and are fatal too.)
  *
  * <p>
- * For now the window only has a status line, which tells how many
- * entries were loaded.  "File &gt; Open..." (Ctrl+O, or Cmd+O on
+ * The sidebar on the left shows the folders and notes as a tree (see
+ * {@link EntryTree}); the rest of the window is empty for now.  The
+ * status line at the bottom tells how many entries were loaded.
+ * "File &gt; Open..." (Ctrl+O, or Cmd+O on
  * macOS) loads another directory; there, failures are only reported.
  * "View &gt; Dark Mode" switches between a light and a dark palette
  * (it starts out dark).  On macOS the menus sit in the system menu bar
@@ -62,6 +69,7 @@ class
 	private final JFrame frame = new JFrame("Joplin Export Viewer");
 	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark Mode");
 	private final JLabel status = new JLabel(" ");
+	private final JTree tree = new JTree(new DefaultTreeModel(new DefaultMutableTreeNode()));
 
 	/**
 	 * The export on display, or {@code null} before one is loaded.
@@ -90,10 +98,16 @@ class
 		menus.add(view);
 
 		status.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+		tree.setRootVisible(false);
+		tree.setShowsRootHandles(true);
+		tree.setCellRenderer(new EntryCellRenderer());
+		var split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+				new JScrollPane(tree), new JPanel());
+		split.setDividerLocation(220);
 
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setJMenuBar(menus);
-		frame.add(new JPanel(), BorderLayout.CENTER);
+		frame.add(split, BorderLayout.CENTER);
 		frame.add(status, BorderLayout.SOUTH);
 		frame.setSize(640, 480);
 		frame.setLocationRelativeTo(null);
@@ -118,6 +132,7 @@ class
 			}
 		}
 		this.export = export;
+		tree.setModel(new DefaultTreeModel(EntryTree.of(export.entries().values())));
 		updateStatus();
 	}
 
