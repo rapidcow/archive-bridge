@@ -20,10 +20,10 @@ import javax.swing.plaf.metal.OceanTheme;
  * Viewer for Joplin export (JEX) archives.
  *
  * <p>
- * For now it is an empty window.  The "View" menu has a "Dark" item,
- * which switches between a light and a dark palette.  On macOS the
- * menu sits in the system menu bar at the top of the screen; elsewhere
- * it is at the top of the window.
+ * For now it is an empty window.  The "View" menu has a "Toggle Dark
+ * Mode" item, which switches between a light and a dark palette (it
+ * starts out dark).  On macOS the menu sits in the system menu bar at
+ * the top of the screen; elsewhere it is at the top of the window.
  *
  * <p>
  * This uses Swing's cross-platform Metal look and feel: the native
@@ -37,10 +37,14 @@ class
 	private static final MetalTheme DARK = new DarkTheme();
 
 	private final JFrame frame = new JFrame("Joplin Export Viewer");
-	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark");
+	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark Mode");
 
+	/**
+	 * Creates the window, with the dark mode item checked if
+	 * {@code theme} is the dark one.
+	 */
 	private
-	JoplinExportViewer()
+	JoplinExportViewer(MetalTheme theme)
 	{
 		var view = new JMenu("View");
 		view.add(dark);
@@ -53,6 +57,7 @@ class
 		frame.setSize(640, 480);
 		frame.setLocationRelativeTo(null);
 
+		dark.setSelected(theme == DARK);
 		dark.addItemListener(e -> applyTheme(dark.isSelected() ? DARK : LIGHT));
 	}
 
@@ -98,8 +103,9 @@ class
 	{
 		SwingUtilities.invokeLater(() -> {
 			useScreenMenuBar();
-			applyTheme(LIGHT);
-			new JoplinExportViewer().frame.setVisible(true);
+			var theme = DARK;
+			applyTheme(theme);
+			new JoplinExportViewer(theme).frame.setVisible(true);
 		});
 	}
 
