@@ -44,7 +44,9 @@ public final class JoplinExportDirectory implements AutoCloseable {
      * are retained as strings; this format is not parsed as YAML. Metadata uses
      * LF separators; literal CR in the trailer is rejected. The first line is
      * preserved verbatim, including any literal CR (apart from the optional BOM).
-     * The title must be followed by an empty LF-delimited line.
+     * The title must be followed by an empty LF-delimited line. The one
+     * exception is note-tag links ({@link JoplinType#NOTE_TAG}), which Joplin
+     * writes as metadata alone, with no title, blank line or body.
      * Resource paths and sizes are validated eagerly without reading payloads.
      * The backing export must remain unchanged while in use.
      * @throws IllegalStateException if resource size metadata is invalid or mismatched
@@ -117,7 +119,12 @@ public final class JoplinExportDirectory implements AutoCloseable {
         public Path getFilePath() { return path; }
 
         @Override
-        public String getTitle() { return firstLine; }
+        public String getTitle() {
+            if (type == JoplinType.NOTE_TAG) {
+                throw new IllegalStateException("Note-tag links have no title");
+            }
+            return firstLine;
+        }
 
         @Override
         public Map<String, String> getMetadata() { return metadata; }
@@ -233,22 +240,24 @@ public final class JoplinExportDirectory implements AutoCloseable {
             if (firstLine.startsWith("\uFEFF")) firstLine = firstLine.substring(1);
             long firstLineEnd = file.getFilePointer();
             // Check only the required separator byte, never scan a second line.
-            if (b != '\n' || file.read() != '\n') {
-                throw new IOException("Missing blank line after JEX title");
-            }
+            boolean titled = b == '\n' && file.read() == '\n';
+            // Without a title, this may be a note-tag link, whose metadata
+            // starts at the top; whether it is one is only known from its
+            // type, so read the whole file as metadata for now.
+            long floor = titled ? firstLineEnd : 0;
             long cursor = file.length();
             var reversed = new ArrayList<String>();
             boolean terminalLine = true;
             boolean separator = false;
-            while (cursor > firstLineEnd) {
+            while (cursor > floor) {
                 var bytes = new ByteArrayOutputStream();
-                while (cursor > firstLineEnd) {
+                while (cursor > floor) {
                     file.seek(--cursor);
                     b = file.read();
                     if (b == '\n') break;
                     bytes.write(b);
                 }
-                if (cursor == firstLineEnd && b == '\n') separator = true;
+                if (cursor == floor && b == '\n') separator = true;
                 byte[] lineBytes = bytes.toByteArray();
                 for (int i = 0, j = lineBytes.length - 1; i < j; i++, j--) {
                     byte swap = lineBytes[i];
@@ -256,6 +265,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
                     lineBytes[j] = swap;
                 }
                 String line = new String(lineBytes, StandardCharsets.UTF_8);
+                if (cursor == 0 && line.startsWith("\uFEFF")) line = line.substring(1);
                 if (line.indexOf('\r') >= 0) {
                     throw new IOException("Literal CR is not allowed in JEX metadata");
                 }
@@ -273,7 +283,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
                 }
                 reversed.add(line);
             }
-            if (!separator) throw new IOException("Missing JEX metadata separator");
+            if (titled && !separator) throw new IOException("Missing JEX metadata separator");
             Collections.reverse(reversed);
             var metadata = new LinkedHashMap<String, String>();
             for (String line : reversed) {
@@ -293,6 +303,13 @@ public final class JoplinExportDirectory implements AutoCloseable {
             } catch (IllegalArgumentException error) {
                 throw new IOException("Invalid Joplin item type");
             }
+            if (type == JoplinType.NOTE_TAG) {
+                if (titled || separator) {
+                    throw new IOException("Unexpected title or body in JEX note-tag link");
+                }
+                return new Entry(path, null, metadata, type, 0, 0);
+            }
+            if (!titled) throw new IOException("Missing blank line after JEX title");
             long contentStart = firstLineEnd + 1;
             return new Entry(path, firstLine, metadata, type,
                     contentStart, Math.max(contentStart, cursor));

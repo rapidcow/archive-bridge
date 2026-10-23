@@ -113,6 +113,61 @@ class JoplinExportDirectoryTest {
     }
 
     @Test
+    void readsNoteTagLinkWrittenWithoutTitle() throws IOException {
+        // As Joplin writes them: metadata from the first line on.
+        String link = """
+                id: link
+                note_id: note
+                tag_id: tag
+                created_time: 2024-04-02T00:00:00.000Z
+                updated_time: 2024-04-02T00:00:00.000Z
+                user_created_time: 2024-04-02T00:00:00.000Z
+                user_updated_time: 2024-04-02T00:00:00.000Z
+                encryption_cipher_text:\s
+                encryption_applied: 0
+                is_shared: 0
+                type_: 6""";
+        writeUTF8String(temporary.resolve("note.md"), """
+                Invented title
+
+                id: note
+                type_: 1""");
+        for (String text : java.util.List.of(link, link + "\n", "﻿" + link)) {
+            writeUTF8String(temporary.resolve("link.md"), text);
+            try (var archive = JoplinExportDirectory.open(temporary)) {
+                assertEquals(2, archive.entries().size());
+                JoplinEntry entry = archive.entries().get("link");
+                assertEquals(JoplinType.NOTE_TAG, entry.getType());
+                assertEquals("link", entry.getMetadata().get("id"));
+                assertEquals("tag", entry.getMetadata().get("tag_id"));
+                assertEquals(11, entry.getMetadata().size());
+                assertThrows(IllegalStateException.class, entry::getTitle);
+                assertEquals(0, entry.getContentSize());
+                assertEquals("", entry.getContent());
+            }
+        }
+    }
+
+    @Test
+    void stillRequiresTitleOfAllButNoteTagLinks() throws IOException {
+        Path item = temporary.resolve("item.md");
+        for (String type : java.util.List.of("1", "2", "4", "5")) {
+            writeUTF8String(item, "id: item\ntype_: " + type);
+            var error = assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
+            assertEquals("Missing blank line after JEX title", error.getMessage());
+        }
+        // Nor may a note-tag link have a title, or a body after its metadata.
+        for (String text : java.util.List.of(
+                "Title\n\nid: item\ntype_: 6",
+                "\n\nid: item\ntype_: 6",
+                "id: item\n\nid: item\ntype_: 6")) {
+            writeUTF8String(item, text);
+            var error = assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
+            assertEquals("Unexpected title or body in JEX note-tag link", error.getMessage());
+        }
+    }
+
+    @Test
     void rejectsMalformedTrailerWithoutEchoingText() throws IOException {
         writeUTF8String(temporary.resolve("item.md"), """
                 Title

@@ -14,6 +14,9 @@ public interface JoplinEntry {
      * The title is the first line of a Joplin entry.
      * It is followed by a blank line before the start
      * of the main content.
+     *
+     * @throws IllegalStateException if this is a {@link JoplinType#NOTE_TAG}
+     *         entry, which Joplin writes without a title
      */
     String getTitle();
 
