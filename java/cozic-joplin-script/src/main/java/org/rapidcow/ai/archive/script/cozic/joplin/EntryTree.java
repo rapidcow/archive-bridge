@@ -57,9 +57,13 @@ class
 	enum Order {
 		/** By title, then by ID. */
 		TITLE("Title", BY_TITLE),
+		/** By {@code created_time}, when the entry was created. */
+		CREATION_TIME("Creation Time", byTime("created_time")),
+		/** By {@code user_created_time}, what the user set the creation date to. */
+		USER_CREATION_TIME("User Creation Time", byTime("user_created_time")),
 		/** By {@code updated_time}, when the entry last changed at all. */
 		MODIFICATION_TIME("Modification Time", byTime("updated_time")),
-		/** By {@code user_updated_time}, when its user last edited it. */
+		/** By {@code user_updated_time}, what the user set the modification date to. */
 		USER_MODIFICATION_TIME("User Modification Time", byTime("user_updated_time"));
 
 		private final String label;
