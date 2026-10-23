@@ -19,5 +19,8 @@ bin/
 # Eclipse?
 out/
 
+# Intellij Idea
+.idea/
+
 # Perl virtual env (common enough.)
 perl5/
