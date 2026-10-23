@@ -1,9 +1,12 @@
 package org.rapidcow.ai.archive.script.cozic.joplin;
 
 import java.awt.BorderLayout;
+import java.awt.Desktop;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +20,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTree;
@@ -26,6 +29,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.ColorUIResource;
 import javax.swing.plaf.metal.DefaultMetalTheme;
 import javax.swing.plaf.metal.MetalLookAndFeel;
@@ -33,6 +38,7 @@ import javax.swing.plaf.metal.MetalTheme;
 import javax.swing.plaf.metal.OceanTheme;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinEntry;
 import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
 
 /**
@@ -46,8 +52,12 @@ import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
  *
  * <p>
  * The sidebar on the left shows the folders and notes as a tree (see
- * {@link EntryTree}); the rest of the window is empty for now.  The
- * status line at the bottom tells how many entries were loaded.
+ * {@link EntryTree}).  Clicking the blank space below them clears the
+ * selection.  Right-clicking one offers "Open in File System", which
+ * shows its {@code .md} file in the file manager.  The panel on the
+ * right lists the metadata of the selected one (see
+ * {@link MetadataPane}).  The status line at the bottom tells how many
+ * entries were loaded.
  * "File &gt; Open..." (Ctrl+O, or Cmd+O on
  * macOS) loads another directory; there, failures are only reported.
  * "View &gt; Dark Mode" switches between a light and a dark palette
@@ -70,6 +80,7 @@ class
 	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark Mode");
 	private final JLabel status = new JLabel(" ");
 	private final JTree tree = new JTree(new DefaultTreeModel(new DefaultMutableTreeNode()));
+	private final MetadataPane metadata = new MetadataPane();
 
 	/**
 	 * The export on display, or {@code null} before one is loaded.
@@ -101,8 +112,43 @@ class
 		tree.setRootVisible(false);
 		tree.setShowsRootHandles(true);
 		tree.setCellRenderer(new EntryCellRenderer());
+		tree.addTreeSelectionListener(e -> metadata.show(selectedEntry()));
+
+		var reveal = new JMenuItem("Open in File System");
+		reveal.addActionListener(e -> reveal(selectedFile()));
+		var popup = new JPopupMenu();
+		popup.add(reveal);
+		popup.addPopupMenuListener(new PopupMenuListener() {
+			@Override
+			public void
+			popupMenuWillBecomeVisible(PopupMenuEvent e)
+			{
+				reveal.setEnabled(selectedFile() != null);
+			}
+
+			@Override public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {}
+			@Override public void popupMenuCanceled(PopupMenuEvent e) {}
+		});
+		// As the tree's own popup menu, it follows changes of theme.
+		tree.setComponentPopupMenu(popup);
+		tree.addMouseListener(new MouseAdapter() {
+			@Override
+			public void
+			mousePressed(MouseEvent e)
+			{
+				// Clicking blank space clears the selection, and
+				// right-clicking a row selects it, so the menu acts on it.
+				int row = rowAt(e.getY());
+				if (row < 0) {
+					tree.clearSelection();
+				} else if (e.isPopupTrigger() || SwingUtilities.isRightMouseButton(e)) {
+					tree.setSelectionRow(row);
+				}
+			}
+		});
+
 		var split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-				new JScrollPane(tree), new JPanel());
+				new JScrollPane(tree), new JScrollPane(metadata));
 		split.setDividerLocation(220);
 
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -134,6 +180,77 @@ class
 		this.export = export;
 		tree.setModel(new DefaultTreeModel(EntryTree.of(export.entries().values())));
 		updateStatus();
+	}
+
+	/**
+	 * The row of the tree at height {@code y}, wherever it is across,
+	 * or -1 if there is none.
+	 */
+	private int
+	rowAt(int y)
+	{
+		int row = tree.getClosestRowForLocation(0, y);
+		var bounds = tree.getRowBounds(row);
+		if (bounds == null || y < bounds.y || y >= bounds.y + bounds.height) {
+			return -1;
+		}
+		return row;
+	}
+
+	/**
+	 * The folder or note selected in the tree, or {@code null}.
+	 */
+	private JoplinEntry
+	selectedEntry()
+	{
+		var path = tree.getSelectionPath();
+		if (path != null
+				&& ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject()
+					instanceof EntryTree.Item item) {
+			return item.entry();
+		}
+		return null;
+	}
+
+	/**
+	 * The {@code .md} file of the selected folder or note, or
+	 * {@code null}.
+	 */
+	private Path
+	selectedFile()
+	{
+		if (selectedEntry() instanceof JoplinExportDirectory.Entry entry) {
+			return entry.getFilePath();
+		}
+		return null;
+	}
+
+	/**
+	 * Shows {@code file} in the file manager: selected in its
+	 * directory where the platform supports that (as macOS does), or
+	 * else just its directory.
+	 *
+	 * @param file  the file to show
+	 */
+	private void
+	reveal(Path file)
+	{
+		if (file == null) {
+			return;
+		}
+		try {
+			Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
+			if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE_FILE_DIR)) {
+				desktop.browseFileDirectory(file.toFile());
+			} else if (desktop != null && desktop.isSupported(Desktop.Action.OPEN)) {
+				desktop.open(file.getParent().toFile());
+			} else {
+				throw new UnsupportedOperationException("No file manager to open");
+			}
+		} catch (IOException | RuntimeException e) {
+			JOptionPane.showMessageDialog(frame, file + ": " + e.getMessage(),
+					"Cannot open in file system", JOptionPane.ERROR_MESSAGE);
+		}
 	}
 
 	/**
