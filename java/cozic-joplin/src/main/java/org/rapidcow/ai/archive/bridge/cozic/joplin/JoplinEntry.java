@@ -8,7 +8,12 @@ import java.util.Optional;
 public interface JoplinEntry {
     String getId();
     JoplinType getType();
-    String firstLine();
+    /**
+     * The title is the first line of a Joplin entry.
+     * It is followed by a blank line before the start
+     * of the main content.
+     */
+    String title();
 
     /** Raw properties in their original trailer order. */
     Map<String, String> metadata();
@@ -20,6 +25,7 @@ public interface JoplinEntry {
      * Reads the note body on demand, without its title or metadata.
      * Returns an empty string for an empty note or a non-note item.
      * No content is cached; the backing export must remain unchanged.
+     *
      * @throws IOException if the backing file cannot be read
      */
     String getContent() throws IOException;

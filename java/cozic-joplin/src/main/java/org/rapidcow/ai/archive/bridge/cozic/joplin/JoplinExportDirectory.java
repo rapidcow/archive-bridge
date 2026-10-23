@@ -92,7 +92,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
         public Path path() { return path; }
 
         @Override
-        public String firstLine() { return firstLine; }
+        public String title() { return firstLine; }
 
         @Override
         public Map<String, String> metadata() { return metadata; }

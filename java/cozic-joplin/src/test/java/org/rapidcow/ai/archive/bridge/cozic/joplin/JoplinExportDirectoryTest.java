@@ -40,9 +40,9 @@ class JoplinExportDirectoryTest {
         Files.writeString(temporary.resolve("ignored.bin"), "not an item");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals(2, archive.entries().size());
-            assertEquals("", archive.entries().get("a").firstLine());
+            assertEquals("", archive.entries().get("a").title());
             var note = archive.entries().get("b");
-            assertEquals("Invented café 🌱", note.firstLine());
+            assertEquals("Invented café 🌱", note.title());
             assertEquals("example", note.metadata().get("id"));
             assertEquals(java.util.List.of("id", "source_application", "author", "future_field", "type_"),
                     java.util.List.copyOf(note.metadata().keySet()));
@@ -57,7 +57,7 @@ class JoplinExportDirectoryTest {
     void supportsUtf8BomWithEmptyFirstLine() throws IOException {
         Files.writeString(temporary.resolve("item.md"), "\uFEFF\n\nInvented body\n\nid: example\ntype_: 1\n");
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("", archive.entries().get("item").firstLine());
+            assertEquals("", archive.entries().get("item").title());
             assertEquals("example", archive.entries().get("item").metadata().get("id"));
         }
     }
@@ -86,7 +86,7 @@ class JoplinExportDirectoryTest {
     void preservesLiteralCrInFirstLine() throws IOException {
         Files.writeString(temporary.resolve("item.md"), "Icon\r\n\nid: example\ntype_: 2");
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("Icon\r", archive.entries().get("item").firstLine());
+            assertEquals("Icon\r", archive.entries().get("item").title());
         }
     }
 
@@ -168,7 +168,7 @@ class JoplinExportDirectoryTest {
             assertEquals("B café 🌱.\n\nid: body-decoy\n", note.getContent());
             // A second call reads the backing file rather than returning cached content.
             Files.delete(notePath);
-            assertEquals("Invented title", note.firstLine());
+            assertEquals("Invented title", note.title());
             assertThrows(IOException.class, note::getContent);
         }
     }
