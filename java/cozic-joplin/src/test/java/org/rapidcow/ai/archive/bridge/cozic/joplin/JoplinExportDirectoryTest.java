@@ -305,6 +305,8 @@ class JoplinExportDirectoryTest {
                 assertArrayEquals(payload, second.readAllBytes());
             }
             Files.delete(resource);
+            assertEquals(payload.length, entry.getResourceSize());
+            assertEquals(0, entry.getContentSize());
             assertThrows(IOException.class, entry::openResourceStream);
         }
     }
@@ -320,18 +322,18 @@ class JoplinExportDirectoryTest {
                 size: 1
                 type_: 4""");
         Files.createDirectory(temporary.resolve("resources"));
+        assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
+        Files.write(temporary.resolve("resources/resource.png"), new byte[] { 42 });
         try (var archive = JoplinExportDirectory.open(temporary)) {
             JoplinEntry entry = archive.entries().get("resource");
-            assertThrows(IOException.class, entry::openResourceStream);
-            Files.write(temporary.resolve("resources/resource.png"), new byte[] { 42 });
             assertEquals(1, entry.getResourceSize());
             try (var stream = entry.openResourceStream()) {
                 assertEquals(42, stream.read());
                 assertEquals(-1, stream.read());
             }
-            Files.write(temporary.resolve("resources/resource"), new byte[] { 43 });
-            assertThrows(IOException.class, entry::openResourceStream);
         }
+        Files.write(temporary.resolve("resources/resource"), new byte[] { 43 });
+        assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
     }
 
     @Test
@@ -347,15 +349,11 @@ class JoplinExportDirectoryTest {
                     file_extension: bin
                     size: %s
                     type_: 4""".formatted(size));
-            try (var archive = JoplinExportDirectory.open(temporary)) {
-                JoplinEntry entry = archive.entries().get("resource");
-                var error = assertThrows(IllegalStateException.class, entry::getResourceSize);
-                assertThrows(IllegalStateException.class, entry::openResourceStream);
-                assertEquals(size, entry.getMetadata().get("size"));
-                if (size.equals("2147483648")) {
-                    assertEquals("Resource size mismatch: expected 2147483648 bytes, found 3",
-                            error.getMessage());
-                }
+            var error = assertThrows(IllegalStateException.class,
+                    () -> JoplinExportDirectory.open(temporary));
+            if (size.equals("2147483648")) {
+                assertEquals("Resource size mismatch: expected 2147483648 bytes, found 3",
+                        error.getMessage());
             }
         }
         Files.writeString(temporary.resolve("resource.md"), """
@@ -364,11 +362,7 @@ class JoplinExportDirectoryTest {
                 id: resource
                 file_extension: bin
                 type_: 4""");
-        try (var archive = JoplinExportDirectory.open(temporary)) {
-            JoplinEntry entry = archive.entries().get("resource");
-            assertThrows(IllegalStateException.class, entry::getResourceSize);
-            assertThrows(IllegalStateException.class, entry::openResourceStream);
-        }
+        assertThrows(IllegalStateException.class, () -> JoplinExportDirectory.open(temporary));
     }
 
     @Test

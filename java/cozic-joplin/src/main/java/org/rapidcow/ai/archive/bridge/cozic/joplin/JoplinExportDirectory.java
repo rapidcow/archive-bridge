@@ -38,6 +38,10 @@ public final class JoplinExportDirectory implements AutoCloseable {
      * LF separators; literal CR in the trailer is rejected. The first line is
      * preserved verbatim, including any literal CR (apart from the optional BOM).
      * The title must be followed by an empty LF-delimited line.
+     * Resource paths and sizes are validated eagerly without reading payloads.
+     * The backing export must remain unchanged while in use.
+     * @throws IllegalStateException if resource size metadata is invalid or mismatched
+     * @throws IOException if metadata or resource files cannot be located or inspected
      */
     public static JoplinExportDirectory open(Path directory) throws IOException {
         Path root = directory.toAbsolutePath().normalize();
@@ -89,15 +93,19 @@ public final class JoplinExportDirectory implements AutoCloseable {
         private final JoplinType type;
         private final long contentStart;
         private final long contentSize;
+        private final Path resourcePath;
+        private final long resourceSize;
 
         private Entry(Path path, String firstLine, Map<String, String> metadata,
-                JoplinType type, long contentStart, long contentEnd) {
+                JoplinType type, long contentStart, long contentEnd) throws IOException {
             this.path = path;
             this.firstLine = firstLine;
             this.metadata = Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
             this.type = type;
             this.contentStart = contentStart;
             this.contentSize = type == JoplinType.NOTE ? contentEnd - contentStart : 0;
+            this.resourcePath = type == JoplinType.RESOURCE ? resolveResourcePath() : null;
+            this.resourceSize = resourcePath == null ? 0 : validatedResourceSize(resourcePath);
         }
 
         public Path getFilePath() { return path; }
@@ -145,14 +153,14 @@ public final class JoplinExportDirectory implements AutoCloseable {
 
         @Override
         public InputStream openResourceStream() throws IOException {
-            Path payload = resourcePath();
-            validatedResourceSize(payload);
-            return Files.newInputStream(payload);
+            if (type != JoplinType.RESOURCE) throw new IllegalStateException("Entry is not a resource");
+            return Files.newInputStream(resourcePath);
         }
 
         @Override
-        public long getResourceSize() throws IOException {
-            return validatedResourceSize(resourcePath());
+        public long getResourceSize() {
+            if (type != JoplinType.RESOURCE) throw new IllegalStateException("Entry is not a resource");
+            return resourceSize;
         }
 
         private long validatedResourceSize(Path payload) throws IOException {
@@ -171,7 +179,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
             return actual;
         }
 
-        private Path resourcePath() throws IOException {
+        private Path resolveResourcePath() throws IOException {
             if (type != JoplinType.RESOURCE) {
                 throw new IllegalStateException("Entry is not a resource");
             }
