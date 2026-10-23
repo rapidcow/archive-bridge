@@ -27,6 +27,7 @@ include("apple-mobile-backup-script")
  */
 include("apple-notes-store")
 include("cozic-joplin")
+include("cozic-joplin-script")
 include("microsoft-windowsink")
 include("mscherotter-journalist")
 include("tophatch-concepts")
