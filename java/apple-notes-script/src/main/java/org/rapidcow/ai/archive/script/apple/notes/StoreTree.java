@@ -87,5 +87,22 @@ final class StoreTree implements AutoCloseable {
         return properties;
     }
 
+    synchronized boolean isDrawing(Item item) {
+        var entity = item.row().entity();
+        var entities = store.entities();
+        while (!entity.name().equals("ICAttachment") && entity.superId() != 0) {
+            int parentId = entity.superId();
+            entity = entities.stream().filter(e -> e.id() == parentId).findFirst().orElseThrow();
+        }
+        if (!entity.name().equals("ICAttachment")) return false;
+        var columns = item.row().columns();
+        if (!columns.contains("ZMERGEABLEDATA1") || !(item.row().get("ZMERGEABLEDATA1") instanceof byte[] bytes)
+                || bytes.length == 0) return false;
+        if (!columns.contains("ZTYPEUTI") || !"com.apple.drawing.2".equals(item.row().get("ZTYPEUTI"))) {
+            throw new IllegalArgumentException("This attachment is not a supported com.apple.drawing.2 drawing");
+        }
+        return true;
+    }
+
     @Override public synchronized void close() { store.close(); }
 }

@@ -24,7 +24,8 @@ import org.rapidcow.ai.archive.script.cozic.joplin.MetadataPane;
  * Read-only browser for a standalone NoteStore.sqlite.
  * Usage: {@code AppleNotesViewer [PATH]}. Entities and their rows appear on
  * the left, raw non-null columns on the right. Binary values show their size;
- * note bodies and drawings are not decoded. Uses the Joplin viewer's theme
+ * double-click a com.apple.drawing.2 attachment to animate it through the
+ * bundled Perl decoder. Note bodies are not decoded. Uses the Joplin viewer's theme
  * and metadata pane. The store must already have its WAL consolidated.
  */
 public final class AppleNotesViewer {
@@ -37,6 +38,7 @@ public final class AppleNotesViewer {
     private StoreTree store;
     private boolean byTitle = true;
     private int selectionVersion;
+    private boolean drawingLoading;
 
     private AppleNotesViewer() {
         int shortcut = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
@@ -75,6 +77,13 @@ public final class AppleNotesViewer {
         tree.setShowsRootHandles(true);
         tree.addTreeSelectionListener(e -> showSelection());
         tree.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+                    var path = tree.getPathForLocation(e.getX(), e.getY());
+                    if (path != null && ((DefaultMutableTreeNode) path.getLastPathComponent()).getUserObject()
+                            instanceof StoreTree.Item item) playDrawing(item);
+                }
+            }
             @Override public void mousePressed(MouseEvent e) {
                 int row = tree.getClosestRowForLocation(0, e.getY());
                 var bounds = tree.getRowBounds(row);
@@ -98,6 +107,44 @@ public final class AppleNotesViewer {
                 if (store != null) store.close();
             }
         });
+    }
+
+    private void playDrawing(StoreTree.Item item) {
+        if (drawingLoading) return;
+        var source = store;
+        drawingLoading = true;
+        status.setText("Loading drawing " + item.row().pk() + "...");
+        new SwingWorker<java.util.List<Stroke>, Void>() {
+            @Override protected java.util.List<Stroke> doInBackground() throws Exception {
+                if (!source.isDrawing(item)) return null;
+                return DrawingDecoder.decode(source.path, item.row().pk());
+            }
+            @Override protected void done() {
+                drawingLoading = false;
+                updateStatus();
+                try {
+                    var strokes = get();
+                    if (strokes == null || source != store || !frame.isDisplayable()) return;
+                    if (strokes.stream().allMatch(s -> s.points().isEmpty())) {
+                        throw new IllegalArgumentException("This drawing has no points to play");
+                    }
+                    var panel = new DrawingPanel(strokes);
+                    panel.setPreferredSize(new java.awt.Dimension(900, 700));
+                    var window = new JFrame("Apple Notes Drawing — " + item);
+                    window.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                    window.setContentPane(panel);
+                    window.pack();
+                    window.setLocationRelativeTo(frame);
+                    window.setVisible(true);
+                    panel.animate(50);
+                } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                catch (ExecutionException | RuntimeException e) {
+                    if (source == store && frame.isDisplayable()) {
+                        error("Cannot play drawing", e instanceof ExecutionException ? e.getCause() : e);
+                    }
+                }
+            }
+        }.execute();
     }
 
     private Object selected() {
