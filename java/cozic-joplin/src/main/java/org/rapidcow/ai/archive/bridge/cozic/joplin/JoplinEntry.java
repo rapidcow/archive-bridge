@@ -13,10 +13,10 @@ public interface JoplinEntry {
      * It is followed by a blank line before the start
      * of the main content.
      */
-    String title();
+    String getTitle();
 
     /** Raw properties in their original trailer order. */
-    Map<String, String> metadata();
+    Map<String, String> getMetadata();
 
     /** Empty for root items and parents not included in this export. */
     Optional<JoplinEntry> getParent();

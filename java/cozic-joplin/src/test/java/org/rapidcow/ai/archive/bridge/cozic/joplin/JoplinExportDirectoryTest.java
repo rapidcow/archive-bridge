@@ -40,15 +40,15 @@ class JoplinExportDirectoryTest {
         Files.writeString(temporary.resolve("ignored.bin"), "not an item");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals(2, archive.entries().size());
-            assertEquals("", archive.entries().get("a").title());
+            assertEquals("", archive.entries().get("a").getTitle());
             var note = archive.entries().get("b");
-            assertEquals("Invented café 🌱", note.title());
-            assertEquals("example", note.metadata().get("id"));
+            assertEquals("Invented café 🌱", note.getTitle());
+            assertEquals("example", note.getMetadata().get("id"));
             assertEquals(java.util.List.of("id", "source_application", "author", "future_field", "type_"),
-                    java.util.List.copyOf(note.metadata().keySet()));
-            assertEquals("", note.metadata().get("author"));
-            assertEquals("a: b\\nnext", note.metadata().get("future_field"));
-            assertThrows(UnsupportedOperationException.class, () -> note.metadata().put("id", "other"));
+                    java.util.List.copyOf(note.getMetadata().keySet()));
+            assertEquals("", note.getMetadata().get("author"));
+            assertEquals("a: b\\nnext", note.getMetadata().get("future_field"));
+            assertThrows(UnsupportedOperationException.class, () -> note.getMetadata().put("id", "other"));
             assertThrows(UnsupportedOperationException.class, () -> archive.entries().clear());
         }
     }
@@ -57,8 +57,8 @@ class JoplinExportDirectoryTest {
     void supportsUtf8BomWithEmptyFirstLine() throws IOException {
         Files.writeString(temporary.resolve("item.md"), "\uFEFF\n\nInvented body\n\nid: example\ntype_: 1\n");
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("", archive.entries().get("item").title());
-            assertEquals("example", archive.entries().get("item").metadata().get("id"));
+            assertEquals("", archive.entries().get("item").getTitle());
+            assertEquals("example", archive.entries().get("item").getMetadata().get("id"));
         }
     }
 
@@ -71,7 +71,7 @@ class JoplinExportDirectoryTest {
                 type_: 2
                 """);
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("2", archive.entries().get("item").metadata().get("type_"));
+            assertEquals("2", archive.entries().get("item").getMetadata().get("type_"));
         }
     }
 
@@ -86,7 +86,7 @@ class JoplinExportDirectoryTest {
     void preservesLiteralCrInFirstLine() throws IOException {
         Files.writeString(temporary.resolve("item.md"), "Icon\r\n\nid: example\ntype_: 2");
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("Icon\r", archive.entries().get("item").title());
+            assertEquals("Icon\r", archive.entries().get("item").getTitle());
         }
     }
 
@@ -168,7 +168,7 @@ class JoplinExportDirectoryTest {
             assertEquals("B café 🌱.\n\nid: body-decoy\n", note.getContent());
             // A second call reads the backing file rather than returning cached content.
             Files.delete(notePath);
-            assertEquals("Invented title", note.title());
+            assertEquals("Invented title", note.getTitle());
             assertThrows(IOException.class, note::getContent);
         }
     }

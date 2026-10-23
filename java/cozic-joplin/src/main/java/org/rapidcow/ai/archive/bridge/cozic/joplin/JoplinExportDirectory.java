@@ -89,13 +89,13 @@ public final class JoplinExportDirectory implements AutoCloseable {
             this.contentEnd = contentEnd;
         }
 
-        public Path path() { return path; }
+        public Path getFilePath() { return path; }
 
         @Override
-        public String title() { return firstLine; }
+        public String getTitle() { return firstLine; }
 
         @Override
-        public Map<String, String> metadata() { return metadata; }
+        public Map<String, String> getMetadata() { return metadata; }
 
         @Override
         public String getId() {
