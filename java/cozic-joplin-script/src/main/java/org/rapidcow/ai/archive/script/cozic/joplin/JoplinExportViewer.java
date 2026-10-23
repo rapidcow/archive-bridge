@@ -1,11 +1,12 @@
 package org.rapidcow.ai.archive.script.cozic.joplin;
 
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
 import java.awt.Window;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JPanel;
-import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
@@ -19,9 +20,10 @@ import javax.swing.plaf.metal.OceanTheme;
  * Viewer for Joplin export (JEX) archives.
  *
  * <p>
- * For now it is an empty window with a "Dark" toggle in the
- * bottom-right corner, which switches between a light and a dark
- * palette.
+ * For now it is an empty window.  The "View" menu has a "Dark" item,
+ * which switches between a light and a dark palette.  On macOS the
+ * menu sits in the system menu bar at the top of the screen; elsewhere
+ * it is at the top of the window.
  *
  * <p>
  * This uses Swing's cross-platform Metal look and feel: the native
@@ -35,21 +37,43 @@ class
 	private static final MetalTheme DARK = new DarkTheme();
 
 	private final JFrame frame = new JFrame("Joplin Export Viewer");
-	private final JToggleButton dark = new JToggleButton("Dark");
+	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark");
 
 	private
 	JoplinExportViewer()
 	{
-		var buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-		buttons.add(dark);
+		var view = new JMenu("View");
+		view.add(dark);
+		var menus = new JMenuBar();
+		menus.add(view);
 
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setJMenuBar(menus);
 		frame.add(new JPanel(), BorderLayout.CENTER);
-		frame.add(buttons, BorderLayout.SOUTH);
 		frame.setSize(640, 480);
 		frame.setLocationRelativeTo(null);
 
 		dark.addItemListener(e -> applyTheme(dark.isSelected() ? DARK : LIGHT));
+	}
+
+	/**
+	 * Keeps menu bars in the macOS system menu bar under Metal.
+	 *
+	 * <p>
+	 * {@code apple.laf.useScreenMenuBar} only takes effect through
+	 * Aqua's menu bar delegate, which Metal replaces with its own.  So
+	 * this borrows Aqua's before Metal is installed, and puts it in the
+	 * developer defaults, which outlive every later change of look and
+	 * feel.  Off macOS the default look and feel is not Aqua, and
+	 * nothing changes.
+	 */
+	private static void
+	useScreenMenuBar()
+	{
+		System.setProperty("apple.laf.useScreenMenuBar", "true");
+		if ("Aqua".equals(UIManager.getLookAndFeel().getID())) {
+			UIManager.put("MenuBarUI", UIManager.get("MenuBarUI"));
+		}
 	}
 
 	/**
@@ -73,6 +97,7 @@ class
 	main(String[] args)
 	{
 		SwingUtilities.invokeLater(() -> {
+			useScreenMenuBar();
 			applyTheme(LIGHT);
 			new JoplinExportViewer().frame.setVisible(true);
 		});
