@@ -11,17 +11,17 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 
 /** A metadata snapshot of an extracted JEX archive. Note bodies are not read. */
 public final class JoplinExportDirectory implements AutoCloseable {
     private final Path directory;
-    private final List<Entry> entries;
+    private final Map<String, Entry> entries;
 
-    private JoplinExportDirectory(Path directory, List<Entry> entries) {
+    private JoplinExportDirectory(Path directory, Map<String, Entry> entries) {
         this.directory = directory;
-        this.entries = List.copyOf(entries);
+        this.entries = Collections.unmodifiableMap(entries);
     }
 
     /**
@@ -38,7 +38,8 @@ public final class JoplinExportDirectory implements AutoCloseable {
         if (!Files.isDirectory(root)) {
             throw new IOException("JEX directory does not exist or is not a directory");
         }
-        var entries = new ArrayList<Entry>();
+        var entries = new LinkedHashMap<String, Entry>();
+        var archive = new JoplinExportDirectory(root, entries);
         try (var paths = Files.list(root)) {
             for (Path path : paths.sorted().toList()) {
                 var attributes = Files.readAttributes(path, BasicFileAttributes.class,
@@ -46,17 +47,18 @@ public final class JoplinExportDirectory implements AutoCloseable {
                 if (attributes.isDirectory()) continue;
                 if (!attributes.isRegularFile()) continue;
                 if (!path.getFileName().toString().endsWith(".md")) continue;
-                entries.add(readEntry(path));
+                Entry entry = archive.readEntry(path);
+                entries.put(entry.getId(), entry);
             }
         }
-        return new JoplinExportDirectory(root, entries);
+        return archive;
     }
 
     public Path directory() {
         return directory;
     }
 
-    public List<Entry> entries() {
+    public Map<String, Entry> entries() {
         return entries;
     }
 
@@ -67,9 +69,62 @@ public final class JoplinExportDirectory implements AutoCloseable {
     }
 
     /** Metadata values are raw strings, including empty values and escaped text. */
-    public record Entry(Path path, String firstLine, Map<String, String> metadata) {
-        public Entry {
-            metadata = Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
+    public final class Entry implements JoplinEntry {
+        private final Path path;
+        private final String firstLine;
+        private final Map<String, String> metadata;
+        private final JoplinType type;
+        private final long contentStart;
+        private final long contentEnd;
+
+        private Entry(Path path, String firstLine, Map<String, String> metadata,
+                JoplinType type, long contentStart, long contentEnd) {
+            this.path = path;
+            this.firstLine = firstLine;
+            this.metadata = Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
+            this.type = type;
+            this.contentStart = contentStart;
+            this.contentEnd = contentEnd;
+        }
+
+        public Path path() { return path; }
+
+        @Override
+        public String firstLine() { return firstLine; }
+
+        @Override
+        public Map<String, String> metadata() { return metadata; }
+
+        @Override
+        public String getId() {
+            String name = path.getFileName().toString();
+            return name.substring(0, name.length() - 3);
+        }
+
+        @Override
+        public JoplinType getType() { return type; }
+
+        @Override
+        public Optional<JoplinEntry> getParent() {
+            return Optional.ofNullable(entries.get(metadata.get("parent_id")));
+        }
+
+        @Override
+        public String getContent() throws IOException {
+            if (type != JoplinType.NOTE) return "";
+            try (var file = new RandomAccessFile(path.toFile(), "r")) {
+                file.seek(contentStart);
+                var output = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                long remaining = contentEnd - contentStart;
+                while (remaining > 0) {
+                    int count = (int) Math.min(buffer.length, remaining);
+                    file.readFully(buffer, 0, count);
+                    output.write(buffer, 0, count);
+                    remaining -= count;
+                }
+                return output.toString(StandardCharsets.UTF_8);
+            }
         }
 
         // Avoid accidentally logging titles or metadata that may contain private text.
@@ -79,7 +134,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
         }
     }
 
-    private static Entry readEntry(Path path) throws IOException {
+    private Entry readEntry(Path path) throws IOException {
         try (var file = new RandomAccessFile(path.toFile(), "r")) {
             var first = new ByteArrayOutputStream();
             int b;
@@ -142,7 +197,15 @@ public final class JoplinExportDirectory implements AutoCloseable {
             if (!metadata.containsKey("id") || !metadata.containsKey("type_")) {
                 throw new IOException("Missing JEX item identity or type");
             }
-            return new Entry(path, firstLine, metadata);
+            JoplinType type;
+            try {
+                type = JoplinType.fromValue(Integer.parseInt(metadata.get("type_")));
+            } catch (IllegalArgumentException error) {
+                throw new IOException("Invalid Joplin item type");
+            }
+            long contentStart = firstLineEnd + 1;
+            return new Entry(path, firstLine, metadata, type,
+                    contentStart, Math.max(contentStart, cursor));
         }
     }
 

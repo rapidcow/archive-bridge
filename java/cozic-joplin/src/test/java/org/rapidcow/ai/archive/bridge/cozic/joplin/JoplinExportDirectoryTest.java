@@ -40,8 +40,8 @@ class JoplinExportDirectoryTest {
         Files.writeString(temporary.resolve("ignored.bin"), "not an item");
         try (var archive = JoplinExportDirectory.open(temporary)) {
             assertEquals(2, archive.entries().size());
-            assertEquals("", archive.entries().get(0).firstLine());
-            var note = archive.entries().get(1);
+            assertEquals("", archive.entries().get("a").firstLine());
+            var note = archive.entries().get("b");
             assertEquals("Invented café 🌱", note.firstLine());
             assertEquals("example", note.metadata().get("id"));
             assertEquals(java.util.List.of("id", "source_application", "author", "future_field", "type_"),
@@ -57,8 +57,8 @@ class JoplinExportDirectoryTest {
     void supportsUtf8BomWithEmptyFirstLine() throws IOException {
         Files.writeString(temporary.resolve("item.md"), "\uFEFF\n\nInvented body\n\nid: example\ntype_: 1\n");
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("", archive.entries().get(0).firstLine());
-            assertEquals("example", archive.entries().get(0).metadata().get("id"));
+            assertEquals("", archive.entries().get("item").firstLine());
+            assertEquals("example", archive.entries().get("item").metadata().get("id"));
         }
     }
 
@@ -71,7 +71,7 @@ class JoplinExportDirectoryTest {
                 type_: 2
                 """);
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("2", archive.entries().get(0).metadata().get("type_"));
+            assertEquals("2", archive.entries().get("item").metadata().get("type_"));
         }
     }
 
@@ -86,7 +86,7 @@ class JoplinExportDirectoryTest {
     void preservesLiteralCrInFirstLine() throws IOException {
         Files.writeString(temporary.resolve("item.md"), "Icon\r\n\nid: example\ntype_: 2");
         try (var archive = JoplinExportDirectory.open(temporary)) {
-            assertEquals("Icon\r", archive.entries().get(0).firstLine());
+            assertEquals("Icon\r", archive.entries().get("item").firstLine());
         }
     }
 
@@ -133,6 +133,74 @@ class JoplinExportDirectoryTest {
                 type_: 1
                 """);
         assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
+    }
+
+    @Test
+    void indexesEntriesResolvesParentsAndLoadsContentLazily() throws IOException {
+        Files.writeString(temporary.resolve("folder.md"), """
+                Invented notebook
+
+                id: folder
+                type_: 2""");
+        Path notePath = temporary.resolve("note.md");
+        Files.writeString(notePath, """
+                Invented title
+
+                A café 🌱.
+
+                id: body-decoy
+
+
+                id: note
+                parent_id: folder
+                type_: 1""");
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry note = archive.entries().get("note");
+            JoplinEntry folder = archive.entries().get("folder");
+            assertEquals("note", note.getId());
+            assertEquals(JoplinType.NOTE, note.getType());
+            assertEquals(JoplinType.FOLDER, folder.getType());
+            assertSame(folder, note.getParent().orElseThrow());
+            assertTrue(folder.getParent().isEmpty());
+            assertEquals("", folder.getContent());
+            // Same byte length: proves open() did not eagerly read or cache the body.
+            Files.writeString(notePath, Files.readString(notePath).replace("A café", "B café"));
+            assertEquals("B café 🌱.\n\nid: body-decoy\n", note.getContent());
+            // A second call reads the backing file rather than returning cached content.
+            Files.delete(notePath);
+            assertEquals("Invented title", note.firstLine());
+            assertThrows(IOException.class, note::getContent);
+        }
+    }
+
+    @Test
+    void emptyNoteAndUnresolvedParentAreSupported() throws IOException {
+        Files.writeString(temporary.resolve("empty.md"), """
+                Empty note
+
+                id: empty
+                parent_id: absent
+                type_: 1""");
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry note = archive.entries().get("empty");
+            assertTrue(note.getParent().isEmpty());
+            assertEquals("", note.getContent());
+        }
+    }
+
+    @Test
+    void rejectsUnknownTypeDuringOpen() throws IOException {
+        Files.writeString(temporary.resolve("item.md"), """
+                Invented title
+
+                id: item
+                type_: 999""");
+        assertThrows(IOException.class, () -> JoplinExportDirectory.open(temporary));
+        assertEquals(JoplinType.NOTE, JoplinType.fromValue(1));
+        assertEquals(JoplinType.REVISION, JoplinType.fromValue(13));
+        for (var type : JoplinType.values()) {
+            assertSame(type, JoplinType.fromValue(type.getValue()));
+        }
     }
 
     @Test
