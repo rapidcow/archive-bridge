@@ -145,12 +145,30 @@ public final class JoplinExportDirectory implements AutoCloseable {
 
         @Override
         public InputStream openResourceStream() throws IOException {
-            return Files.newInputStream(resourcePath());
+            Path payload = resourcePath();
+            validatedResourceSize(payload);
+            return Files.newInputStream(payload);
         }
 
         @Override
         public long getResourceSize() throws IOException {
-            return Files.size(resourcePath());
+            return validatedResourceSize(resourcePath());
+        }
+
+        private long validatedResourceSize(Path payload) throws IOException {
+            long expected;
+            try {
+                expected = Long.parseLong(metadata.get("size"));
+            } catch (NumberFormatException error) {
+                throw new IllegalStateException("Missing or invalid resource size metadata");
+            }
+            if (expected < 0) throw new IllegalStateException("Negative resource size metadata");
+            long actual = Files.size(payload);
+            if (actual != expected) {
+                throw new IllegalStateException("Resource size mismatch: expected " + expected
+                        + " bytes, found " + actual);
+            }
+            return actual;
         }
 
         private Path resourcePath() throws IOException {

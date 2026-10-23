@@ -283,7 +283,7 @@ class JoplinExportDirectoryTest {
 
                 id: resource
                 file_extension: bin
-                size: 999
+                size: 6
                 type_: 4""");
         Files.createDirectory(temporary.resolve("resources"));
         byte[] payload = { 0, 1, (byte) 255, 10, 13, 0 };
@@ -292,7 +292,7 @@ class JoplinExportDirectoryTest {
         try (var archive = JoplinExportDirectory.open(temporary)) {
             JoplinEntry entry = archive.entries().get("resource");
             assertEquals(payload.length, entry.getResourceSize());
-            assertEquals("999", entry.getMetadata().get("size"));
+            assertEquals("6", entry.getMetadata().get("size"));
             assertEquals(0, entry.getContentSize());
             assertEquals("", entry.getContent());
             try (var content = entry.openContentStream()) {
@@ -317,6 +317,7 @@ class JoplinExportDirectoryTest {
                 id: resource
                 file_extension:
                 mime: image/png
+                size: 1
                 type_: 4""");
         Files.createDirectory(temporary.resolve("resources"));
         try (var archive = JoplinExportDirectory.open(temporary)) {
@@ -330,6 +331,43 @@ class JoplinExportDirectoryTest {
             }
             Files.write(temporary.resolve("resources/resource"), new byte[] { 43 });
             assertThrows(IOException.class, entry::openResourceStream);
+        }
+    }
+
+    @Test
+    void rejectsMismatchedAndInvalidResourceSizes() throws IOException {
+        Files.createDirectory(temporary.resolve("resources"));
+        Files.write(temporary.resolve("resources/resource.bin"), new byte[] { 1, 2, 3 });
+        for (String size : java.util.List.of("2", "4", "2147483648", "-1", "", "invalid",
+                "9223372036854775808")) {
+            Files.writeString(temporary.resolve("resource.md"), """
+                    Invented attachment
+
+                    id: resource
+                    file_extension: bin
+                    size: %s
+                    type_: 4""".formatted(size));
+            try (var archive = JoplinExportDirectory.open(temporary)) {
+                JoplinEntry entry = archive.entries().get("resource");
+                var error = assertThrows(IllegalStateException.class, entry::getResourceSize);
+                assertThrows(IllegalStateException.class, entry::openResourceStream);
+                assertEquals(size, entry.getMetadata().get("size"));
+                if (size.equals("2147483648")) {
+                    assertEquals("Resource size mismatch: expected 2147483648 bytes, found 3",
+                            error.getMessage());
+                }
+            }
+        }
+        Files.writeString(temporary.resolve("resource.md"), """
+                Invented attachment
+
+                id: resource
+                file_extension: bin
+                type_: 4""");
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry entry = archive.entries().get("resource");
+            assertThrows(IllegalStateException.class, entry::getResourceSize);
+            assertThrows(IllegalStateException.class, entry::openResourceStream);
         }
     }
 

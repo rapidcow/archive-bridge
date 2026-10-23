@@ -47,15 +47,18 @@ public interface JoplinEntry {
     /**
      * Opens the binary payload of a RESOURCE entry without loading it into memory.
      * The caller must close the returned stream.
-     * @throws IllegalStateException if this is not a RESOURCE entry
+     * @throws IllegalStateException if this is not a RESOURCE entry, size metadata
+     *         is missing or invalid, or the actual size does not match
      * @throws IOException if the payload is missing, ambiguous, or cannot be opened
      */
     InputStream openResourceStream() throws IOException;
 
     /**
      * Actual resource file size in bytes, obtained without reading its contents.
-     * This does not modify or rely on the metadata's size property.
-     * @throws IllegalStateException if this is not a RESOURCE entry
+     * Cross-validated against the metadata size using Long.parseLong.
+     * Metadata is never modified.
+     * @throws IllegalStateException if this is not a RESOURCE entry, size metadata
+     *         is missing or invalid, or the actual size does not match
      * @throws IOException if the payload cannot be located or inspected
      */
     long getResourceSize() throws IOException;
