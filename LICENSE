@@ -1,8 +1,7 @@
 All final, non-draft non-AI code under the
 archive.bridge namespace are distributed
 under LGPLv3+; see COPYING with amendments
-in COPYING.LESSER.  Perl files are Artistic 2
-(see perl/LICENSE).  Non-library scripts and
+in COPYING.LESSER.  Non-library scripts and
 programs are under GPLv3+; see COPYING.
 
 For others, check the file header.  (for instance,
