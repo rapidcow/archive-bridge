@@ -1,13 +1,26 @@
 package org.rapidcow.ai.archive.script.cozic.joplin;
 
 import java.awt.BorderLayout;
+import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.KeyEvent;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
+import javax.swing.BorderFactory;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.plaf.ColorUIResource;
@@ -15,15 +28,25 @@ import javax.swing.plaf.metal.DefaultMetalTheme;
 import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.plaf.metal.MetalTheme;
 import javax.swing.plaf.metal.OceanTheme;
+import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
 
 /**
  * Viewer for Joplin export (JEX) archives.
  *
  * <p>
- * For now it is an empty window.  The "View" menu has a "Toggle Dark
- * Mode" item, which switches between a light and a dark palette (it
- * starts out dark).  On macOS the menu sits in the system menu bar at
- * the top of the screen; elsewhere it is at the top of the window.
+ * Usage: {@code JoplinExportViewer [PATH]}, where {@code PATH} is an
+ * extracted export directory.  If it is given, it is loaded before the
+ * window opens, and any failure to load it is fatal.  (Unextracted JEX
+ * files are not supported yet, and are fatal too.)
+ *
+ * <p>
+ * For now the window only has a status line, which tells how many
+ * entries were loaded.  "File &gt; Open..." (Ctrl+O, or Cmd+O on
+ * macOS) loads another directory; there, failures are only reported.
+ * "View &gt; Dark Mode" switches between a light and a dark palette
+ * (it starts out dark).  On macOS the menus sit in the system menu bar
+ * at the top of the screen; elsewhere they are at the top of the
+ * window.
  *
  * <p>
  * This uses Swing's cross-platform Metal look and feel: the native
@@ -38,6 +61,12 @@ class
 
 	private final JFrame frame = new JFrame("Joplin Export Viewer");
 	private final JCheckBoxMenuItem dark = new JCheckBoxMenuItem("Dark Mode");
+	private final JLabel status = new JLabel(" ");
+
+	/**
+	 * The export on display, or {@code null} before one is loaded.
+	 */
+	private JoplinExportDirectory export;
 
 	/**
 	 * Creates the window, with the dark mode item checked if
@@ -48,19 +77,133 @@ class
 	private
 	JoplinExportViewer(MetalTheme theme)
 	{
+		var open = new JMenuItem("Open...");
+		open.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O,
+				Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+		open.addActionListener(e -> chooseExport());
+		var file = new JMenu("File");
+		file.add(open);
 		var view = new JMenu("View");
 		view.add(dark);
 		var menus = new JMenuBar();
+		menus.add(file);
 		menus.add(view);
+
+		status.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
 
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setJMenuBar(menus);
 		frame.add(new JPanel(), BorderLayout.CENTER);
+		frame.add(status, BorderLayout.SOUTH);
 		frame.setSize(640, 480);
 		frame.setLocationRelativeTo(null);
 
 		dark.setSelected(theme == DARK);
 		dark.addItemListener(e -> applyTheme(dark.isSelected() ? DARK : LIGHT));
+	}
+
+	/**
+	 * Shows {@code export} in place of the current one, which is closed.
+	 *
+	 * @param export  the newly loaded export
+	 */
+	private void
+	show(JoplinExportDirectory export)
+	{
+		if (this.export != null) {
+			try {
+				this.export.close();
+			} catch (IOException e) {
+				// The old export is going away either way.
+			}
+		}
+		this.export = export;
+		updateStatus();
+	}
+
+	/**
+	 * Tells how many entries the current export has, if there is one.
+	 */
+	private void
+	updateStatus()
+	{
+		if (export == null) {
+			status.setText(" ");
+			return;
+		}
+		int n = export.entries().size();
+		status.setText(n + (n == 1 ? " entry" : " entries") + " loaded");
+	}
+
+	/**
+	 * Asks for an export directory and loads it in the background.
+	 * A failure is reported in a dialog, and leaves the current export
+	 * on display.
+	 */
+	private void
+	chooseExport()
+	{
+		var chooser = new JFileChooser();
+		chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+		Path path = chooser.getSelectedFile().toPath();
+		status.setText("Loading " + path + "...");
+		new SwingWorker<JoplinExportDirectory, Void>() {
+			@Override
+			protected JoplinExportDirectory
+			doInBackground()
+			throws
+				IOException
+			{
+				return JoplinExportDirectory.open(path);
+			}
+
+			@Override
+			protected void
+			done()
+			{
+				try {
+					show(get());
+				} catch (ExecutionException e) {
+					updateStatus();
+					JOptionPane.showMessageDialog(frame,
+							path + ": " + e.getCause().getMessage(),
+							"Cannot open export", JOptionPane.ERROR_MESSAGE);
+				} catch (InterruptedException e) {
+					throw new IllegalStateException(e);
+				}
+			}
+		}.execute();
+	}
+
+	/**
+	 * Loads the export at {@code path}, or exits with a message if
+	 * that fails.
+	 *
+	 * @param path  an extracted export directory
+	 * @return the loaded export
+	 */
+	private static JoplinExportDirectory
+	loadOrDie(Path path)
+	{
+		if (Files.isRegularFile(path)) {
+			die(path + ": opening JEX files is not implemented");
+		}
+		try {
+			return JoplinExportDirectory.open(path);
+		} catch (IOException | IllegalStateException e) {
+			die(path + ": " + e.getMessage());
+			return null;
+		}
+	}
+
+	private static void
+	die(String message)
+	{
+		System.err.println("JoplinExportViewer: " + message);
+		System.exit(1);
 	}
 
 	/**
@@ -105,11 +248,22 @@ class
 	public static void
 	main(String[] args)
 	{
+		int argc = args.length;
+		if (argc > 1) {
+			System.err.println("usage: JoplinExportViewer [PATH]");
+			System.exit(1);
+		}
+
+		JoplinExportDirectory export = argc == 1 ? loadOrDie(Path.of(args[0])) : null;
 		SwingUtilities.invokeLater(() -> {
 			useScreenMenuBar();
 			var theme = DARK;
 			applyTheme(theme);
-			new JoplinExportViewer(theme).frame.setVisible(true);
+			var viewer = new JoplinExportViewer(theme);
+			if (export != null) {
+				viewer.show(export);
+			}
+			viewer.frame.setVisible(true);
 		});
 	}
 
