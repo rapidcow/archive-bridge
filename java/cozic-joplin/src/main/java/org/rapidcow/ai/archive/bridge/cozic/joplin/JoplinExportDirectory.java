@@ -17,7 +17,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Map;
 
-/** A metadata snapshot of an extracted JEX archive. Note bodies are not read. */
+/**
+ * A metadata snapshot of an extracted JEX archive.
+ *
+ * <p>
+ * <b>Implementation note</b>:
+ * Note bodies reads are deferred to each entry,
+ * though their size is validated beforehand.
+ */
 public final class JoplinExportDirectory implements AutoCloseable {
     private final Path directory;
     private final Map<String, Entry> entries;
