@@ -7,7 +7,7 @@ repositories {
 }
 
 dependencies {
-    api(project(":microsoft-windowsink-ai"))
+    api(project(":microsoft-windowsink"))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

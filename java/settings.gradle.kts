@@ -20,8 +20,12 @@ include("apple-notes-proto")
 /* GPLv3+ modules */
 include("apple-mobile-backup-script")
 
-/* no copyright */
-include("apple-notes-store-ai")
-include("microsoft-windowsink-ai")
-include("mscherotter-journalist-ai")
-include("tophatch-concepts-ai")
+/*
+ * These contain AI-generated prototypes.
+ * See header for which ones are copyrighted
+ * & licensed under LGPL.
+ */
+include("apple-notes-store")
+include("microsoft-windowsink")
+include("mscherotter-journalist")
+include("tophatch-concepts")
