@@ -6,7 +6,7 @@ programs are under GPLv3+; see COPYING.
 
 For others, check the file header.  (for instance,
 gradle-wrapper.jar and gradlew{,.bat} are from
-the Gradle and licensed under Apache License 2.0.)
+Gradle and licensed under Apache License 2.0.)
 
 ai/ files are provided AS-IS.  They are neither
 copyrighted nor public domain.  Feel free to
