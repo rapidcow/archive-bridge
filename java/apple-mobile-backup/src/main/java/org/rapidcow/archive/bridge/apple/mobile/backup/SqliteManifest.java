@@ -23,7 +23,7 @@ implements
 
 	@Override
 	public Path
-	filePath()
+	getFilePath()
 	{
 		return filePath;
 	}

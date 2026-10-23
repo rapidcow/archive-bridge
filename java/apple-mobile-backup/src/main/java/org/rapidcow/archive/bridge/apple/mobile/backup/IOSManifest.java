@@ -9,5 +9,5 @@ extends
 	AutoCloseable
 {
 	Path
-	filePath();
+	getFilePath();
 }
