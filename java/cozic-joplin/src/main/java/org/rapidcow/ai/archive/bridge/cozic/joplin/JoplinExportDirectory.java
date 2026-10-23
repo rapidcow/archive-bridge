@@ -2,6 +2,7 @@ package org.rapidcow.ai.archive.bridge.cozic.joplin;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -87,7 +88,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
         private final Map<String, String> metadata;
         private final JoplinType type;
         private final long contentStart;
-        private final long contentEnd;
+        private final long contentSize;
 
         private Entry(Path path, String firstLine, Map<String, String> metadata,
                 JoplinType type, long contentStart, long contentEnd) {
@@ -96,7 +97,7 @@ public final class JoplinExportDirectory implements AutoCloseable {
             this.metadata = Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
             this.type = type;
             this.contentStart = contentStart;
-            this.contentEnd = contentEnd;
+            this.contentSize = type == JoplinType.NOTE ? contentEnd - contentStart : 0;
         }
 
         public Path getFilePath() { return path; }
@@ -128,20 +129,60 @@ public final class JoplinExportDirectory implements AutoCloseable {
 
         @Override
         public String getContent() throws IOException {
-            if (type != JoplinType.NOTE) return "";
-            try (var file = new RandomAccessFile(path.toFile(), "r")) {
-                file.seek(contentStart);
-                var output = new ByteArrayOutputStream();
-                byte[] buffer = new byte[8192];
-                long remaining = contentEnd - contentStart;
-                while (remaining > 0) {
-                    int count = (int) Math.min(buffer.length, remaining);
-                    file.readFully(buffer, 0, count);
-                    output.write(buffer, 0, count);
-                    remaining -= count;
-                }
-                return output.toString(StandardCharsets.UTF_8);
+            try (var stream = openContentStream()) {
+                return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             }
+        }
+
+        @Override
+        public long getContentSize() { return contentSize; }
+
+        @Override
+        public InputStream openContentStream() throws IOException {
+            if (type != JoplinType.NOTE) return InputStream.nullInputStream();
+            return new ContentInputStream(path, contentStart, contentSize);
+        }
+
+        @Override
+        public InputStream openResourceStream() throws IOException {
+            return Files.newInputStream(resourcePath());
+        }
+
+        @Override
+        public long getResourceSize() throws IOException {
+            return Files.size(resourcePath());
+        }
+
+        private Path resourcePath() throws IOException {
+            if (type != JoplinType.RESOURCE) {
+                throw new IllegalStateException("Entry is not a resource");
+            }
+            Path resources = directory.resolve("resources");
+            String extension = metadata.getOrDefault("file_extension", "");
+            if (!extension.isEmpty()) {
+                if (extension.indexOf('/') >= 0 || extension.indexOf('\\') >= 0) {
+                    throw new IOException("Invalid resource extension");
+                }
+                Path payload = resources.resolve(getId() + "." + extension);
+                if (!Files.isRegularFile(payload, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new IOException("Resource payload is not a regular file");
+                }
+                return payload;
+            }
+            // Older exports can infer the extension from MIME. Resolve the actual
+            // exported filename instead of duplicating Joplin's MIME lookup table.
+            Path found = null;
+            try (var paths = Files.newDirectoryStream(resources)) {
+                for (Path candidate : paths) {
+                    String name = candidate.getFileName().toString();
+                    if (!name.equals(getId()) && !name.startsWith(getId() + ".")) continue;
+                    if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) continue;
+                    if (found != null) throw new IOException("Ambiguous resource payload");
+                    found = candidate;
+                }
+            }
+            if (found == null) throw new IOException("Missing resource payload");
+            return found;
         }
 
         // Avoid accidentally logging titles or metadata that may contain private text.

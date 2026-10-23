@@ -185,6 +185,12 @@ class JoplinExportDirectoryTest {
             JoplinEntry note = archive.entries().get("empty");
             assertTrue(note.getParent().isEmpty());
             assertEquals("", note.getContent());
+            assertEquals(0, note.getContentSize());
+            try (var stream = note.openContentStream()) {
+                assertEquals(-1, stream.read());
+            }
+            assertThrows(IllegalStateException.class, note::openResourceStream);
+            assertThrows(IllegalStateException.class, note::getResourceSize);
         }
     }
 
@@ -234,6 +240,96 @@ class JoplinExportDirectoryTest {
         assertEquals(JoplinType.REVISION, JoplinType.fromValue(13));
         for (var type : JoplinType.values()) {
             assertSame(type, JoplinType.fromValue(type.getValue()));
+        }
+    }
+
+    @Test
+    void contentStreamsAreBoundedIndependentAndCloseable() throws IOException {
+        String body = "Invented café 🌱\n\nAnother line.\n";
+        byte[] expected = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Path file = temporary.resolve("stream.md");
+        Files.writeString(file, "Title\n\n" + body + "\n\nid: stream\ntype_: 1");
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry entry = archive.entries().get("stream");
+            assertEquals(expected.length, entry.getContentSize());
+            assertFalse(entry.getMetadata().containsKey("size"));
+            assertEquals(body, entry.getContent());
+            try (var first = entry.openContentStream(); var second = entry.openContentStream()) {
+                assertEquals(expected[0], first.read());
+                assertArrayEquals(expected, second.readAllBytes());
+                assertEquals(-1, second.read());
+                assertEquals(0, second.read(new byte[0]));
+                assertEquals(0, second.skip(100));
+                assertEquals(0, first.skip(-1));
+                assertEquals(expected.length - 1, first.skip(Long.MAX_VALUE));
+                assertEquals(-1, first.read());
+                first.close();
+                assertThrows(IOException.class, first::read);
+                assertEquals(-1, second.read());
+            }
+            // Size is stored from the original byte offsets, without rereading content.
+            Files.writeString(file, "");
+            assertEquals(expected.length, entry.getContentSize());
+            try (var stream = entry.openContentStream()) {
+                assertThrows(java.io.EOFException.class, stream::read);
+            }
+        }
+    }
+
+    @Test
+    void streamsBinaryResourcesAndLeavesMetadataUntouched() throws IOException {
+        Files.writeString(temporary.resolve("resource.md"), """
+                Invented attachment
+
+                id: resource
+                file_extension: bin
+                size: 999
+                type_: 4""");
+        Files.createDirectory(temporary.resolve("resources"));
+        byte[] payload = { 0, 1, (byte) 255, 10, 13, 0 };
+        Path resource = temporary.resolve("resources/resource.bin");
+        Files.write(resource, payload);
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry entry = archive.entries().get("resource");
+            assertEquals(payload.length, entry.getResourceSize());
+            assertEquals("999", entry.getMetadata().get("size"));
+            assertEquals(0, entry.getContentSize());
+            assertEquals("", entry.getContent());
+            try (var content = entry.openContentStream()) {
+                assertEquals(-1, content.read());
+            }
+            try (var first = entry.openResourceStream(); var second = entry.openResourceStream()) {
+                assertEquals(0, first.read());
+                first.close();
+                assertThrows(IOException.class, first::read);
+                assertArrayEquals(payload, second.readAllBytes());
+            }
+            Files.delete(resource);
+            assertThrows(IOException.class, entry::openResourceStream);
+        }
+    }
+
+    @Test
+    void resolvesResourceWithoutExplicitExtensionAndRejectsAmbiguity() throws IOException {
+        Files.writeString(temporary.resolve("resource.md"), """
+                Invented attachment
+
+                id: resource
+                file_extension:
+                mime: image/png
+                type_: 4""");
+        Files.createDirectory(temporary.resolve("resources"));
+        try (var archive = JoplinExportDirectory.open(temporary)) {
+            JoplinEntry entry = archive.entries().get("resource");
+            assertThrows(IOException.class, entry::openResourceStream);
+            Files.write(temporary.resolve("resources/resource.png"), new byte[] { 42 });
+            assertEquals(1, entry.getResourceSize());
+            try (var stream = entry.openResourceStream()) {
+                assertEquals(42, stream.read());
+                assertEquals(-1, stream.read());
+            }
+            Files.write(temporary.resolve("resources/resource"), new byte[] { 43 });
+            assertThrows(IOException.class, entry::openResourceStream);
         }
     }
 

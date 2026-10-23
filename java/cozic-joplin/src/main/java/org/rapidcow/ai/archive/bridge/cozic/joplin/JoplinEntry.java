@@ -1,6 +1,7 @@
 package org.rapidcow.ai.archive.bridge.cozic.joplin;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,4 +34,29 @@ public interface JoplinEntry {
      * @throws IOException if the backing file cannot be read
      */
     String getContent() throws IOException;
+
+    /** Note body size in bytes, computed without reading it; zero for non-notes. */
+    long getContentSize();
+
+    /**
+     * Opens an independent stream of the note body, excluding title and metadata.
+     * Non-notes yield an empty stream. The caller must close the returned stream.
+     */
+    InputStream openContentStream() throws IOException;
+
+    /**
+     * Opens the binary payload of a RESOURCE entry without loading it into memory.
+     * The caller must close the returned stream.
+     * @throws IllegalStateException if this is not a RESOURCE entry
+     * @throws IOException if the payload is missing, ambiguous, or cannot be opened
+     */
+    InputStream openResourceStream() throws IOException;
+
+    /**
+     * Actual resource file size in bytes, obtained without reading its contents.
+     * This does not modify or rely on the metadata's size property.
+     * @throws IllegalStateException if this is not a RESOURCE entry
+     * @throws IOException if the payload cannot be located or inspected
+     */
+    long getResourceSize() throws IOException;
 }
