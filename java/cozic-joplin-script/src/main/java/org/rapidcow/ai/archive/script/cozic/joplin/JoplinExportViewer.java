@@ -62,8 +62,8 @@ import org.rapidcow.ai.archive.bridge.cozic.joplin.JoplinExportDirectory;
  * {@link EntryTree}).  Clicking the blank space below them clears the
  * selection, as does "Select &gt; Deselect" (Ctrl+Shift+A, or
  * Cmd+Shift+A on macOS).  "Open in File System", in "View" and on
- * right-clicking, shows the {@code .md} file of the selected one in
- * the file manager.  "View &gt; Sort By" picks how the tree is sorted
+ * right-clicking, opens the {@code .md} file of the selected one with
+ * the application the system associates with it.  "View &gt; Sort By" picks how the tree is sorted
  * (see {@link EntryTree.Order}).  The panel on the
  * right lists the metadata of the selected one (see
  * {@link MetadataPane}).  The status line at the bottom tells how many
@@ -93,15 +93,15 @@ class
 	private final MetadataPane metadata = new MetadataPane();
 
 	/**
-	 * Shows the selected folder or note in the file manager; enabled
-	 * only while one is selected.
+	 * Opens the selected folder or note's file with the default
+	 * application; enabled only while one is selected.
 	 */
-	private final Action reveal = new AbstractAction("Open in File System") {
+	private final Action openInFileSystem = new AbstractAction("Open in File System") {
 		@Override
 		public void
 		actionPerformed(ActionEvent e)
 		{
-			reveal(selectedFile());
+			openFile(selectedFile());
 		}
 	};
 
@@ -143,7 +143,7 @@ class
 		}
 		var view = new JMenu("View");
 		view.add(sortBy);
-		view.add(reveal);
+		view.add(openInFileSystem);
 		view.addSeparator();
 		view.add(dark);
 		var menus = new JMenuBar();
@@ -155,14 +155,14 @@ class
 		tree.setRootVisible(false);
 		tree.setShowsRootHandles(true);
 		tree.setCellRenderer(new EntryCellRenderer());
-		reveal.setEnabled(false);
+		openInFileSystem.setEnabled(false);
 		tree.addTreeSelectionListener(e -> {
 			metadata.show(selectedEntry());
-			reveal.setEnabled(selectedFile() != null);
+			openInFileSystem.setEnabled(selectedFile() != null);
 		});
 
 		var popup = new JPopupMenu();
-		popup.add(reveal);
+		popup.add(openInFileSystem);
 		// As the tree's own popup menu, it follows changes of theme.
 		tree.setComponentPopupMenu(popup);
 		tree.addMouseListener(new MouseAdapter() {
@@ -314,27 +314,23 @@ class
 	}
 
 	/**
-	 * Shows {@code file} in the file manager: selected in its
-	 * directory where the platform supports that (as macOS does), or
-	 * else just its directory.
+	 * Opens {@code file} with the application the platform associates
+	 * with it.
 	 *
-	 * @param file  the file to show
+	 * @param file  the file to open
 	 */
 	private void
-	reveal(Path file)
+	openFile(Path file)
 	{
 		if (file == null) {
 			return;
 		}
 		try {
 			Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
-			if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE_FILE_DIR)) {
-				desktop.browseFileDirectory(file.toFile());
-			} else if (desktop != null && desktop.isSupported(Desktop.Action.OPEN)) {
-				desktop.open(file.getParent().toFile());
-			} else {
-				throw new UnsupportedOperationException("No file manager to open");
+			if (desktop == null || !desktop.isSupported(Desktop.Action.OPEN)) {
+				throw new UnsupportedOperationException("No application to open with");
 			}
+			desktop.open(file.toFile());
 		} catch (IOException | RuntimeException e) {
 			JOptionPane.showMessageDialog(frame, file + ": " + e.getMessage(),
 					"Cannot open in file system", JOptionPane.ERROR_MESSAGE);
